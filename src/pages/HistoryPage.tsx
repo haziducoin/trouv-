@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock, Search, RotateCcw, Trash2, TrendingUp } from 'lucide-react'
+import { Clock, Search, RotateCcw, Trash2, TrendingUp, X } from 'lucide-react'
 import type { Account } from '@/lib/accountStore'
 
 interface HistoryEntry {
@@ -12,6 +12,7 @@ interface HistoryEntry {
 interface HistoryPageProps {
   account: Account
   onReplay: (query: string, dept: string, code: string) => void
+  onClose?: () => void
   /** embedded=true → rendered inline inside the app shell (no fixed overlay) */
   embedded?: boolean
 }
@@ -38,7 +39,7 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
-export default function HistoryPage({ account, onReplay, embedded = false }: HistoryPageProps) {
+export default function HistoryPage({ account, onReplay, onClose, embedded = false }: HistoryPageProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>(loadHistory)
 
   const handleClear = () => {
@@ -174,6 +175,22 @@ export default function HistoryPage({ account, onReplay, embedded = false }: His
   // Legacy overlay mode (kept for backward compat)
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f8ff] dark:bg-[#0d1424] animate-fade-in">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white/85 px-5 py-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#124bd2]">Historique</p>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Recherches effectuees</h2>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-800 dark:text-slate-400"
+            aria-label="Fermer l'historique"
+          >
+            <X size={17} />
+          </button>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto">{body}</div>
     </div>
   )
