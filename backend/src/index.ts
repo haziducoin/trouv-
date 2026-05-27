@@ -5,6 +5,7 @@ import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import stripeRouter from './routes/stripe.js'
 import searchRouter from './routes/search.js'
+import chatRouter   from './routes/chat.js'
 import { pingClickHouse } from './config/clickhouse.js'
 
 const app  = express()
@@ -40,6 +41,7 @@ app.use(rateLimit({
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/stripe',  stripeRouter)
 app.use('/api/search',  searchRouter)
+app.use('/api/chat',    chatRouter)
 
 app.get('/health', async (_req, res) => {
   const ch = await pingClickHouse()

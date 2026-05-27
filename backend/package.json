@@ -11,6 +11,7 @@
     "stripe:sync": "tsx src/scripts/sync-stripe-products.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk":     "^0.39.0",
     "@clickhouse/client":    "^1.4.0",
     "@supabase/supabase-js": "^2.46.0",
     "@upstash/redis":        "^1.34.0",
