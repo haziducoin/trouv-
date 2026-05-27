@@ -3,6 +3,7 @@ import { getSupabaseClient, isRemoteDatabaseConfigured } from '@/lib/supabase'
 
 export type UserRole = 'agent' | 'agence' | 'admin'
 export type AccessStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
+export type OAuthProvider = 'google' | 'azure'
 
 export interface Account {
   id: string
@@ -304,6 +305,23 @@ export async function authenticate(email: string, password: string) {
     targetEmail: connectedAccount.email,
   })
   return connectedAccount
+}
+
+export async function authenticateWithOAuth(provider: OAuthProvider) {
+  if (!usesRemoteDatabase) {
+    throw new Error('La connexion Google/Microsoft nécessite Supabase.')
+  }
+
+  const { error } = await getSupabaseClient().auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: window.location.origin,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
 }
 
 export async function restoreSession() {

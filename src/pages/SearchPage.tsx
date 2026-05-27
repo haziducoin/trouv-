@@ -660,10 +660,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [showRecent, setShowRecent]           = useState(false)
   const [recentSearches, setRecentSearches]   = useState<string[]>([])
   const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.siren)))
-  const [showFavorites, setShowFavorites]     = useState(false)
+  const [appView, setAppView]                 = useState<AppView>('search')
   const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
-  const [showHistory, setShowHistory]         = useState(false)
 
   // Sync dark mode with <html> class
   useEffect(() => {
@@ -848,34 +847,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             </button>
           </form>
 
-          {/* Quota + actions */}
+          {/* Actions topbar */}
           <div className="flex shrink-0 items-center gap-2">
             <QuotaBar used={usedQuota} total={account.quota} />
 
-            {/* Export CSV */}
-            {results.length > 0 && (
+            {/* Export CSV — seulement sur vue recherche avec résultats */}
+            {appView === 'search' && results.length > 0 && (
               <button
                 onClick={() => exportCSV(results, query)}
                 title="Exporter en CSV"
-                className="hidden h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-300 hover:text-[#124bd2] md:flex"
+                className="hidden h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-300 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400 md:flex"
               >
                 <Download size={14} />
               </button>
             )}
-
-            {/* Favoris */}
-            <button
-              onClick={() => setShowFavorites(true)}
-              title="Mes favoris"
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-amber-300 hover:text-amber-500"
-            >
-              <Star size={14} fill={favorites.size > 0 ? 'currentColor' : 'none'} className={favorites.size > 0 ? 'text-amber-400' : ''} />
-              {favorites.size > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-0.5 text-[9px] font-bold text-white">
-                  {favorites.size > 99 ? '99+' : favorites.size}
-                </span>
-              )}
-            </button>
 
             {/* Avatar */}
             <button
@@ -884,15 +869,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               title={`${account.firstName} ${account.lastName}`}
             >
               {account.firstName[0]}{account.lastName[0]}
-            </button>
-
-            {/* Historique */}
-            <button
-              onClick={() => setShowHistory(true)}
-              title="Historique des recherches"
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <History size={14} />
             </button>
 
             {/* Dark mode */}
@@ -908,34 +884,85 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             <button
               onClick={onLogout}
               title="Se déconnecter"
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-300 transition hover:bg-red-50 hover:text-red-500 dark:text-slate-600"
             >
               <LogOut size={14} />
             </button>
           </div>
         </div>
 
-        {/* Quick filter chips */}
-        <div className="mx-auto hidden max-w-7xl items-center gap-2 px-4 pb-2.5 md:flex md:px-6">
-          <span className="shrink-0 text-xs text-slate-400">Raccourcis :</span>
-          {QUICK_FILTERS.map(f => (
+        {/* Nav tabs + quick filters */}
+        <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 pb-2 md:px-6">
+          {/* Onglets de navigation */}
+          {(
+            [
+              { key: 'search',    label: 'Recherche',  icon: Search },
+              { key: 'history',   label: 'Historique', icon: History },
+              { key: 'favorites', label: `Favoris${favorites.size > 0 ? ` (${favorites.size})` : ''}`, icon: Star },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
             <button
-              key={f.label}
-              onClick={() => handleQuickFilter(f)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition
-                ${(department === f.dept && activityCode === f.code && (inputValue === f.query || f.query === ''))
-                  ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2] dark:bg-blue-950/50'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-700'
-                }`}
+              key={key}
+              onClick={() => setAppView(key)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                appView === key
+                  ? 'bg-[#124bd2]/8 text-[#124bd2] dark:bg-blue-950/40 dark:text-blue-400'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+              }`}
             >
-              {f.label}
+              <Icon size={12} className={appView === key && key === 'favorites' ? 'fill-current' : ''} />
+              {label}
             </button>
           ))}
+
+          {/* Séparateur + quick filters (seulement sur la vue Recherche) */}
+          {appView === 'search' && (
+            <>
+              <div className="mx-1.5 h-4 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />
+              {QUICK_FILTERS.map(f => (
+                <button
+                  key={f.label}
+                  onClick={() => handleQuickFilter(f)}
+                  className={`hidden rounded-full border px-3 py-1 text-xs font-medium transition md:block
+                    ${(department === f.dept && activityCode === f.code && (inputValue === f.query || f.query === ''))
+                      ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2] dark:bg-blue-950/50'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700'
+                    }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </header>
 
       {/* ── Corps ──────────────────────────────────────────────────────────── */}
-      <div className="mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-5 md:px-6">
+
+      {/* Vue Historique */}
+      {appView === 'history' && (
+        <HistoryPage
+          account={account}
+          embedded
+          onReplay={(q, dept, code) => {
+            setAppView('search')
+            setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
+            doSearch({ query: q, department: dept, activityCode: code, activeOnly })
+          }}
+        />
+      )}
+
+      {/* Vue Favoris */}
+      {appView === 'favorites' && (
+        <FavoritesView
+          favorites={favorites}
+          onToggleFav={handleToggleFavFromDrawer}
+          onGoSearch={() => setAppView('search')}
+        />
+      )}
+
+      {/* Vue Recherche */}
+      <div className={`mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-5 md:px-6 ${appView !== 'search' ? 'hidden' : ''}`}>
 
         {/* Sidebar filtres — desktop */}
         <aside className="hidden w-56 shrink-0 lg:block">
@@ -1278,29 +1305,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
         />
       )}
 
-      {/* Favoris drawer */}
-      {showFavorites && (
-        <FavoritesDrawer
-          onClose={() => setShowFavorites(false)}
-          onToggleFav={handleToggleFavFromDrawer}
-          favorites={favorites}
-        />
-      )}
-
-      {/* Historique overlay */}
-      {showHistory && (
-        <HistoryPage
-          account={account}
-          onClose={() => setShowHistory(false)}
-          onReplay={(q, dept, code) => {
-            setInputValue(q)
-            setQuery(q)
-            setDepartment(dept)
-            setActivityCode(code)
-            doSearch({ query: q, department: dept, activityCode: code, activeOnly })
-          }}
-        />
-      )}
     </div>
   )
 }

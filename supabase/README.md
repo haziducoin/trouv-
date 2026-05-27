@@ -58,6 +58,34 @@ npm run dev
 
 Le badge Admin passe alors de `Mode demo local` a `Supabase connecte`.
 
+## Connexion Google et Microsoft
+
+Les boutons de connexion du site appellent Supabase Auth :
+
+- Google utilise le provider `google` ;
+- Microsoft utilise le provider `azure`.
+
+Pour les rendre actifs, ouvrir Supabase > Authentication > Providers, puis
+activer Google et Azure avec les identifiants OAuth crees dans Google Cloud et
+Microsoft Azure. Dans chaque application OAuth, ajouter l'URL de callback
+Supabase :
+
+```text
+https://VOTRE_PROJECT_REF.supabase.co/auth/v1/callback
+```
+
+Dans Supabase > Authentication > URL Configuration, definir l'URL du site et les
+redirections autorisees :
+
+```text
+http://127.0.0.1:3000
+https://votre-domaine-production.fr
+```
+
+Important : sur cette version, Google/Microsoft sert a connecter des comptes
+deja valides. La premiere demande d'acces reste volontairement filtree par
+SIREN, email professionnel et validation manuelle.
+
 ## Premier administrateur
 
 Inscrire d'abord votre compte via l'interface du site. Dans le SQL Editor
