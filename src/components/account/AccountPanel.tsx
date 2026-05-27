@@ -32,6 +32,7 @@ import {
   getAccounts,
   getAuditEvents,
   getDataMetrics,
+  isOAuthPreviewEnabled,
   reviewAccessRequest,
   usesRemoteDatabase,
   type Account,
@@ -193,7 +194,12 @@ export default function AccountPanel({
     setLoginError('')
     setOauthLoading(provider)
     try {
-      await authenticateWithOAuth(provider)
+      const account = await authenticateWithOAuth(provider)
+      if (account) {
+        onAuthenticated(account)
+        setView('workspace')
+        setOauthLoading(null)
+      }
     } catch (error) {
       setOauthLoading(null)
       setLoginError(
@@ -215,6 +221,7 @@ export default function AccountPanel({
 
   if (view !== 'workspace') {
     const isRegister = view === 'register'
+    const oauthPreview = isOAuthPreviewEnabled()
 
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto bg-white text-[#07113d]">
@@ -271,8 +278,9 @@ export default function AccountPanel({
                       {oauthLoading === 'azure' ? 'Ouverture Microsoft...' : 'Se connecter avec Microsoft'}
                     </button>
                     <p className="text-xs leading-5 text-slate-500">
-                      Google/Microsoft est réservé aux comptes déjà validés. Pour une première demande,
-                      utilisez l’inscription avec SIREN.
+                      {oauthPreview
+                        ? 'Mode preview local : Google/Microsoft ouvrent un compte démo validé, sans quitter le site.'
+                        : 'Google/Microsoft est réservé aux comptes déjà validés. Pour une première demande, utilisez l’inscription avec SIREN.'}
                     </p>
                   </div>
 

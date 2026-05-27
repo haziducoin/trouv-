@@ -55,6 +55,7 @@ const SESSION_KEY = 'trouve_session_v1'
 const AUDIT_KEY = 'trouve_audit_v1'
 const FAVORITES_KEY = 'trouve_favorites_v1'
 const SEARCHES_KEY = 'trouve_searches_v1'
+const OAUTH_PREVIEW_SESSION_KEY = 'trouve_oauth_preview_provider_v1'
 
 export const DEMO_ADMIN = {
   email: 'admin@trouve.local',
@@ -90,6 +91,54 @@ function appendLocalAudit(event: Omit<AuditEvent, 'id' | 'timestamp'>) {
     timestamp: new Date().toISOString(),
   }
   localStorage.setItem(AUDIT_KEY, JSON.stringify([nextEvent, ...events].slice(0, 40)))
+}
+
+function isLocalPreviewHost() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return ['127.0.0.1', 'localhost', '::1'].includes(window.location.hostname)
+}
+
+export function isOAuthPreviewEnabled() {
+  return usesRemoteDatabase && isLocalPreviewHost()
+}
+
+function getOAuthPreviewAccount(provider: OAuthProvider): Account {
+  const isMicrosoft = provider === 'azure'
+  return {
+    id: `oauth-preview-${provider}`,
+    organizationId: 'oauth-preview-organization',
+    firstName: isMicrosoft ? 'Alex' : 'Camille',
+    lastName: isMicrosoft ? 'Microsoft' : 'Google',
+    email: isMicrosoft ? 'alex.microsoft@trouve.local' : 'camille.google@trouve.local',
+    companyName: 'Agence Preview trouvé!',
+    siren: '552100554',
+    role: 'agence',
+    status: 'approved',
+    quota: quotaByRole.agence,
+    monthlyUsage: 684,
+    createdAt: '2026-05-27T00:00:00.000Z',
+    lastLoginAt: new Date().toISOString(),
+  }
+}
+
+function getActiveOAuthPreviewAccount() {
+  if (!isOAuthPreviewEnabled()) {
+    return null
+  }
+  const provider = localStorage.getItem(OAUTH_PREVIEW_SESSION_KEY)
+  if (provider !== 'google' && provider !== 'azure') {
+    return null
+  }
+  return getOAuthPreviewAccount(provider)
+}
+
+function getOAuthPreviewAccounts() {
+  return [
+    getOAuthPreviewAccount('google'),
+    getOAuthPreviewAccount('azure'),
+  ]
 }
 
 async function hashPassword(password: string) {
@@ -308,6 +357,17 @@ export async function authenticate(email: string, password: string) {
 }
 
 export async function authenticateWithOAuth(provider: OAuthProvider) {
+  if (isOAuthPreviewEnabled()) {
+    const account = getOAuthPreviewAccount(provider)
+    localStorage.setItem(OAUTH_PREVIEW_SESSION_KEY, provider)
+    appendLocalAudit({
+      action: `oauth_preview_${provider}`,
+      actorEmail: account.email,
+      targetEmail: account.email,
+    })
+    return account
+  }
+
   if (!usesRemoteDatabase) {
     throw new Error('La connexion Google/Microsoft nécessite Supabase.')
   }
@@ -322,9 +382,16 @@ export async function authenticateWithOAuth(provider: OAuthProvider) {
   if (error) {
     throw new Error(error.message)
   }
+
+  return null
 }
 
 export async function restoreSession() {
+  const previewAccount = getActiveOAuthPreviewAccount()
+  if (previewAccount) {
+    return previewAccount
+  }
+
   if (usesRemoteDatabase) {
     const supabase = getSupabaseClient()
     const { data } = await supabase.auth.getSession()
@@ -345,6 +412,7 @@ export async function restoreSession() {
 }
 
 export async function clearSession() {
+  localStorage.removeItem(OAUTH_PREVIEW_SESSION_KEY)
   if (usesRemoteDatabase) {
     await getSupabaseClient().auth.signOut()
     return
@@ -353,10 +421,17 @@ export async function clearSession() {
 }
 
 export async function getAccounts() {
+  if (getActiveOAuthPreviewAccount()) {
+    return getOAuthPreviewAccounts()
+  }
   return usesRemoteDatabase ? fetchRemoteProfiles() : initializeLocalAccounts()
 }
 
 export async function getAuditEvents() {
+  if (getActiveOAuthPreviewAccount()) {
+    return readValue<AuditEvent[]>(AUDIT_KEY, [])
+  }
+
   if (usesRemoteDatabase) {
     const { data, error } = await getSupabaseClient()
       .from('audit_logs')
@@ -379,6 +454,17 @@ export async function getAuditEvents() {
 }
 
 export async function getDataMetrics(): Promise<DataMetric[]> {
+  if (getActiveOAuthPreviewAccount()) {
+    return [
+      { entity: 'demandes', total: 12 },
+      { entity: 'utilisateurs', total: getOAuthPreviewAccounts().length },
+      { entity: 'abonnements', total: 3 },
+      { entity: 'recherches', total: readValue<any[]>(SEARCHES_KEY, []).length + 684 },
+      { entity: 'favoris', total: readValue<any[]>(FAVORITES_KEY, []).length },
+      { entity: 'logs', total: readValue<AuditEvent[]>(AUDIT_KEY, []).length },
+    ]
+  }
+
   if (usesRemoteDatabase) {
     const { data, error } = await getSupabaseClient().rpc('admin_dashboard_totals')
     if (error) {
@@ -405,6 +491,10 @@ export async function reviewAccessRequest(
   status: Extract<AccessStatus, 'approved' | 'rejected'>,
   actorEmail: string,
 ) {
+  if (getActiveOAuthPreviewAccount()) {
+    return getOAuthPreviewAccounts()
+  }
+
   if (usesRemoteDatabase) {
     const { error } = await getSupabaseClient().rpc('review_access_request', {
       p_user_id: accountId,
@@ -436,7 +526,7 @@ export async function reviewAccessRequest(
 }
 
 export async function recordSearch(queryLabel: string, filters: Record<string, unknown>, resultCount: number) {
-  if (usesRemoteDatabase) {
+  if (usesRemoteDatabase && !getActiveOAuthPreviewAccount()) {
     const { error } = await getSupabaseClient().rpc('record_search', {
       p_query_label: queryLabel,
       p_filters: filters,
@@ -456,7 +546,7 @@ export async function recordSearch(queryLabel: string, filters: Record<string, u
 }
 
 export async function saveFavorite(account: Account, favorite: FavoriteInput) {
-  if (usesRemoteDatabase) {
+  if (usesRemoteDatabase && !getActiveOAuthPreviewAccount()) {
     const { error } = await getSupabaseClient().from('favorites').insert({
       user_id: account.id,
       organization_id: account.organizationId,
