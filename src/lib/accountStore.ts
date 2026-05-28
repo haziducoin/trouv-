@@ -5,6 +5,34 @@ export type UserRole = 'agent' | 'agence' | 'admin'
 export type AccessStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
 export type OAuthProvider = 'google' | 'azure'
 
+// ─── Domaines email personnels bloqués ───────────────────────────────────────
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'googlemail.co.uk',
+  'hotmail.com', 'hotmail.fr', 'hotmail.co.uk', 'hotmail.es', 'hotmail.de', 'hotmail.it', 'hotmail.be',
+  'outlook.com', 'outlook.fr', 'outlook.es', 'outlook.de', 'outlook.it', 'outlook.be',
+  'live.com', 'live.fr', 'live.co.uk', 'live.be', 'live.nl',
+  'yahoo.com', 'yahoo.fr', 'yahoo.co.uk', 'yahoo.es', 'yahoo.de', 'yahoo.it', 'ymail.com',
+  'icloud.com', 'me.com', 'mac.com',
+  'orange.fr', 'free.fr', 'sfr.fr', 'neuf.fr', 'bbox.fr',
+  'laposte.net', 'wanadoo.fr', 'numericable.fr', 'club-internet.fr',
+  'aol.com', 'protonmail.com', 'protonmail.ch', 'pm.me',
+  'yandex.com', 'yandex.ru', 'mail.ru',
+])
+
+export function isPersonalEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase() ?? ''
+  return PERSONAL_EMAIL_DOMAINS.has(domain)
+}
+
+export class PersonalEmailError extends Error {
+  public readonly email: string
+  constructor(email: string) {
+    super('Connexion réservée aux adresses professionnelles.')
+    this.name = 'PersonalEmailError'
+    this.email = email
+  }
+}
+
 export interface Account {
   id: string
   organizationId?: string
@@ -398,11 +426,47 @@ export async function restoreSession() {
     if (!data.session?.user.id) {
       return null
     }
+
+    // ── Vérification email professionnel ─────────────────────────────────
+    const sessionEmail = data.session.user.email ?? ''
+    if (isPersonalEmail(sessionEmail)) {
+      await supabase.auth.signOut()
+      throw new PersonalEmailError(sessionEmail)
+    }
+
     const [account] = await fetchRemoteProfiles(data.session.user.id)
-    if (!account || account.status !== 'approved') {
+
+    // ── Nouvel utilisateur OAuth — pas encore de profil ───────────────────
+    if (!account) {
+      const meta = (data.session.user.user_metadata ?? {}) as Record<string, string>
+      const givenName  = (meta.given_name  ?? meta.name?.split(' ')[0]           ?? sessionEmail.split('@')[0]).trim()
+      const familyName = (meta.family_name ?? meta.name?.split(' ').slice(1).join(' ') ?? '').trim()
+      return {
+        id:           data.session.user.id,
+        firstName:    givenName,
+        lastName:     familyName,
+        email:        sessionEmail,
+        companyName:  '',
+        siren:        '',
+        role:         'agent' as UserRole,
+        status:       'pending' as AccessStatus,
+        quota:        quotaByRole.agent,
+        monthlyUsage: 0,
+        createdAt:    data.session.user.created_at ?? new Date().toISOString(),
+      }
+    }
+
+    // ── Compte en attente → page d'attente (sans déconnecter) ────────────
+    if (account.status === 'pending') {
+      return account
+    }
+
+    // ── Compte rejeté / suspendu → déconnecter ────────────────────────────
+    if (account.status !== 'approved') {
       await supabase.auth.signOut()
       return null
     }
+
     return account
   }
 

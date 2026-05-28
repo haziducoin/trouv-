@@ -648,9 +648,15 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const username = account.companyName
-    ? account.companyName.toLowerCase().replace(/\s+/g, '').slice(0, 16)
-    : `${account.firstName}${account.lastName}`.toLowerCase()
+  // Nom affiché : société > prénom nom > préfixe email
+  const displayName = account.companyName
+    || `${account.firstName} ${account.lastName}`.trim()
+    || account.email.split('@')[0]
+
+  // Initiale pour l'avatar dans le bouton trigger
+  const initial = (
+    account.firstName?.[0] ?? account.companyName?.[0] ?? account.email[0] ?? 'U'
+  ).toUpperCase()
 
   const items = [
     { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
@@ -668,7 +674,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
         className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold">
-          t!
+          {initial}
         </span>
         {open
           ? <ChevronUp size={13} className="text-slate-400" />
@@ -682,10 +688,10 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
-              t!
+              {initial}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{username}</p>
+              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{displayName}</p>
               <p className="truncate text-xs text-slate-400">{account.email}</p>
             </div>
           </div>

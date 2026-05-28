@@ -3,7 +3,7 @@ import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import SuccessPage from './pages/SuccessPage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
-import { restoreSession, clearSession, type Account } from './lib/accountStore'
+import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 
 // ─── Restore dark mode preference immediately (before first paint) ────────────
 if (localStorage.getItem('trouve_dark') === '1') {
@@ -36,12 +36,16 @@ export default function App() {
   const [account, setAccount]               = useState<Account | null>(isDemoMode ? DEMO_ACCOUNT : null)
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
   const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(null)
+  const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
 
   useEffect(() => {
     if (isDemoMode || isSuccessPage) return
     restoreSession()
       .then(a  => { setAccount(a); setSessionLoading(false) })
-      .catch(() => setSessionLoading(false))
+      .catch((err: unknown) => {
+        if (err instanceof PersonalEmailError) setBlockedEmail(err.email)
+        setSessionLoading(false)
+      })
   }, [])
 
   const handleAuthenticated = (a: Account) => {
@@ -53,6 +57,35 @@ export default function App() {
     await clearSession()
     setAccount(null)
     setAccountPanel(null)
+  }
+
+  // ── Email perso bloqué ────────────────────────────────────────────────────
+  if (blockedEmail) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5f8ff] px-4">
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute left-1/2 top-[-8rem] h-[28rem] w-[44rem] -translate-x-1/2 rounded-full bg-red-200/20 blur-[80px]" />
+        </div>
+        <img src={trouveLogo} alt="trouvé!" className="mb-8 h-9 w-auto" />
+        <div className="w-full max-w-sm rounded-3xl border border-red-100 bg-white p-8 shadow-xl text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-400">
+            <Ban size={28} />
+          </div>
+          <h1 className="text-xl font-bold text-slate-800">Adresse non autorisée</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500">
+            <strong className="text-slate-700">{blockedEmail}</strong> est une adresse personnelle.<br />
+            trouvé! est réservé aux professionnels de l'immobilier.<br />
+            Connectez-vous avec votre <strong className="text-slate-700">email professionnel</strong>.
+          </p>
+          <button
+            onClick={() => setBlockedEmail(null)}
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
+          >
+            Réessayer avec un email pro
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Page succès Stripe ────────────────────────────────────────────────────
@@ -125,7 +158,7 @@ export default function App() {
 
 // ─── Page d'attente de validation ─────────────────────────────────────────────
 import trouveLogo from '@/assets/trouve-logo.png'
-import { Clock, Mail, LogOut } from 'lucide-react'
+import { Ban, Clock, Mail, LogOut } from 'lucide-react'
 
 function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout: () => void }) {
   return (
