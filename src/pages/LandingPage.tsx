@@ -21,7 +21,7 @@ import {
 import AccountPanel, { type AccountPanelView } from '@/components/account/AccountPanel'
 import ChatWidget from '@/components/ChatWidget'
 import trouveLogo from '@/assets/trouve-logo.png'
-import searchPreview from '@/assets/search-preview.png'
+
 import { clearSession, restoreSession, type Account } from '@/lib/accountStore'
 import { getSupabaseClient } from '@/lib/supabase'
 
@@ -427,52 +427,120 @@ export default function LandingPage({
         </section>
 
         {/* ── Section Recherche avancée ────────────────────────────────────── */}
-        <section className="px-5 py-14 md:py-20">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid items-center gap-12 lg:grid-cols-2">
-              {/* Screenshot */}
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/60 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
-                <img src={searchPreview} alt="Interface recherche avancée trouvé!" className="w-full" />
-                <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-transparent" />
+        <section className="px-5 pb-14 pt-0 md:pb-20">
+          {/* Heading */}
+          <div className="mx-auto mb-10 max-w-4xl text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Recherche avancée</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
+              Ciblez avec précision.<br />
+              <span className="text-[#124bd2]">Des dizaines de critères combinables.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-slate-500">
+              Combinez librement état civil, coordonnées, adresse et réseaux pour obtenir des résultats ultra-précis en moins de 200 ms.
+            </p>
+          </div>
+
+          {/* Browser-chrome mockup */}
+          <div className="mx-auto max-w-4xl">
+            <div className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_40px_100px_rgba(15,23,42,0.18)]">
+              {/* Browser bar */}
+              <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+                <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">app.trouve.fr/recherche-avancee</div>
               </div>
-              {/* Content */}
-              <div className="flex flex-col gap-5">
-                <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Recherche avancée</p>
-                <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
-                  Retrouvez n'importe quel contact.<br />
-                  <span className="text-[#124bd2]">En quelques secondes.</span>
-                </h2>
-                <p className="text-sm leading-relaxed text-slate-500">
-                  Combinez plusieurs critères pour une recherche précise. Plus vous renseignez de champs, plus les résultats sont pertinents.
-                </p>
-                <div className="flex flex-col gap-2.5">
-                  {[
-                    { color: 'bg-blue-50 text-[#124bd2]', title: 'État civil', tags: ['Nom', 'Prénom', 'Nom de naissance', 'Nom affiché'] },
-                    { color: 'bg-indigo-50 text-indigo-600', title: 'Origine', tags: ['Date de naissance', 'Ville de naissance', 'Nationalité'] },
-                    { color: 'bg-emerald-50 text-emerald-600', title: 'Coordonnées', tags: ['Email', 'Téléphone', 'Adresse IP'] },
-                    { color: 'bg-amber-50 text-amber-600', title: 'Adresse', tags: ['Rue', 'Ville', 'Code postal', 'Pays'] },
-                    { color: 'bg-purple-50 text-purple-600', title: 'Jeux & Réseaux', tags: ['Pseudo', 'Profil', 'Identifiant'] },
-                    { color: 'bg-rose-50 text-rose-600', title: 'Autres données', tags: ['Mot de passe', 'Hash', 'Données diverses'] },
-                  ].map(item => (
-                    <div key={item.title} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-blue-100 hover:shadow-md">
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${item.color}`}>
-                        {item.title.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{item.title}</p>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {item.tags.map(tag => (
-                            <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">{tag}</span>
-                          ))}
+
+              <div className="grid md:grid-cols-[230px_1fr]">
+                {/* Sidebar */}
+                <aside className="hidden border-r border-slate-100 bg-[#0a1630] p-5 text-white md:block">
+                  <img src={trouveLogo} alt="" className="h-7 w-auto brightness-0 invert" />
+                  <div className="mt-10 space-y-1 text-sm">
+                    <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5 font-medium"><Search size={16} /> Recherche</div>
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><Heart size={16} /> Favoris</div>
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><History size={16} /> Historique</div>
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><BarChart3 size={16} /> Usage</div>
+                  </div>
+                </aside>
+
+                {/* Content area */}
+                <div className="flex flex-col bg-slate-50">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#124bd2]">Recherche avancée</p>
+                      <p className="text-base font-semibold tracking-tight">Nouveau ciblage</p>
+                    </div>
+                    <button className="rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-bold text-white">Lancer →</button>
+                  </div>
+
+                  {/* Category pills */}
+                  <div className="flex flex-wrap gap-1.5 border-b border-slate-200 bg-white px-5 py-3">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#124bd2]">État civil</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">Origine</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Coordonnées</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600">Adresse</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Jeux &amp; Réseaux</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Autres données</span>
+                  </div>
+
+                  {/* Active fields */}
+                  <div className="grid grid-cols-2 gap-2 border-b border-slate-200 p-4 md:grid-cols-4">
+                    <div className="rounded-lg border-2 border-blue-200 bg-white p-2.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Prénom</p>
+                      <p className="mt-0.5 text-sm font-semibold text-[#124bd2]">Martin</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Nom</p>
+                      <p className="mt-0.5 text-sm text-slate-300">ex: Dupont</p>
+                    </div>
+                    <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50/50 p-2.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ville naissance</p>
+                      <p className="mt-0.5 text-sm font-semibold text-indigo-600">Paris</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Date naissance</p>
+                      <p className="mt-0.5 text-sm text-slate-300">jj/mm/aaaa</p>
+                    </div>
+                  </div>
+
+                  {/* Results */}
+                  <div className="p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700">2 correspondances</span>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">187 ms</span>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold">Martin Pierre</p>
+                          <p className="text-[11px] text-slate-400">Né le 12/03/1985 · Paris 11e</p>
                         </div>
+                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">Vérifié</span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold">Martin Thomas</p>
+                          <p className="text-[11px] text-slate-400">Né le 07/11/1990 · Paris 08e</p>
+                        </div>
+                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">Vérifié</span>
                       </div>
                     </div>
-                  ))}
+                    <p className="mt-2 text-[10px] text-slate-400">Consultation journalisée · Données officielles Sirene</p>
+                  </div>
                 </div>
-                <a href="#tarifs" className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#0b3fbc]">
-                  Accéder à la recherche <ArrowRight size={15} />
-                </a>
               </div>
+            </div>
+
+            {/* CTA */}
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <a
+                href="#tarifs"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#124bd2] px-8 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#0b3fbc]"
+              >
+                ⚡ Commencer — 14 jours offerts →
+              </a>
+              <p className="text-xs text-slate-400">Sans engagement · Résiliation en 1 clic · Accès immédiat</p>
             </div>
           </div>
         </section>
