@@ -5,7 +5,8 @@ import {
   Zap, RefreshCw, ExternalLink, LayoutGrid, List,
   ShieldCheck, AlertCircle, Download, Clock, Keyboard,
   ArrowRight, Globe, TrendingUp, FileText, Info,
-  Moon, Sun, History,
+  Moon, Sun, History, ChevronUp, ChevronDown,
+  UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
 } from 'lucide-react'
 
 type AppView = 'search' | 'history' | 'favorites'
@@ -634,6 +635,98 @@ function FavoritesView({
   )
 }
 
+// ─── User Menu dropdown ────────────────────────────────────────────────────────
+function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const username = account.companyName
+    ? account.companyName.toLowerCase().replace(/\s+/g, '').slice(0, 16)
+    : `${account.firstName}${account.lastName}`.toLowerCase()
+
+  const items = [
+    { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
+    { icon: LayoutDashboard, label: 'Dashboard',              action: () => setOpen(false) },
+    { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
+    { icon: FolderSearch,    label: 'Dossier investigation',  action: () => setOpen(false) },
+    { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
+  ]
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold">
+          t!
+        </span>
+        <span className="max-w-[96px] truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+          {username}
+        </span>
+        {open
+          ? <ChevronUp size={13} className="text-slate-400" />
+          : <ChevronDown size={13} className="text-slate-400" />
+        }
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          {/* Header */}
+          <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
+              t!
+            </span>
+            <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{username}</span>
+            <ChevronUp size={14} className="ml-auto shrink-0 text-slate-400" />
+          </div>
+
+          {/* Items */}
+          <div className="py-1.5">
+            {items.map(({ icon: Icon, label, action }) => (
+              <button
+                key={label}
+                onClick={action}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                  <Icon size={15} className="text-[#1B54FF]" />
+                </span>
+                <span className="font-medium">{label}</span>
+                <ArrowRight size={13} className="ml-auto text-slate-300 dark:text-slate-600" />
+              </button>
+            ))}
+          </div>
+
+          {/* Separator + Logout */}
+          <div className="border-t border-slate-100 py-1.5 dark:border-slate-800">
+            <button
+              onClick={() => { setOpen(false); onLogout() }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
+                <LogOut size={15} className="text-red-500" />
+              </span>
+              <span className="font-medium">Déconnexion</span>
+              <ArrowRight size={13} className="ml-auto text-red-300" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function SearchPage({ account, onLogout, onOpenAccount }: SearchPageProps) {
   // État de recherche
@@ -862,15 +955,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </button>
             )}
 
-            {/* Avatar */}
-            <button
-              onClick={onOpenAccount}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#124bd2]/10 text-[#124bd2] text-xs font-bold transition hover:bg-[#124bd2]/20"
-              title={`${account.firstName} ${account.lastName}`}
-            >
-              {account.firstName[0]}{account.lastName[0]}
-            </button>
-
             {/* Dark mode */}
             <button
               onClick={() => setDarkMode(d => !d)}
@@ -880,14 +964,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               {darkMode ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
-            {/* Logout */}
-            <button
-              onClick={onLogout}
-              title="Se déconnecter"
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-300 transition hover:bg-red-50 hover:text-red-500 dark:text-slate-600"
-            >
-              <LogOut size={14} />
-            </button>
+            {/* User menu */}
+            <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
           </div>
         </div>
 
