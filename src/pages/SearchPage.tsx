@@ -880,503 +880,317 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen flex-col bg-[#f5f8ff] dark:bg-[#0d1424]">
+    <div className="flex min-h-screen bg-slate-50">
 
-      {/* ── Topbar ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg dark:border-slate-800 dark:bg-[#111827]/95">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 md:px-6">
+      {/* ── Sidebar gauche (fixe, dark) ──────────────────────────────────── */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d]">
 
-          {/* Logo */}
-          <a href="#" onClick={e => e.preventDefault()} className="shrink-0">
-            <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto" />
-          </a>
-
-          {/* Barre de recherche */}
-          <form onSubmit={handleSearch} className="relative flex flex-1 items-center gap-2">
-            <div className="relative flex-1">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onFocus={() => setShowRecent(true)}
-                onBlur={() => setTimeout(() => setShowRecent(false), 150)}
-                placeholder="Nom, ville, SIREN… (⌘K)"
-                autoComplete="off"
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-800 dark:focus:border-blue-600"
-              />
-
-              {/* Dropdown recherches récentes */}
-              {showRecent && recentSearches.length > 0 && (
-                <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                  <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Récents</p>
-                  {recentSearches.map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onMouseDown={() => handleRecentSearch(r)}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <Clock size={13} className="shrink-0 text-slate-300 dark:text-slate-600" /> {r}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onMouseDown={() => { localStorage.removeItem(RECENT_SEARCHES_KEY); setRecentSearches([]) }}
-                    className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600 dark:border-slate-800 dark:text-slate-600 dark:hover:text-slate-400"
-                  >
-                    <X size={11} /> Effacer l'historique
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex h-10 items-center gap-2 rounded-xl bg-[#124bd2] px-4 text-sm font-semibold text-white transition hover:bg-[#0b3fbc] disabled:opacity-60"
-            >
-              {isLoading
-                ? <RefreshCw size={14} className="animate-spin" />
-                : <><Search size={14} /> <span className="hidden sm:inline">Rechercher</span></>
-              }
-            </button>
-          </form>
-
-          {/* Actions topbar */}
-          <div className="flex shrink-0 items-center gap-2">
-            <QuotaBar used={usedQuota} total={account.quota} />
-
-            {/* Export CSV — seulement sur vue recherche avec résultats */}
-            {appView === 'search' && results.length > 0 && (
-              <button
-                onClick={() => exportCSV(results, query)}
-                title="Exporter en CSV"
-                className="hidden h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-300 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400 md:flex"
-              >
-                <Download size={14} />
-              </button>
-            )}
-
-            {/* User menu */}
-            <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
-          </div>
+        {/* Logo */}
+        <div className="flex h-16 items-center px-6">
+          <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
         </div>
 
-        {/* Nav tabs + quick filters */}
-        <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 pb-2 md:px-6">
-          {/* Onglets de navigation */}
-          {(
-            [
-              { key: 'search',    label: 'Recherche',  icon: Search },
-              { key: 'history',   label: 'Historique', icon: History },
-              { key: 'favorites', label: `Favoris${favorites.size > 0 ? ` (${favorites.size})` : ''}`, icon: Star },
-            ] as const
-          ).map(({ key, label, icon: Icon }) => (
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 px-3 pt-2">
+          {([
+            { key: 'search',    label: 'Recherche',  icon: Search },
+            { key: 'history',   label: 'Historique', icon: History },
+            { key: 'favorites', label: `Favoris${favorites.size > 0 ? ` (${favorites.size})` : ''}`, icon: Star },
+          ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setAppView(key)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                 appView === key
-                  ? 'bg-[#124bd2]/8 text-[#124bd2] dark:bg-blue-950/40 dark:text-blue-400'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+                  ? 'bg-white/12 text-white'
+                  : 'text-white/50 hover:bg-white/6 hover:text-white/80'
               }`}
             >
-              <Icon size={12} className={appView === key && key === 'favorites' ? 'fill-current' : ''} />
+              <Icon size={15} />
               {label}
             </button>
           ))}
+        </nav>
 
-          {/* Séparateur + quick filters (seulement sur la vue Recherche) */}
-          {appView === 'search' && (
-            <>
-              <div className="mx-1.5 h-4 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />
+        {/* UserMenu en bas de sidebar */}
+        <div className="border-t border-white/10 p-3">
+          <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
+        </div>
+      </aside>
+
+      {/* ── Zone principale ──────────────────────────────────────────────── */}
+      <div className="ml-60 flex flex-1 flex-col">
+
+        {/* Vue Historique */}
+        {appView === 'history' && (
+          <HistoryPage
+            account={account}
+            embedded
+            onReplay={(q, dept, code) => {
+              setAppView('search')
+              setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
+              doSearch({ query: q, department: dept, activityCode: code, activeOnly })
+            }}
+          />
+        )}
+
+        {/* Vue Favoris */}
+        {appView === 'favorites' && (
+          <FavoritesView
+            favorites={favorites}
+            onToggleFav={handleToggleFavFromDrawer}
+            onGoSearch={() => setAppView('search')}
+          />
+        )}
+
+        {/* Vue Recherche */}
+        {appView === 'search' && (
+          <div className="flex flex-1 flex-col px-8 py-8">
+
+            {/* En-tête */}
+            <div className="mb-7 flex items-start justify-between">
+              <div>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2]">
+                  Recherche professionnelle
+                </p>
+                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d]">
+                  {hasSearched && query ? `"${query}"` : 'Nouveau ciblage'}
+                </h1>
+              </div>
+              {account.status === 'approved' && (
+                <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                  <ShieldCheck size={12} />
+                  Compte nominatif validé
+                </div>
+              )}
+            </div>
+
+            {/* Barre de recherche principale */}
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onFocus={() => setShowRecent(true)}
+                  onBlur={() => setTimeout(() => setShowRecent(false), 150)}
+                  placeholder="Agence immobilière · Paris 08"
+                  autoComplete="off"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                />
+                {showRecent && recentSearches.length > 0 && (
+                  <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg">
+                    <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Récents</p>
+                    {recentSearches.map(r => (
+                      <button key={r} type="button" onMouseDown={() => handleRecentSearch(r)}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                        <Clock size={13} className="shrink-0 text-slate-300" /> {r}
+                      </button>
+                    ))}
+                    <button type="button" onMouseDown={() => { localStorage.removeItem(RECENT_SEARCHES_KEY); setRecentSearches([]) }}
+                      className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600">
+                      <X size={11} /> Effacer l'historique
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button type="submit" disabled={isLoading}
+                className="flex h-14 items-center gap-2 rounded-2xl bg-[#124bd2] px-8 text-base font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                {isLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Rechercher'}
+              </button>
+            </form>
+
+            {/* Filtres inline */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <select value={department} onChange={e => { setDepartment(e.target.value); setPage(1) }}
+                className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none transition focus:border-blue-300">
+                <option value="">Tous départements</option>
+                {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
+              </select>
+              <select value={activityCode} onChange={e => { setActivityCode(e.target.value); setPage(1) }}
+                className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none transition focus:border-blue-300">
+                <option value="">Tous les types</option>
+                {Object.entries(TYPE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+              <label className="flex h-8 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600">
+                <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
+                Actives uniquement
+              </label>
+              <div className="mx-1 h-4 w-px bg-slate-200" />
               {QUICK_FILTERS.map(f => (
-                <button
-                  key={f.label}
-                  onClick={() => handleQuickFilter(f)}
-                  className={`hidden rounded-full border px-3 py-1 text-xs font-medium transition md:block
-                    ${(department === f.dept && activityCode === f.code && (inputValue === f.query || f.query === ''))
-                      ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2] dark:bg-blue-950/50'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700'
-                    }`}
-                >
+                <button key={f.label} onClick={() => handleQuickFilter(f)}
+                  className={`h-8 rounded-full border px-3 text-xs font-medium transition ${
+                    (department === f.dept && activityCode === f.code && (inputValue === f.query || f.query === ''))
+                      ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2]'
+                  }`}>
                   {f.label}
                 </button>
               ))}
-            </>
-          )}
-        </div>
-      </header>
+              {results.length > 0 && (
+                <button onClick={() => exportCSV(results, query)}
+                  className="ml-auto flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
+                  <Download size={12} /> CSV
+                </button>
+              )}
+            </div>
 
-      {/* ── Corps ──────────────────────────────────────────────────────────── */}
-
-      {/* Vue Historique */}
-      {appView === 'history' && (
-        <HistoryPage
-          account={account}
-          embedded
-          onReplay={(q, dept, code) => {
-            setAppView('search')
-            setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
-            doSearch({ query: q, department: dept, activityCode: code, activeOnly })
-          }}
-        />
-      )}
-
-      {/* Vue Favoris */}
-      {appView === 'favorites' && (
-        <FavoritesView
-          favorites={favorites}
-          onToggleFav={handleToggleFavFromDrawer}
-          onGoSearch={() => setAppView('search')}
-        />
-      )}
-
-      {/* Vue Recherche */}
-      <div className={`mx-auto flex w-full max-w-7xl flex-1 gap-6 px-4 py-5 md:px-6 ${appView !== 'search' ? 'hidden' : ''}`}>
-
-        {/* Sidebar filtres — desktop */}
-        <aside className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-24 space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Filtres</p>
-
-              {/* Département */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Département</label>
-                <select
-                  value={department}
-                  onChange={e => { setDepartment(e.target.value); setPage(1) }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                >
-                  <option value="">Tous</option>
-                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
-                </select>
+            {/* Toolbar résultats */}
+            <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
+              <div>
+                {hasSearched && !isLoading && (
+                  <p className="text-sm text-slate-500">
+                    <span className="font-semibold text-slate-800">{total.toLocaleString('fr-FR')}</span>
+                    {' '}résultat{total > 1 ? 's' : ''}
+                    {query && <span> pour <em className="text-slate-700">"{query}"</em></span>}
+                    {department && <span> · {departmentLabel(department)}</span>}
+                  </p>
+                )}
               </div>
-
-              {/* Type d'activité */}
-              <div className="mt-3 space-y-1.5">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Type</label>
-                <select
-                  value={activityCode}
-                  onChange={e => { setActivityCode(e.target.value); setPage(1) }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                >
-                  <option value="">Tous les types</option>
-                  {Object.entries(TYPE_LABELS).map(([code, label]) => (
-                    <option key={code} value={code}>{label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Statut */}
-              <div className="mt-3">
-                <label className="flex cursor-pointer items-center gap-2.5">
-                  <div
-                    onClick={() => setActiveOnly(!activeOnly)}
-                    className={`flex h-4 w-4 items-center justify-center rounded border-2 transition ${activeOnly ? 'border-[#124bd2] bg-[#124bd2]' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'}`}
-                  >
-                    {activeOnly && <span className="h-2 w-2 rounded-sm bg-white" />}
+              {hasSearched && !isLoading && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Consultation journalisée</span>
+                  <select value={perPage} onChange={e => { const pp = Number(e.target.value); setPerPage(pp); doSearch({ query, department, activityCode, activeOnly, perPage: pp }, 1) }}
+                    className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none">
+                    {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
+                  <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+                    <button onClick={() => setViewMode('grid')} className={`rounded-md p-1.5 transition ${viewMode === 'grid' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={13} /></button>
+                    <button onClick={() => setViewMode('list')} className={`rounded-md p-1.5 transition ${viewMode === 'list' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600'}`}><List size={13} /></button>
                   </div>
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Actives uniquement</span>
-                </label>
+                </div>
+              )}
+            </div>
+
+            {/* Erreur */}
+            {error && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <AlertCircle size={16} className="shrink-0 text-amber-500" />
+                <p className="text-sm text-amber-800">{error}</p>
+                <button onClick={() => setError(null)} className="ml-auto text-amber-400 hover:text-amber-600"><X size={14} /></button>
               </div>
+            )}
 
-              <button
-                onClick={handleSearch}
-                className="mt-4 w-full rounded-xl bg-[#124bd2] py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
-              >
-                Appliquer
-              </button>
+            {/* Skeleton */}
+            {isLoading && (
+              <div className={viewMode === 'grid' ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-2'}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-slate-100" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-3/4 rounded bg-slate-100" />
+                        <div className="h-2.5 w-1/2 rounded bg-slate-100" />
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="h-2.5 w-full rounded bg-slate-100" />
+                      <div className="h-2.5 w-2/3 rounded bg-slate-100" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-              {activeFiltersCount > 0 && (
+            {/* Empty state */}
+            {!isLoading && !hasSearched && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+                  <Search size={28} />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800">Commencez votre prospection</h3>
+                <p className="mt-2 max-w-sm text-sm text-slate-400">
+                  Entrez un nom, une ville, ou laissez vide pour voir toutes les agences immobilières de France.
+                </p>
+              </div>
+            )}
+
+            {/* Aucun résultat */}
+            {!isLoading && hasSearched && results.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <Building2 size={28} />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700">Aucun résultat</h3>
+                <p className="mt-2 text-sm text-slate-400">Essayez avec d'autres critères ou supprimez des filtres.</p>
                 <button
-                  onClick={() => { setDepartment(''); setActivityCode(''); setActiveOnly(true) }}
-                  className="mt-2 w-full rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                  onClick={() => { setInputValue(''); setDepartment(''); setActivityCode(''); setActiveOnly(true); doSearch({ query: '', department: '', activityCode: '', activeOnly: true }) }}
+                  className="mt-4 rounded-xl bg-[#124bd2] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
                 >
                   Réinitialiser
                 </button>
-              )}
-            </div>
-
-            {/* Quota card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Quota mensuel</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-[#124bd2]">{usedQuota.toLocaleString('fr-FR')}</span>
-                <span className="text-xs text-slate-400 dark:text-slate-500">/ {account.quota.toLocaleString('fr-FR')}</span>
               </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div
-                  className={`h-full rounded-full transition-all ${quotaPercent(usedQuota, account.quota) >= 80 ? 'bg-amber-400' : 'bg-[#124bd2]'}`}
-                  style={{ width: `${quotaPercent(usedQuota, account.quota)}%` }}
-                />
-              </div>
-              <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500">Renouvellement le 1er du mois</p>
-            </div>
+            )}
 
-            {/* Keyboard shortcut hint */}
-            <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-              <Keyboard size={12} className="text-slate-300 dark:text-slate-600" />
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                <kbd className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">⌘K</kbd> pour focaliser la recherche
-              </span>
-            </div>
-          </div>
-        </aside>
-
-        {/* Zone résultats */}
-        <main className="flex-1 min-w-0">
-
-          {/* Toolbar résultats */}
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {hasSearched && !isLoading && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100">{total.toLocaleString('fr-FR')}</span>
-                  {' '}résultat{total > 1 ? 's' : ''}
-                  {query && <span> pour <em className="text-slate-700 dark:text-slate-300">"{query}"</em></span>}
-                  {department && <span> · {departmentLabel(department)}</span>}
-                </p>
-              )}
-
-              {/* Filtres mobile */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition lg:hidden ${activeFiltersCount > 0 ? 'border-blue-300 bg-blue-50 text-[#124bd2]' : 'border-slate-200 text-slate-600'}`}
-              >
-                <SlidersHorizontal size={13} />
-                Filtres
-                {activeFiltersCount > 0 && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#124bd2] text-[10px] font-bold text-white">{activeFiltersCount}</span>}
-              </button>
-            </div>
-
-            {/* Actions droite */}
-            <div className="flex items-center gap-2">
-              {results.length > 0 && (
-                <button
-                  onClick={() => exportCSV(results, query)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] md:hidden"
-                >
-                  <Download size={12} /> Export
-                </button>
-              )}
-              {/* Résultats par page */}
-              <select
-                value={perPage}
-                onChange={e => {
-                  const pp = Number(e.target.value)
-                  setPerPage(pp)
-                  doSearch({ query, department, activityCode, activeOnly, perPage: pp }, 1)
-                }}
-                className="hidden h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none transition focus:border-blue-300 hover:border-blue-200 sm:block dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
-              </select>
-
-              {/* Switcher vue */}
-              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`rounded-lg p-1.5 transition ${viewMode === 'grid' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}
-                >
-                  <LayoutGrid size={14} />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`rounded-lg p-1.5 transition ${viewMode === 'list' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}
-                >
-                  <List size={14} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Filtres mobile */}
-          {showFilters && (
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 lg:hidden dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Département</label>
-                  <select value={department} onChange={e => setDepartment(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                    <option value="">Tous</option>
-                    {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
-                  <select value={activityCode} onChange={e => setActivityCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                    <option value="">Tous</option>
-                    {Object.entries(TYPE_LABELS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <label className="mt-3 flex cursor-pointer items-center gap-2">
-                <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
-                <span className="text-xs text-slate-600">Actives uniquement</span>
-              </label>
-              <button onClick={() => { handleSearch(); setShowFilters(false) }}
-                className="mt-3 w-full rounded-xl bg-[#124bd2] py-2 text-xs font-semibold text-white">
-                Appliquer les filtres
-              </button>
-            </div>
-          )}
-
-          {/* Erreur */}
-          {error && (
-            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <AlertCircle size={16} className="shrink-0 text-amber-500" />
-              <p className="text-sm text-amber-800">{error}</p>
-              <button onClick={() => setError(null)} className="ml-auto text-amber-400 hover:text-amber-600"><X size={14} /></button>
-            </div>
-          )}
-
-          {/* Skeleton */}
-          {isLoading && (
-            <div className={viewMode === 'grid' ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-2'}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
-                      <div className="h-2.5 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
-                    </div>
+            {/* Résultats */}
+            {!isLoading && results.length > 0 && (
+              <>
+                {viewMode === 'grid' ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {results.map(c => (
+                      <CompanyCard key={c.siren} company={c}
+                        isFavorite={favorites.has(c.siren)} onToggleFavorite={toggleFavorite}
+                        viewMode="grid" onDetail={setSelectedCompany} />
+                    ))}
                   </div>
-                  <div className="mt-4 space-y-2">
-                    <div className="h-2.5 w-full rounded bg-slate-100 dark:bg-slate-800" />
-                    <div className="h-2.5 w-2/3 rounded bg-slate-100 dark:bg-slate-800" />
+                ) : (
+                  <div className="space-y-2">
+                    {results.map(c => (
+                      <CompanyCard key={c.siren} company={c}
+                        isFavorite={favorites.has(c.siren)} onToggleFavorite={toggleFavorite}
+                        viewMode="list" onDetail={setSelectedCompany} />
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
 
-          {/* Empty state */}
-          {!isLoading && !hasSearched && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
-                <Search size={28} />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-800">Commencez votre prospection</h3>
-              <p className="mt-2 max-w-sm text-sm text-slate-400">
-                Entrez un nom, une ville, ou laissez vide pour voir toutes les agences immobilières de France.
-              </p>
-            </div>
-          )}
-
-          {/* Aucun résultat */}
-          {!isLoading && hasSearched && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                <Building2 size={28} />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-700">Aucun résultat</h3>
-              <p className="mt-2 text-sm text-slate-400">Essayez avec d'autres critères ou supprimez des filtres.</p>
-              <button
-                onClick={() => { setInputValue(''); setDepartment(''); setActivityCode(''); setActiveOnly(true); doSearch({ query: '', department: '', activityCode: '', activeOnly: true }) }}
-                className="mt-4 rounded-xl bg-[#124bd2] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
-              >
-                Réinitialiser
-              </button>
-            </div>
-          )}
-
-          {/* Résultats */}
-          {!isLoading && results.length > 0 && (
-            <>
-              {viewMode === 'grid' ? (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {results.map(c => (
-                    <CompanyCard
-                      key={c.siren} company={c}
-                      isFavorite={favorites.has(c.siren)}
-                      onToggleFavorite={toggleFavorite}
-                      viewMode="grid"
-                      onDetail={setSelectedCompany}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {results.map(c => (
-                    <CompanyCard
-                      key={c.siren} company={c}
-                      isFavorite={favorites.has(c.siren)}
-                      onToggleFavorite={toggleFavorite}
-                      viewMode="list"
-                      onDetail={setSelectedCompany}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Export en bas */}
-              {results.length > 0 && (
+                {/* Export bas de page */}
                 <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={() => exportCSV(results, query)}
-                    className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] md:flex dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700"
-                  >
+                  <button onClick={() => exportCSV(results, query)}
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
                     <Download size={13} />
                     Exporter ces {results.length} résultats en CSV
                   </button>
                 </div>
-              )}
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page <= 1}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-
-                  {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                    const pg = i + Math.max(1, Math.min(page - 3, totalPages - 6))
-                    return (
-                      <button
-                        key={pg}
-                        onClick={() => handlePageChange(pg)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
-                      >
-                        {pg}
-                      </button>
-                    )
-                  })}
-
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= totalPages}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-
-                  <span className="ml-2 hidden text-xs text-slate-400 sm:inline dark:text-slate-500">
-                    Page {page}/{totalPages} · {total.toLocaleString('fr-FR')} résultats
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-        </main>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    <button onClick={() => handlePageChange(page - 1)} disabled={page <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40">
+                      <ChevronLeft size={16} />
+                    </button>
+                    {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                      const pg = i + Math.max(1, Math.min(page - 3, totalPages - 6))
+                      return (
+                        <button key={pg} onClick={() => handlePageChange(pg)}
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}>
+                          {pg}
+                        </button>
+                      )
+                    })}
+                    <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40">
+                      <ChevronRight size={16} />
+                    </button>
+                    <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
+                      Page {page}/{totalPages} · {total.toLocaleString('fr-FR')} résultats
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Slide-over détail entreprise */}
       {selectedCompany && (
-        <CompanySlideOver
-          company={selectedCompany}
-          onClose={() => setSelectedCompany(null)}
-        />
+        <CompanySlideOver company={selectedCompany} onClose={() => setSelectedCompany(null)} />
       )}
-
     </div>
   )
 }
