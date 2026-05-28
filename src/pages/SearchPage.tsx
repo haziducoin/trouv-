@@ -662,16 +662,13 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
   return (
     <div ref={ref} className="relative">
-      {/* Trigger */}
+      {/* Trigger — juste le logo + chevron, pas de répétition du nom */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold">
           t!
-        </span>
-        <span className="max-w-[96px] truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
-          {username}
         </span>
         {open
           ? <ChevronUp size={13} className="text-slate-400" />
@@ -681,29 +678,30 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
       {/* Dropdown */}
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-          {/* Header */}
+        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
               t!
             </span>
-            <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{username}</span>
-            <ChevronUp size={14} className="ml-auto shrink-0 text-slate-400" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{username}</p>
+              <p className="truncate text-xs text-slate-400">{account.email}</p>
+            </div>
           </div>
 
-          {/* Items */}
+          {/* Items — sans flèches */}
           <div className="py-1.5">
             {items.map(({ icon: Icon, label, action }) => (
               <button
                 key={label}
                 onClick={action}
-                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
                   <Icon size={15} className="text-[#1B54FF]" />
                 </span>
                 <span className="font-medium">{label}</span>
-                <ArrowRight size={13} className="ml-auto text-slate-300 dark:text-slate-600" />
               </button>
             ))}
           </div>
@@ -712,13 +710,12 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
           <div className="border-t border-slate-100 py-1.5 dark:border-slate-800">
             <button
               onClick={() => { setOpen(false); onLogout() }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
                 <LogOut size={15} className="text-red-500" />
               </span>
               <span className="font-medium">Déconnexion</span>
-              <ArrowRight size={13} className="ml-auto text-red-300" />
             </button>
           </div>
         </div>
