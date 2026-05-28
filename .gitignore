@@ -25,3 +25,7 @@ dist-ssr
 .vercel
 .env*
 !.env.example
+
+# Screenshots / images temporaires
+*.png
+!public/*.png
