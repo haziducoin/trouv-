@@ -149,7 +149,7 @@ export default function AccountPanel({
       }
       if (!result.isActive) {
         setSirenState('error')
-        setRegisterError('L’entreprise doit être active pour demander un accès.')
+        setRegisterError("L'entreprise doit être active pour demander un accès.")
         return
       }
       setCompany(result)
@@ -164,7 +164,7 @@ export default function AccountPanel({
     event.preventDefault()
     setRegisterError('')
     if (!company || company.siren !== normalizeSiren(form.siren)) {
-      setRegisterError('Vérifiez d’abord votre SIREN avant de soumettre la demande.')
+      setRegisterError("Vérifiez d'abord votre SIREN avant de soumettre la demande.")
       return
     }
     try {
@@ -251,46 +251,48 @@ export default function AccountPanel({
                   : 'Connectez-vous à votre compte pour continuer.'}
               </p>
 
-              {!isRegister && (
-                <>
-                  <div className="mt-5 space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => void handleOAuth('google')}
-                      disabled={Boolean(oauthLoading)}
-                      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
-                    >
-                      <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-lg font-bold text-[#4285f4]">G</span>
-                      {oauthLoading === 'google' ? 'Ouverture Google...' : 'Se connecter avec Google'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleOAuth('azure')}
-                      disabled={Boolean(oauthLoading)}
-                      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
-                    >
-                      <span className="grid h-5 w-5 grid-cols-2 gap-0.5">
-                        <span className="bg-[#f25022]" />
-                        <span className="bg-[#7fba00]" />
-                        <span className="bg-[#00a4ef]" />
-                        <span className="bg-[#ffb900]" />
-                      </span>
-                      {oauthLoading === 'azure' ? 'Ouverture Microsoft...' : 'Se connecter avec Microsoft'}
-                    </button>
-                    <p className="text-xs leading-5 text-slate-500">
-                      {oauthPreview
-                        ? 'Mode preview local : Google/Microsoft ouvrent un compte démo validé, sans quitter le site.'
-                        : 'Google/Microsoft est réservé aux comptes déjà validés. Pour une première demande, utilisez l’inscription avec SIREN.'}
-                    </p>
-                  </div>
+              <div className="mt-5 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth('google')}
+                  disabled={Boolean(oauthLoading)}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-lg font-bold text-[#4285f4]">G</span>
+                  {oauthLoading === 'google'
+                    ? 'Ouverture Google...'
+                    : isRegister ? "S'inscrire avec Google" : 'Se connecter avec Google'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth('azure')}
+                  disabled={Boolean(oauthLoading)}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                >
+                  <span className="grid h-5 w-5 grid-cols-2 gap-0.5">
+                    <span className="bg-[#f25022]" />
+                    <span className="bg-[#7fba00]" />
+                    <span className="bg-[#00a4ef]" />
+                    <span className="bg-[#ffb900]" />
+                  </span>
+                  {oauthLoading === 'azure'
+                    ? 'Ouverture Microsoft...'
+                    : isRegister ? "S'inscrire avec Microsoft" : 'Se connecter avec Microsoft'}
+                </button>
+                <p className="text-xs leading-5 text-slate-500">
+                  {oauthPreview
+                    ? 'Mode preview local : Google/Microsoft ouvrent un compte démo validé, sans quitter le site.'
+                    : isRegister
+                      ? 'Adresse professionnelle requise (@votreentreprise.fr). Votre accès sera validé sous 24–48h.'
+                      : 'Connexion réservée aux adresses professionnelles (@votreentreprise.fr).'}
+                </p>
+              </div>
 
-                  <div className="my-4 flex items-center gap-4 text-sm text-slate-400">
-                    <span className="h-px flex-1 bg-slate-200" />
-                    ou
-                    <span className="h-px flex-1 bg-slate-200" />
-                  </div>
-                </>
-              )}
+              <div className="my-4 flex items-center gap-4 text-sm text-slate-400">
+                <span className="h-px flex-1 bg-slate-200" />
+                ou
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
 
               {requestCreated ? (
                 <div className="rounded-[28px] border border-blue-100 bg-blue-50 p-6">
@@ -498,7 +500,7 @@ export default function AccountPanel({
             <h3 className="mt-5 text-xl font-semibold text-slate-950">Demande transmise</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Le compte nominatif de {requestCreated.firstName} {requestCreated.lastName} est en
-              attente de validation. L’administrateur contrôle la société avant activation.
+              attente de validation. L'administrateur contrôle la société avant activation.
             </p>
             {usesRemoteDatabase && (
               <p className="mt-3 rounded-xl bg-white px-4 py-3 text-xs leading-5 text-blue-800">
@@ -558,7 +560,7 @@ export default function AccountPanel({
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-blue-600"
               >
                 <option value="agent">Agent - accès nominatif</option>
-                <option value="agence">Agence - gestion d’équipe</option>
+                <option value="agence">Agence - gestion d'équipe</option>
               </select>
             </div>
             <div>
@@ -690,7 +692,7 @@ function AuthShowcase() {
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-[#07113d] xl:text-4xl">
             <span className="block text-[#0757f8]">Retrouvez les bons contacts</span>
-            à partir d’une simple information
+            à partir d'une simple information
           </h2>
           <div className="mx-auto mt-1 h-2.5 w-48 rounded-full bg-[#0757f8]/15" />
           <p className="mt-4 text-base leading-7 text-slate-500">
@@ -889,7 +891,7 @@ function Workspace({
         <div className="mt-6 rounded-2xl border border-slate-200 p-5">
           <p className="flex items-center gap-2 font-medium text-slate-950">
             <UsersRound size={17} className="text-blue-700" />
-            Comptes de l’agence
+            Comptes de l'agence
           </p>
           <p className="mt-2 text-sm text-slate-500">
             {verifiedMembers.length || 1} utilisateur{verifiedMembers.length > 1 ? 's' : ''} autorisé{verifiedMembers.length > 1 ? 's' : ''} · quota partagé suivi
