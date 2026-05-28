@@ -427,7 +427,7 @@ export default function LandingPage({
         </section>
 
         {/* ── Section Recherche avancée ────────────────────────────────────── */}
-        <section className="px-5 pb-14 pt-0 md:pb-20">
+        <section className="px-5 py-14 md:py-20">
           {/* Heading */}
           <div className="mx-auto mb-10 max-w-4xl text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Recherche avancée</p>
