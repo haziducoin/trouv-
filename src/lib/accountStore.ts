@@ -434,7 +434,14 @@ export async function restoreSession() {
       throw new PersonalEmailError(sessionEmail)
     }
 
-    const [account] = await fetchRemoteProfiles(data.session.user.id)
+    // ── Lecture du profil (table peut ne pas encore exister) ─────────────
+    let profileResult: Account[] = []
+    try {
+      profileResult = await fetchRemoteProfiles(data.session.user.id)
+    } catch {
+      // Table absente ou erreur réseau → on traite comme "nouvel utilisateur"
+    }
+    const [account] = profileResult
 
     // ── Nouvel utilisateur OAuth — pas encore de profil ───────────────────
     if (!account) {
