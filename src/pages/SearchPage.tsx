@@ -952,15 +952,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </button>
             )}
 
-            {/* Dark mode */}
-            <button
-              onClick={() => setDarkMode(d => !d)}
-              title={darkMode ? 'Mode clair' : 'Mode sombre'}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
-
             {/* User menu */}
             <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
           </div>
