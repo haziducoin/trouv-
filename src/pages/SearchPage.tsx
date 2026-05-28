@@ -678,7 +678,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
       {/* Dropdown */}
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
@@ -701,7 +701,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
                   <Icon size={15} className="text-[#1B54FF]" />
                 </span>
-                <span className="font-medium">{label}</span>
+                <span className="whitespace-nowrap font-medium">{label}</span>
               </button>
             ))}
           </div>
