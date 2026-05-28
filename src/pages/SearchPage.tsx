@@ -668,14 +668,15 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
   return (
     <div ref={ref} className="relative">
-      {/* Trigger — juste le logo + chevron, pas de répétition du nom */}
+      {/* Trigger — initiale + nom complet + chevron */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold shrink-0">
           {initial}
         </span>
+        <span className="max-w-[140px] truncate text-sm font-medium text-slate-700">{displayName}</span>
         {open
           ? <ChevronUp size={13} className="text-slate-400" />
           : <ChevronDown size={13} className="text-slate-400" />
@@ -912,10 +913,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
           ))}
         </nav>
 
-        {/* UserMenu en bas de sidebar */}
-        <div className="border-t border-white/10 p-3">
-          <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
-        </div>
       </aside>
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
@@ -957,12 +954,15 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   {hasSearched && query ? `"${query}"` : 'Nouveau ciblage'}
                 </h1>
               </div>
-              {account.status === 'approved' && (
-                <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                  <ShieldCheck size={12} />
-                  Compte nominatif validé
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                {account.status === 'approved' && (
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                    <ShieldCheck size={12} />
+                    Compte nominatif validé
+                  </div>
+                )}
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
+              </div>
             </div>
 
             {/* Barre de recherche principale */}
