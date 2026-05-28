@@ -4,6 +4,7 @@ import SearchPage from './pages/SearchPage'
 import SuccessPage from './pages/SuccessPage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
+import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
 
 // ─── Restore dark mode preference immediately (before first paint) ────────────
 if (localStorage.getItem('trouve_dark') === '1') {
@@ -40,12 +41,37 @@ export default function App() {
 
   useEffect(() => {
     if (isDemoMode || isSuccessPage) return
+
+    // ── Tentative initiale (session déjà existante) ───────────────────────
     restoreSession()
       .then(a  => { setAccount(a); setSessionLoading(false) })
       .catch((err: unknown) => {
         if (err instanceof PersonalEmailError) setBlockedEmail(err.email)
         setSessionLoading(false)
       })
+
+    // ── Listener OAuth PKCE : Supabase échange le ?code= de façon asynchrone
+    // après le redirect. SIGNED_IN se déclenche quand c'est prêt. ────────────
+    if (!isRemoteDatabaseConfigured) return
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
+      async (event) => {
+        if (event === 'SIGNED_IN') {
+          try {
+            const a = await restoreSession()
+            setAccount(a)
+            setSessionLoading(false)
+          } catch (err) {
+            if (err instanceof PersonalEmailError) {
+              setBlockedEmail((err as PersonalEmailError).email)
+            }
+            setSessionLoading(false)
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setAccount(null)
+        }
+      }
+    )
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleAuthenticated = (a: Account) => {
