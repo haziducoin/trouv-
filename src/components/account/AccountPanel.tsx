@@ -8,6 +8,7 @@ import {
   Clock3,
   Database,
   Eye,
+  EyeOff,
   KeyRound,
   LogOut,
   Mail,
@@ -335,7 +336,7 @@ export default function AccountPanel({
               ) : (
                 <form onSubmit={handleLogin} className="space-y-4">
                   <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />
-                  <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} trailingIcon={Eye} />
+                  <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} />
                   <div className="flex items-center justify-end text-sm">
                     <button
                       type="button"
@@ -659,7 +660,6 @@ function AuthInput({
   minLength,
   inputMode,
   icon: Icon,
-  trailingIcon: TrailingIcon,
   onChange,
 }: {
   id: string
@@ -669,16 +669,20 @@ function AuthInput({
   minLength?: number
   inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'search' | 'email' | 'url'
   icon?: LucideIcon
-  trailingIcon?: LucideIcon
   onChange: (value: string) => void
 }) {
+  const [showPwd, setShowPwd] = useState(false)
+  const isPassword = type === 'password'
+  const effectiveType = isPassword ? (showPwd ? 'text' : 'password') : type
+  const EyeIcon = showPwd ? EyeOff : Eye
+
   return (
     <div className="relative flex-1">
       {Icon && <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />}
       <input
         id={id}
         required
-        type={type}
+        type={effectiveType}
         minLength={minLength}
         inputMode={inputMode}
         value={value}
@@ -686,9 +690,19 @@ function AuthInput({
         onChange={(event) => onChange(event.target.value)}
         className={`h-[50px] w-full rounded-xl border border-slate-200 bg-white text-sm font-medium text-[#07113d] outline-none transition placeholder:text-slate-400 focus:border-[#0757f8] focus:ring-4 focus:ring-blue-100 ${
           Icon ? 'pl-12' : 'pl-4'
-        } ${TrailingIcon ? 'pr-12' : 'pr-4'}`}
+        } ${isPassword ? 'pr-12' : 'pr-4'}`}
       />
-      {TrailingIcon && <TrailingIcon className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />}
+      {isPassword && (
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShowPwd(v => !v)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+          aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        >
+          <EyeIcon size={19} />
+        </button>
+      )}
     </div>
   )
 }
@@ -961,19 +975,37 @@ function Field({
   placeholder?: string
   onChange: (value: string) => void
 }) {
+  const [showPwd, setShowPwd] = useState(false)
+  const isPassword = type === 'password'
+  const effectiveType = isPassword ? (showPwd ? 'text' : 'password') : type
+  const EyeIcon = showPwd ? EyeOff : Eye
+
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-xs font-medium text-slate-600">{label}</label>
-      <input
-        id={id}
-        required
-        type={type}
-        minLength={minLength}
-        value={value}
-        placeholder={placeholder ?? label}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-      />
+      <div className="relative">
+        <input
+          id={id}
+          required
+          type={effectiveType}
+          minLength={minLength}
+          value={value}
+          placeholder={placeholder ?? label}
+          onChange={(event) => onChange(event.target.value)}
+          className={`h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 ${isPassword ? 'pr-11' : ''}`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowPwd(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+            aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          >
+            <EyeIcon size={17} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
