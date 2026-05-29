@@ -38,6 +38,7 @@ export default function App() {
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
   const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(null)
   const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
+  const [authError, setAuthError]           = useState<string | null>(null)
   const [loadingTooLong, setLoadingTooLong] = useState(false)
 
   // Après 4 s de chargement, on propose un bouton de secours
@@ -78,7 +79,14 @@ export default function App() {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
           clearTimeout(safetyTimeout)
           if (!session) {
-            // Pas de session active → landing page
+            // Détecter un retour OAuth raté (code non échangé / URL config manquante)
+            const sp = new URLSearchParams(window.location.search)
+            const hp = new URLSearchParams(window.location.hash.replace('#', '?'))
+            const oauthErr = sp.get('error_description') || hp.get('error_description') || sp.get('error')
+            if (oauthErr) {
+              setAuthError(`Connexion Google impossible : ${decodeURIComponent(oauthErr)}. Vérifiez la config Supabase (URL de redirection).`)
+              window.history.replaceState({}, '', '/')
+            }
             setSessionLoading(false)
             return
           }
@@ -88,6 +96,8 @@ export default function App() {
           } catch (err) {
             if (err instanceof PersonalEmailError) {
               setBlockedEmail((err as PersonalEmailError).email)
+            } else {
+              setAuthError(err instanceof Error ? err.message : 'Erreur de connexion inattendue.')
             }
           } finally {
             setSessionLoading(false)
@@ -235,18 +245,28 @@ export default function App() {
 
   // ── Non connecté → landing ────────────────────────────────────────────────
   return (
-    <LandingPage
-      externalAccountPanel={accountPanel}
-      onOpenAccountPanel={view => setAccountPanel(view)}
-      onAuthenticated={handleAuthenticated}
-      onLogout={handleLogout}
-    />
+    <>
+      {/* Toast d'erreur auth (OAuth raté, erreur réseau, etc.) */}
+      {authError && (
+        <div className="fixed top-4 left-1/2 z-[500] -translate-x-1/2 flex max-w-[90vw] items-start gap-3 rounded-2xl border border-red-200 bg-white px-4 py-3 shadow-xl sm:max-w-sm">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+          <p className="flex-1 text-xs leading-relaxed text-slate-700">{authError}</p>
+          <button onClick={() => setAuthError(null)} className="text-slate-300 hover:text-slate-600 text-sm font-bold">×</button>
+        </div>
+      )}
+      <LandingPage
+        externalAccountPanel={accountPanel}
+        onOpenAccountPanel={view => setAccountPanel(view)}
+        onAuthenticated={handleAuthenticated}
+        onLogout={handleLogout}
+      />
+    </>
   )
 }
 
 // ─── Page d'attente de validation ─────────────────────────────────────────────
 import trouveLogo from '@/assets/trouve-logo.png'
-import { Ban, Clock, Mail, LogOut } from 'lucide-react'
+import { Ban, Clock, Mail, LogOut, AlertCircle } from 'lucide-react'
 
 function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout: () => void }) {
   return (

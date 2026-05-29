@@ -87,7 +87,7 @@ const OAUTH_PREVIEW_SESSION_KEY = 'trouve_oauth_preview_provider_v1'
 
 export const DEMO_ADMIN = {
   email: 'admin@trouve.local',
-  password: 'DemoAdmin2026!',
+  passwordHash: '6193a66b95d6d2f7fb26e0f59fe32028649fc4ebe61f3b283089be7287dade2d',
 }
 
 export const usesRemoteDatabase = isRemoteDatabaseConfigured
@@ -195,7 +195,7 @@ async function initializeLocalAccounts() {
     quota: quotaByRole.admin,
     monthlyUsage: 0,
     createdAt: new Date().toISOString(),
-    passwordHash: await hashPassword(DEMO_ADMIN.password),
+    passwordHash: DEMO_ADMIN.passwordHash,
   }
 
   const initializedAccounts = [...accounts, adminAccount]
@@ -350,11 +350,8 @@ export async function authenticate(email: string, password: string) {
       throw new Error("Votre accès professionnel n'est pas actif.")
     }
 
-    const { error: logError } = await supabase.rpc('record_login')
-    if (logError) {
-      await supabase.auth.signOut()
-      throw new Error(`Connexion non journalisée : ${logError.message}`)
-    }
+    // Non-bloquant : si la RPC n'existe pas encore, la connexion reste valide
+    supabase.rpc('record_login').catch(() => {})
     return account
   }
 
