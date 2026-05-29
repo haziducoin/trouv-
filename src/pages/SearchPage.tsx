@@ -18,6 +18,7 @@ import {
   searchProspects, exportProspectsCSV,
   type ProspectResult, type ProspectSearchParams,
 } from '@/lib/prospectApi'
+import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, type Account } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 
@@ -236,6 +237,8 @@ function ConversionModal({
 
 // ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
 function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospect: ProspectResult; onClose: () => void; accessLevel?: AccessLevel }) {
+  const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -265,14 +268,6 @@ function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospe
           <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
             <X size={18} />
           </button>
-        </div>
-
-        {/* Statut */}
-        <div className="border-b border-slate-100 px-6 py-3 dark:border-slate-800">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${prospect.isActive ? 'bg-emerald-500' : 'bg-red-400'}`} />
-            {prospect.isActive ? 'Contact actif' : 'Inactif'}
-          </span>
         </div>
 
         {/* Corps */}
@@ -322,46 +317,24 @@ function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospe
           </section>
 
           {/* Entreprise */}
-          {(prospect.companyName || prospect.activityCode || prospect.companySize) && (
+          {prospect.companyName && (
             <section>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
               <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                {prospect.companyName && <Row icon={<Building2 size={13} className="text-slate-300" />} label="Société" value={prospect.companyName} />}
-                {prospect.companySiren && <Row icon={<Hash size={13} className="text-slate-300" />} label="SIREN" value={prospect.companySiren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')} mono />}
-                {prospect.activityCode && <Row icon={<Zap size={13} className="text-slate-300" />} label="Activité" value={`${prospect.activityCode}${prospect.activityLabel ? ` — ${prospect.activityLabel}` : ''}`} />}
-                {prospect.companySize && <Row icon={<Users size={13} className="text-slate-300" />} label="Effectif" value={prospect.companySize} />}
-                {prospect.companyType && <Row icon={<FileText size={13} className="text-slate-300" />} label="Forme" value={prospect.companyType} />}
+                <Row icon={<Building2 size={13} className="text-slate-300" />} label="Employeur" value={prospect.companyName} />
               </div>
             </section>
           )}
 
           {/* Localisation */}
-          {(prospect.address || prospect.city) && (
+          {(prospect.address || prospect.city || prospect.country || birthContext) && (
             <section>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
               <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
                 {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
                 {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
-                {prospect.region && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Région" value={prospect.region} />}
-              </div>
-            </section>
-          )}
-
-          {/* Sources externes */}
-          {prospect.companySiren && (
-            <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Sources entreprise</p>
-              <div className="grid grid-cols-2 gap-2">
-                <a href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${prospect.companySiren}`}
-                  target="_blank" rel="noopener"
-                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100 dark:bg-blue-950/30 dark:border-blue-900 dark:hover:bg-blue-950/50">
-                  <ShieldCheck size={13} /> Annuaire officiel
-                </a>
-                <a href={`https://pappers.fr/entreprise/${prospect.companySiren}`}
-                  target="_blank" rel="noopener"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-                  <Info size={13} /> Pappers
-                </a>
+                {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
+                {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
               </div>
             </section>
           )}
@@ -439,9 +412,6 @@ function ProspectCard({
                   {prospect.fullName}
                 </button>
                 {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                  {prospect.isActive ? 'Actif' : 'Inactif'}
-                </span>
               </div>
               <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
                 {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
@@ -749,7 +719,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
     { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
     { icon: LayoutDashboard, label: 'Dashboard',              action: () => setOpen(false) },
     { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
-    { icon: FolderSearch,    label: 'Dossier investigation',  action: () => setOpen(false) },
+    { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
   ]
 
@@ -820,7 +790,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
 // ─── Recherche avancée (6 sections) ──────────────────────────────────────────
 interface AdvancedFiltersProps {
-  // État civil
+  // Identité professionnelle
   firstName: string; setFirstName: (v: string) => void
   lastName:  string; setLastName:  (v: string) => void
   jobTitle:  string; setJobTitle:  (v: string) => void
@@ -937,8 +907,8 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
   return (
     <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
 
-      {/* 1 — État civil */}
-      <AdvSection id="civil" icon={<UserCircle2 size={15} />} title="État civil"
+      {/* 1 — Identité professionnelle */}
+      <AdvSection id="civil" icon={<UserCircle2 size={15} />} title="Identité professionnelle"
         color="bg-blue-50 text-[#124bd2]" open={open.includes('civil')} onToggle={() => tog('civil')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
@@ -947,8 +917,8 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 2 — Origine (entreprise) */}
-      <AdvSection id="origin" icon={<Calendar size={15} />} title="Origine"
+      {/* 2 — Entreprise */}
+      <AdvSection id="origin" icon={<Calendar size={15} />} title="Entreprise"
         color="bg-violet-50 text-violet-600" open={open.includes('origin')} onToggle={() => tog('origin')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
@@ -994,18 +964,18 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 5 — Jeux & Réseaux */}
-      <AdvSection id="networks" icon={<Briefcase size={15} />} title="Jeux & Réseaux"
+      {/* 5 — Réseaux publics */}
+      <AdvSection id="networks" icon={<Briefcase size={15} />} title="Réseaux publics"
         color="bg-indigo-50 text-indigo-600" open={open.includes('networks')} onToggle={() => tog('networks')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <AdvInput label="LinkedIn (URL ou nom)" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
         </div>
       </AdvSection>
 
-      {/* 6 — Autres données */}
-      <AdvSection id="other" icon={<Plus size={15} />} title="Autres données"
+      {/* 6 — Critères métier */}
+      <AdvSection id="other" icon={<Plus size={15} />} title="Critères métier"
         color="bg-slate-100 text-slate-500" open={open.includes('other')} onToggle={() => tog('other')}>
-        <p className="text-xs text-slate-400">D'autres critères seront disponibles après l'import de votre base de données.</p>
+        <p className="text-xs text-slate-400">Les critères restent limités aux informations professionnelles utiles à la prospection.</p>
       </AdvSection>
 
       {/* Footer */}
@@ -1216,7 +1186,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     } else {
       newFavs.add(prospect.id)
       saveStoredFav(prospect)
-      saveFavorite(account, { targetSiren: prospect.companySiren ?? undefined, targetName: prospect.fullName, targetCity: prospect.city ?? undefined }).catch(() => {})
+      saveFavorite(account, { targetName: prospect.fullName, targetCity: prospect.city ?? undefined }).catch(() => {})
     }
     setFavorites(newFavs)
   }
@@ -1450,7 +1420,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             {/* Panneau de recherche avancée */}
             {showFilters && (
               <AdvancedFilters
-                // État civil
+                // Identité professionnelle
                 firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
                 lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
                 jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}

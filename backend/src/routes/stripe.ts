@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { stripe, PLANS, ADDONS, type BillingPeriod } from '../config/stripe.js'
 import { supabase } from '../config/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
+import { sanitizeSubscriptionForClient } from '../privacy/sanitize.js'
 
 const router = Router()
 
@@ -155,7 +156,7 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
     return
   }
 
-  res.json({ subscription: data })
+  res.json({ subscription: sanitizeSubscriptionForClient(data) })
 })
 
 // ─── POST /api/stripe/webhook ─────────────────────────────────────────────────

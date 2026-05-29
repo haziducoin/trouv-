@@ -5,6 +5,7 @@ import { clickhouse } from '../config/clickhouse.js'
 import { redis, CACHE_KEYS, CACHE_TTL } from '../config/redis.js'
 import { supabase } from '../config/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
+import { sanitizePublicSearchRecord } from '../privacy/sanitize.js'
 
 const router = Router()
 
@@ -47,7 +48,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
 
   // Cache Redis
   const cacheKey = CACHE_KEYS.search(
-    createHash('sha256').update(JSON.stringify({ query, filters, page, limit })).digest('hex').slice(0, 16)
+    createHash('sha256').update(JSON.stringify({ policy: 'public-green-v2', query, filters, page, limit })).digest('hex').slice(0, 16)
   )
   const cached = await redis.get(cacheKey)
   if (cached) { res.setHeader('X-Cache', 'HIT'); res.json(cached); return }
@@ -73,11 +74,11 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     const start = Date.now()
 
     const [rs, countRs] = await Promise.all([
-      clickhouse.query({ query: `SELECT id, name, city, country, phone, email, type, source_name FROM records WHERE ${where} ORDER BY name LIMIT {limit: UInt32} OFFSET {offset: UInt32}`, query_params: params, format: 'JSONEachRow', clickhouse_settings: { max_execution_time: 10, readonly: '1' } }),
+      clickhouse.query({ query: `SELECT name, city, country, phone, email, type FROM records WHERE ${where} ORDER BY name LIMIT {limit: UInt32} OFFSET {offset: UInt32}`, query_params: params, format: 'JSONEachRow', clickhouse_settings: { max_execution_time: 10, readonly: '1' } }),
       clickhouse.query({ query: `SELECT count() AS total FROM records WHERE ${where}`, query_params: Object.fromEntries(Object.entries(params).filter(([k]) => !['limit','offset'].includes(k))), format: 'JSON', clickhouse_settings: { max_execution_time: 10, readonly: '1' } }),
     ])
 
-    const data  = await rs.json()
+    const data  = (await rs.json() as Array<Record<string, unknown>>).map(sanitizePublicSearchRecord)
     const count = await countRs.json() as any
     const total = parseInt(count.data?.[0]?.total ?? '0', 10)
 

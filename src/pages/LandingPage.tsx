@@ -5,17 +5,13 @@ import {
   BadgeCheck,
   Ban,
   BarChart3,
-  Building2,
   Check,
-  Database,
-  Download,
   Heart,
   History,
   LockKeyhole,
   Search,
   ShieldCheck,
   Sparkles,
-  Timer,
   UserRoundCheck,
   X,
   Zap,
@@ -32,42 +28,35 @@ type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 const resultRows = [
-  { name: 'Cabinet Rivoli', city: 'Paris 08', type: 'Agence', status: 'Vérifié' },
-  { name: 'Atelier Habitat', city: 'Lyon 02', type: 'Mandataire', status: 'Vérifié' },
-  { name: 'Maison Sud', city: 'Bordeaux', type: 'Agence', status: 'Nouveau' },
+  { name: 'Marc Dupont', city: 'Lyon', type: 'Directeur Commercial · TechSolutions', status: 'Vérifié' },
+  { name: 'Marie Dupont', city: 'Lyon', type: 'Directrice RH · ScaleUp Partners', status: 'Homonyme' },
+  { name: 'Jean Dupont', city: 'Paris', type: 'Dirigeant · Conseil B2B', status: 'Écarté' },
 ]
 
 const safeguards = [
-  { icon: Ban, label: "Pas d'export massif" },
-  { icon: History, label: "Logs d'utilisation" },
-  { icon: UserRoundCheck, label: 'Compte nominatif' },
-  { icon: LockKeyhole, label: 'Anti-extraction' },
-]
-
-const STATS = [
-  { icon: Database, value: '10 M+',  label: 'entreprises indexées' },
-  { icon: Timer,    value: '<200 ms', label: 'temps de réponse' },
-  { icon: ShieldCheck, value: '100%', label: 'données Sirene officielles' },
-  { icon: Download, value: 'CSV',    label: 'export instantané' },
+  { icon: UserRoundCheck, label: 'Comptes nominatifs vérifiés' },
+  { icon: Ban, label: 'Anti-extraction massive' },
+  { icon: History, label: "Registres d'utilisation" },
+  { icon: LockKeyhole, label: 'Conformité stricte' },
 ]
 
 const STEPS = [
   {
     num: '01',
     title: 'Accédez en 2 minutes',
-    desc: 'Vérification SIREN + email pro. Votre compte est actif immédiatement.',
+    desc: 'Vérification SIREN + email pro. Votre compte sécurisé est actif immédiatement.',
     color: 'bg-blue-50 text-[#124bd2]',
   },
   {
     num: '02',
     title: 'Recherchez. Filtrez.',
-    desc: 'Nom, ville, département, type d\'activité. Résultats en moins de 200 ms.',
+    desc: 'Nom, ville, entreprise ou mot-clé. Croisez les données et obtenez vos résultats en moins de 200 ms.',
     color: 'bg-indigo-50 text-indigo-600',
   },
   {
     num: '03',
     title: 'Exportez. Développez.',
-    desc: 'CSV en un clic. Données officielles Sirene, toujours à jour.',
+    desc: 'CSV en un clic. Des données de contact vérifiées, toujours exploitables pour vos campagnes.',
     color: 'bg-emerald-50 text-emerald-600',
   },
 ]
@@ -250,22 +239,16 @@ export default function LandingPage({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f8ff] text-[#081228] selection:bg-blue-600/20">
+    <div className="min-h-screen overflow-x-hidden bg-white text-[#081228] selection:bg-blue-600/20">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-[-14rem] h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-blue-300/25 blur-[100px]" />
-        <div className="absolute right-[-10rem] top-[30rem] h-[28rem] w-[28rem] rounded-full bg-indigo-300/15 blur-[100px]" />
+        <div className="absolute left-1/2 top-[-16rem] h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-blue-100/45 blur-[110px]" />
       </div>
 
-      <header className="fixed inset-x-0 top-4 z-50 px-4">
-        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-white/80 bg-white/75 px-5 shadow-[0_14px_50px_-22px_rgba(15,23,42,0.24)] backdrop-blur-xl md:px-6">
+      <header className="fixed inset-x-0 top-0 z-50 px-6 py-6">
+        <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between bg-white/85 backdrop-blur-sm">
           <a href="#" aria-label="trouvé! accueil" className="cursor-pointer">
-            <img src={trouveLogo} alt="trouvé!" className="h-8 w-auto md:h-9" />
+            <img src={trouveLogo} alt="trouvé!" className="h-9 w-auto md:h-11" />
           </a>
-          <div className="hidden items-center gap-7 text-sm font-medium text-slate-500 md:flex">
-            <a href="#produit" className="transition-colors hover:text-slate-950">Produit</a>
-            <a href="#securite" className="transition-colors hover:text-slate-950">Sécurité</a>
-            <a href="#tarifs" className="transition-colors hover:text-slate-950">Tarifs</a>
-          </div>
           {currentAccount ? (
             <button
               type="button"
@@ -280,14 +263,14 @@ export default function LandingPage({
               <button
                 type="button"
                 onClick={() => setAccountPanel('login')}
-                className="group inline-flex h-11 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 px-4 text-sm font-semibold text-slate-700 shadow-[0_10px_28px_-20px_rgba(15,23,42,0.55)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-[#124bd2] hover:shadow-[0_16px_36px_-22px_rgba(18,75,210,0.55)] active:translate-y-0 sm:px-5"
+                className="inline-flex h-12 items-center justify-center rounded-full px-4 text-base font-semibold text-slate-800 transition hover:text-[#124bd2] sm:px-6"
               >
                 Connexion
               </button>
               <button
                 type="button"
                 onClick={() => setAccountPanel('register')}
-                className="group relative inline-flex h-11 items-center justify-center overflow-hidden rounded-full bg-gradient-to-r from-[#124bd2] via-[#1558ef] to-[#0b43c9] px-5 text-sm font-bold text-white shadow-[0_18px_38px_-18px_rgba(18,75,210,0.9)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_-18px_rgba(18,75,210,0.95)] active:translate-y-0 sm:px-6"
+                className="group relative inline-flex h-14 items-center justify-center overflow-hidden rounded-full bg-gradient-to-r from-[#124bd2] via-[#1558ef] to-[#0b43c9] px-6 text-base font-bold text-white shadow-[0_18px_38px_-18px_rgba(18,75,210,0.9)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_-18px_rgba(18,75,210,0.95)] active:translate-y-0 sm:px-8"
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
                 <span className="relative inline-flex items-center gap-2">
@@ -301,56 +284,37 @@ export default function LandingPage({
       </header>
 
       <main>
-        <section id="produit" className="px-5 pb-14 pt-36 md:pb-20 md:pt-40">
+        <section id="produit" className="flex min-h-[92vh] items-center px-5 pb-16 pt-32 md:pb-20 md:pt-36">
           <div className="mx-auto max-w-5xl text-center">
-            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-blue-200/70 bg-white/90 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#124bd2] shadow-sm backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#124bd2] animate-pulse" />
-              Outil privé · Accès professionnel uniquement
-            </div>
             <h1 className="mx-auto max-w-4xl text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-[#070f22] sm:text-5xl md:text-[4.5rem]">
-              Trouvez les bons contacts.
+              Identifiez le bon contact.
               <span className="block bg-gradient-to-r from-[#124bd2] via-[#1e6cff] to-[#3b8eff] bg-clip-text text-transparent">Instantanément.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-500 md:text-lg">
-              Le moteur de recherche métier des professionnels de l'immobilier.
-              Rapide, fiable, sécurisé.
+            <p className="mx-auto mt-7 max-w-4xl text-xl leading-relaxed text-slate-800 md:text-2xl">
+              Le moteur de recherche pour identifier et contacter vos cibles qualifiées.
             </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-10 flex items-center justify-center">
               <button
                 type="button"
                 onClick={() => setAccountPanel('register')}
-                className="btn-glow inline-flex h-13 cursor-pointer items-center gap-2.5 rounded-2xl bg-[#124bd2] px-8 font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
+                className="btn-glow inline-flex h-16 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-10 text-lg font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
               >
-                Accéder gratuitement
-                <ArrowRight size={17} />
+                Lancer ma première recherche
+                <ArrowRight size={22} />
               </button>
-              <a href="#tarifs" className="inline-flex h-13 cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-7 font-medium text-slate-700 shadow-sm backdrop-blur-sm transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-[#124bd2]">
-                Voir les offres
-              </a>
-            </div>
-
-            {/* Stats strip */}
-            <div className="mx-auto mt-10 flex flex-wrap items-center justify-center gap-3">
-              {STATS.map(s => (
-                <div key={s.label} className="flex items-center gap-2.5 rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-2.5 backdrop-blur-sm shadow-sm">
-                  <s.icon size={14} className="shrink-0 text-[#124bd2]" />
-                  <span className="text-sm font-bold text-slate-800 tabular-nums">{s.value}</span>
-                  <span className="text-xs text-slate-400">{s.label}</span>
-                </div>
-              ))}
             </div>
           </div>
+        </section>
 
-          <div className="relative mx-auto mt-16 max-w-6xl">
-            <div className="absolute -left-8 top-32 hidden rounded-2xl border border-white bg-white/90 p-4 shadow-xl lg:block">
-              <ShieldCheck className="mb-3 text-[#124bd2]" size={20} />
-              <p className="text-sm font-semibold">Accès filtré</p>
-              <p className="mt-1 text-xs text-slate-500">SIREN + email pro</p>
-            </div>
-            <div className="absolute -right-7 bottom-28 hidden rounded-2xl border border-white bg-white/95 p-4 shadow-xl lg:block">
-              <p className="text-xs text-slate-500">Usage ce mois</p>
-              <p className="mt-1 text-xl font-semibold">684 <span className="text-sm text-slate-400">/ 1 500</span></p>
-              <p className="mt-2 text-xs font-medium text-emerald-600">Fair use actif</p>
+        <section id="demo" className="px-5 pb-14 md:pb-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
+                Simple. Rapide. Redoutable.
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base text-slate-500">
+                Opérationnel en 5 minutes chrono pour vos équipes métier.
+              </p>
             </div>
 
             <div className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_30px_90px_-35px_rgba(15,23,42,0.35)]">
@@ -383,13 +347,13 @@ export default function LandingPage({
                   <div className="mt-7 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row">
                     <div className="flex flex-1 items-center gap-3 rounded-xl bg-white px-4 py-3 text-slate-500 shadow-sm">
                       <Search size={17} />
-                      <span className="text-sm">Agence immobilière · Paris 08</span>
+                      <span className="text-sm">Dupont · Directeur · Lyon</span>
                     </div>
                     <button className="rounded-xl bg-[#124bd2] px-6 py-3 text-sm font-semibold text-white">Rechercher</button>
                   </div>
                   <div className="mt-7 flex items-center justify-between">
                     <p className="font-semibold">3 résultats utiles</p>
-                    <p className="text-xs text-slate-500">Consultation journalisée</p>
+                    <p className="text-xs text-slate-500">187 ms</p>
                   </div>
                   <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
                     {resultRows.map((row, index) => (
@@ -405,19 +369,8 @@ export default function LandingPage({
                 </div>
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* ── Section "Comment ça marche" ─────────────────────────────────── */}
-        <section className="px-5 py-14 md:py-20">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-10 text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Simple et rapide</p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#070f22]">
-                Opérationnel en 5 minutes chrono.
-              </h2>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
               {STEPS.map((step, i) => (
                 <div key={step.num} className="card-lift relative rounded-3xl border border-slate-100 bg-white p-7 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.08)]">
                   <div className={`mb-5 inline-flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold ${step.color}`}>
@@ -437,16 +390,15 @@ export default function LandingPage({
         </section>
 
         {/* ── Section Recherche avancée ────────────────────────────────────── */}
-        <section className="px-5 py-14 md:py-20">
+        <section id="criteres" className="px-5 py-14 md:py-20">
           {/* Heading */}
           <div className="mx-auto mb-10 max-w-4xl text-center">
-            <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Recherche avancée</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
-              Ciblez avec précision.<br />
-              <span className="text-[#124bd2]">Des dizaines de critères combinables.</span>
+              Ciblez avec une précision chirurgicale.
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-slate-500">
-              Combinez librement état civil, coordonnées, adresse et réseaux pour obtenir des résultats ultra-précis en moins de 200 ms.
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-500">
+              Combinez librement identité, localisation, entreprise et réseaux publics.
+              Le filtre anti-homonymes élimine le bruit pour vous donner le contact exact.
             </p>
           </div>
 
@@ -479,139 +431,99 @@ export default function LandingPage({
                   <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#124bd2]">Recherche avancée</p>
-                      <p className="text-base font-semibold tracking-tight">Nouveau ciblage</p>
+                      <p className="text-base font-semibold tracking-tight">Anti-homonymes actif</p>
                     </div>
                     <button className="rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-bold text-white">Lancer →</button>
                   </div>
 
                   {/* Category pills */}
                   <div className="flex flex-wrap gap-1.5 border-b border-slate-200 bg-white px-5 py-3">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#124bd2]">État civil</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">Origine</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Coordonnées</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#124bd2]">Identité pro</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">Entreprise</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Localisation</span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600">Adresse</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Jeux &amp; Réseaux</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Autres données</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Réseaux publics</span>
                   </div>
 
                   {/* Active fields */}
                   <div className="grid grid-cols-2 gap-2 border-b border-slate-200 p-4 md:grid-cols-4">
                     <div className="rounded-lg border-2 border-blue-200 bg-white p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Prénom</p>
-                      <p className="mt-0.5 text-sm font-semibold text-[#124bd2]">Martin</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Nom</p>
+                      <p className="mt-0.5 text-sm font-semibold text-[#124bd2]">Dupont</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Nom</p>
-                      <p className="mt-0.5 text-sm text-slate-300">ex: Dupont</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Poste</p>
+                      <p className="mt-0.5 text-sm text-slate-700">Directeur</p>
                     </div>
                     <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50/50 p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ville naissance</p>
-                      <p className="mt-0.5 text-sm font-semibold text-indigo-600">Paris</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ville</p>
+                      <p className="mt-0.5 text-sm font-semibold text-indigo-600">Lyon</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Date naissance</p>
-                      <p className="mt-0.5 text-sm text-slate-300">jj/mm/aaaa</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Score</p>
+                      <p className="mt-0.5 text-sm text-emerald-600">98%</p>
                     </div>
                   </div>
 
                   {/* Results */}
                   <div className="p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-700">2 correspondances</span>
+                      <span className="text-xs font-semibold text-slate-700">Contact exact</span>
                       <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">187 ms</span>
                     </div>
                     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                        <div>
-                          <p className="text-sm font-semibold">Martin Pierre</p>
-                          <p className="text-[11px] text-slate-400">Né le 12/03/1985 · Paris 11e</p>
+                      <div className="px-5 py-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-base font-bold">Marc Dupont · Directeur Commercial</p>
+                            <p className="mt-1 text-sm text-slate-500">🏢 TechSolutions Lyon</p>
+                          </div>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Vérifié</span>
                         </div>
-                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">Vérifié</span>
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <div>
-                          <p className="text-sm font-semibold">Martin Thomas</p>
-                          <p className="text-[11px] text-slate-400">Né le 07/11/1990 · Paris 08e</p>
+                        <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06.XX.XX.XX.XX <span className="font-semibold text-emerald-600">(Vérifié)</span></p>
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 m.dupont@techsolutions.com <span className="font-semibold text-emerald-600">(Vérifié)</span></p>
                         </div>
-                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">Vérifié</span>
                       </div>
                     </div>
-                    <p className="mt-2 text-[10px] text-slate-400">Consultation journalisée · Données officielles Sirene</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* CTA */}
-            <div className="mt-8 flex flex-col items-center gap-2">
-              <a
-                href="#tarifs"
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#124bd2] px-8 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#0b3fbc]"
-              >
-                ⚡ Commencer — 14 jours offerts →
-              </a>
-              <p className="text-xs text-slate-400">Sans engagement · Résiliation en 1 clic · Accès immédiat</p>
-            </div>
           </div>
         </section>
 
         <section id="securite" className="px-5 py-14 md:py-20">
-          <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="mx-auto max-w-6xl">
             <div className="rounded-[2rem] bg-[#0a1630] p-7 text-white md:p-10">
-              <p className="text-sm font-semibold text-blue-300">Pensé pour les équipes métier</p>
-              <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight md:text-4xl">
-                Prospection utile. Usage maîtrisé.
-              </h2>
-              <div className="mt-9 grid gap-3 sm:grid-cols-2">
-                {safeguards.map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-                    <item.icon className="text-blue-300" size={18} />
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-7 text-sm text-white/60">
-                Opposition et suppression possibles. Revente et extraction automatisée interdites.
-              </p>
-            </div>
-
-            <div id="acces" className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm md:p-7">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-50 p-2.5 text-[#124bd2]"><Building2 size={20} /></div>
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <h2 className="font-semibold">Comptes professionnels</h2>
-                  <p className="text-xs text-slate-500">Inscription et validation contrôlée</p>
+                  <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                    Un usage maîtrisé et responsable.
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/60">
+                    Infrastructure sécurisée. Inscription par vérification de SIREN.
+                  </p>
                 </div>
-              </div>
-              <div className="mt-6 space-y-3 text-sm text-slate-600">
-                <p className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                  <Check size={15} className="text-blue-600" /> SIREN vérifié lors de l’inscription
-                </p>
-                <p className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                  <Check size={15} className="text-blue-600" /> Comptes Agent et Agence nominatifs
-                </p>
-                <p className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                  <Check size={15} className="text-blue-600" /> Validation et supervision Admin
-                </p>
-              </div>
-              <div className="mt-6 space-y-3">
                 <button
                   type="button"
                   onClick={() => setAccountPanel('register')}
-                  className="h-12 w-full cursor-pointer rounded-xl bg-[#124bd2] text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 text-sm font-bold text-[#0a1630] transition hover:bg-blue-50"
                 >
-                  Créer un compte professionnel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAccountPanel('login')}
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Ouvrir mon espace
+                  Créer un accès pro
                 </button>
               </div>
-              <p className="mt-4 text-center text-xs text-slate-500">
-                Données entreprise : Annuaire des Entreprises / Sirene
+              <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {safeguards.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                    <item.icon className="text-blue-300" size={18} />
+                    <p className="mt-3 text-sm font-semibold">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-6 text-xs text-white/45">
+                Sources publiques et professionnelles. Logs auditables par les admins.
               </p>
             </div>
           </div>
@@ -626,10 +538,6 @@ export default function LandingPage({
               <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
                 Un abonnement, pas des fichiers.
               </h2>
-              <p className="mx-auto mt-3 max-w-md text-sm text-slate-500">
-                Usage mensuel raisonnable inclus, sans export massif, avec limites anti-abus
-                adaptées à votre équipe.
-              </p>
             </div>
 
             {/* Toggle période */}

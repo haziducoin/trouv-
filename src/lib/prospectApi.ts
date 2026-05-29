@@ -1,5 +1,8 @@
 // ─── API Prospects — interroge la table Supabase "prospects" ──────────────────
+import { extractBirthCity, extractBirthYear, stripSensitiveFields } from '@/lib/privacy'
 import { getSupabaseClient } from '@/lib/supabase'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 export interface ProspectResult {
   id:            string
@@ -23,6 +26,9 @@ export interface ProspectResult {
   zipCode:       string | null
   department:    string | null
   region:        string | null
+  country?:      string | null
+  birthYear?:    string | null
+  birthCity?:    string | null
   isActive:      boolean
   createdAt:     string
 }
@@ -34,6 +40,7 @@ export interface ProspectSearchParams {
   zipCode?:        string
   employeeRange?:  string
   legalForm?:      string
+  activeOnly?:     boolean
   page?:           number
   perPage?:        number
 }
@@ -47,30 +54,38 @@ export interface ProspectSearchResponse {
 }
 
 function mapRow(row: Record<string, any>): ProspectResult {
+  const clean = stripSensitiveFields(row)
+  const firstName = clean.first_name ?? clean.firstName ?? ''
+  const lastName = clean.last_name ?? clean.lastName ?? ''
+  const companyName = clean.company_name ?? clean.companyName ?? null
+
   return {
-    id:            row.id,
-    firstName:     row.first_name  ?? '',
-    lastName:      row.last_name   ?? '',
-    fullName:      `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || row.company_name || 'Inconnu',
-    jobTitle:      row.job_title      ?? null,
-    companyName:   row.company_name   ?? null,
-    companySiren:  row.company_siren  ?? null,
-    activityCode:  row.activity_code  ?? null,
-    activityLabel: row.activity_label ?? null,
-    companySize:   row.company_size   ?? null,
-    companyType:   row.company_type   ?? null,
-    email:         row.email          ?? null,
-    phone:         row.phone          ?? null,
-    phoneMobile:   row.phone_mobile   ?? null,
-    linkedinUrl:   row.linkedin_url   ?? null,
-    website:       row.website        ?? null,
-    address:       row.address        ?? null,
-    city:          row.city           ?? null,
-    zipCode:       row.zip_code       ?? null,
-    department:    row.department     ?? null,
-    region:        row.region         ?? null,
-    isActive:      row.is_active      ?? true,
-    createdAt:     row.created_at     ?? new Date().toISOString(),
+    id:            String(clean.id ?? crypto.randomUUID()),
+    firstName,
+    lastName,
+    fullName:      clean.fullName ?? (`${firstName} ${lastName}`.trim() || companyName || 'Inconnu'),
+    jobTitle:      clean.job_title      ?? clean.jobTitle ?? null,
+    companyName,
+    companySiren:  null,
+    activityCode:  null,
+    activityLabel: clean.activity_label ?? clean.activityLabel ?? null,
+    companySize:   null,
+    companyType:   null,
+    email:         clean.email          ?? null,
+    phone:         clean.phone          ?? null,
+    phoneMobile:   clean.phone_mobile   ?? clean.phoneMobile ?? null,
+    linkedinUrl:   clean.linkedin_url   ?? clean.linkedinUrl ?? clean.public_social_url ?? null,
+    website:       null,
+    address:       clean.address        ?? null,
+    city:          clean.city           ?? null,
+    zipCode:       clean.zip_code       ?? clean.zipCode ?? null,
+    department:    null,
+    region:        null,
+    country:       clean.country        ?? null,
+    birthYear:     clean.birthYear      ?? extractBirthYear(clean),
+    birthCity:     clean.birthCity      ?? extractBirthCity(clean),
+    isActive:      true,
+    createdAt:     clean.created_at     ?? new Date().toISOString(),
   }
 }
 
@@ -78,6 +93,30 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const supabase  = getSupabaseClient()
   const pg        = params.page    ?? 1
   const pp        = params.perPage ?? 20
+  const token     = (await supabase.auth.getSession()).data.session?.access_token
+
+  if (token) {
+    try {
+      const response = await fetch(`${API_URL}/api/prospects/search`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...params, page: pg, perPage: pp }),
+      })
+
+      if (!response.ok) throw new Error(`API prospects indisponible (${response.status})`)
+
+      const payload = await response.json() as ProspectSearchResponse
+      return {
+        ...payload,
+        results: (payload.results ?? []).map(row => mapRow(row as unknown as Record<string, any>)),
+      }
+    } catch (error) {
+      if (import.meta.env.PROD) throw error
+    }
+  }
 
   const { data, error } = await supabase.rpc('search_prospects', {
     p_query:          params.query.trim(),
@@ -116,16 +155,16 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
 
 export function exportProspectsCSV(results: ProspectResult[], query: string) {
   const headers = [
-    'Prénom', 'Nom', 'Poste', 'Entreprise', 'SIREN',
-    'Email', 'Téléphone', 'Mobile', 'LinkedIn',
-    'Adresse', 'Ville', 'Code postal', 'Département', 'Région',
-    'Activité NAF', 'Taille', 'Statut',
+    'Prénom', 'Nom', 'Poste', 'Entreprise',
+    'Email', 'Téléphone fixe', 'Téléphone mobile', 'Réseau social public',
+    'Adresse', 'Ville', 'Code postal', 'Pays',
+    'Année de naissance', 'Ville de naissance',
   ]
   const rows = results.map(p => [
-    p.firstName, p.lastName, p.jobTitle ?? '', p.companyName ?? '', p.companySiren ?? '',
+    p.firstName, p.lastName, p.jobTitle ?? '', p.companyName ?? '',
     p.email ?? '', p.phone ?? '', p.phoneMobile ?? '', p.linkedinUrl ?? '',
-    p.address ?? '', p.city ?? '', p.zipCode ?? '', p.department ?? '', p.region ?? '',
-    p.activityCode ?? '', p.companySize ?? '', p.isActive ? 'Actif' : 'Inactif',
+    p.address ?? '', p.city ?? '', p.zipCode ?? '', p.country ?? '',
+    p.birthYear ?? '', p.birthCity ?? '',
   ])
   const csv = [headers, ...rows]
     .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
