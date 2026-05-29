@@ -90,7 +90,17 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     p_per_page:       pp,
   })
 
-  if (error) throw new Error(`Recherche impossible : ${error.message}`)
+  if (error) {
+    // Fonction RPC absente = SQL pas encore exécuté dans Supabase → état vide silencieux
+    if (
+      error.message?.includes('Could not find') ||
+      error.message?.includes('function') ||
+      error.code === 'PGRST202'
+    ) {
+      return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
+    }
+    throw new Error(`Recherche impossible : ${error.message}`)
+  }
 
   const rows = (data ?? []) as Array<Record<string, any>>
   const total = rows.length > 0 ? Number(rows[0].total_count) : 0

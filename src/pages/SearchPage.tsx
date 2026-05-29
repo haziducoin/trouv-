@@ -52,22 +52,6 @@ function isNew(createdAt: string | null) {
   return d > months12Ago
 }
 
-function exportCSV(results: CompanyResult[], query: string) {
-  const headers = ['SIREN','Nom','Type','Ville','Code postal','Département','Salariés','Statut','Création','NAF','Libellé NAF']
-  const rows = results.map(c => [
-    c.siren, c.name, c.typeLabel, c.city, c.zipCode, c.department,
-    c.employees ?? '', c.isActive ? 'Actif' : 'Cessé',
-    c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-FR') : '',
-    c.activityCode, c.activityLabel,
-  ])
-  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url
-  a.download = `prospection_${query || 'immobilier'}_${new Date().toISOString().slice(0,10)}.csv`
-  a.click(); URL.revokeObjectURL(url)
-}
-
 function readRecentSearches(): string[] {
   try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) ?? '[]') } catch { return [] }
 }
@@ -746,200 +730,205 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
   )
 }
 
-// ─── Recherche avancée ────────────────────────────────────────────────────────
+// ─── Recherche avancée (6 sections) ──────────────────────────────────────────
 interface AdvancedFiltersProps {
-  department:     string; setDepartment:     (v: string) => void
-  activityCode:   string; setActivityCode:   (v: string) => void
-  activeOnly:     boolean; setActiveOnly:    (v: boolean) => void
-  zipCode:        string; setZipCode:        (v: string) => void
-  employeeRange:  string; setEmployeeRange:  (v: string) => void
-  legalForm:      string; setLegalForm:      (v: string) => void
-  onSearch:       () => void
-  onReset:        () => void
+  // État civil
+  firstName: string; setFirstName: (v: string) => void
+  lastName:  string; setLastName:  (v: string) => void
+  jobTitle:  string; setJobTitle:  (v: string) => void
+  // Adresse
+  city:       string; setCity:       (v: string) => void
+  address:    string; setAddress:    (v: string) => void
+  zipCode:    string; setZipCode:    (v: string) => void
+  department: string; setDepartment: (v: string) => void
+  // Coordonnées
+  phone: string; setPhone: (v: string) => void
+  email: string; setEmail: (v: string) => void
+  // Entreprise
+  companyName:   string; setCompanyName:   (v: string) => void
+  activityCode:  string; setActivityCode:  (v: string) => void
+  employeeRange: string; setEmployeeRange: (v: string) => void
+  legalForm:     string; setLegalForm:     (v: string) => void
+  // Réseaux sociaux
+  linkedin: string; setLinkedin: (v: string) => void
+  // Actions
+  onSearch: () => void
+  onReset:  () => void
 }
 
-function AdvancedFilters({
-  department, setDepartment,
-  activityCode, setActivityCode,
-  activeOnly, setActiveOnly,
-  zipCode, setZipCode,
-  employeeRange, setEmployeeRange,
-  legalForm, setLegalForm,
-  onSearch, onReset,
-}: AdvancedFiltersProps) {
-  const [openSections, setOpenSections] = useState(['location', 'company', 'status'])
-  const toggle = (k: string) =>
-    setOpenSections(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
+function AdvSection({
+  id, icon, title, color, open, onToggle, children,
+}: {
+  id: string; icon: React.ReactNode; title: string; color: string
+  open: boolean; onToggle: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className="border-b border-slate-100 last:border-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium text-slate-700 hover:bg-slate-50/80 transition"
+      >
+        <span className="flex items-center gap-3">
+          <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
+            {icon}
+          </span>
+          <span className="font-semibold">{title}</span>
+        </span>
+        {open
+          ? <ChevronUp size={14} className="text-slate-300" />
+          : <ChevronDown size={14} className="text-slate-300" />
+        }
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-1">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdvInput({
+  label, value, onChange, onEnter, placeholder, type = 'text',
+}: {
+  label: string; value: string; onChange: (v: string) => void
+  onEnter?: () => void; placeholder?: string; type?: string
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && onEnter) onEnter() }}
+        placeholder={placeholder}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300"
+      />
+    </div>
+  )
+}
+
+function AdvSelect({
+  label, value, onChange, children,
+}: {
+  label: string; value: string; onChange: (v: string) => void; children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+      >
+        {children}
+      </select>
+    </div>
+  )
+}
+
+function AdvancedFilters(props: AdvancedFiltersProps) {
+  const {
+    firstName, setFirstName, lastName, setLastName, jobTitle, setJobTitle,
+    city, setCity, address, setAddress, zipCode, setZipCode, department, setDepartment,
+    phone, setPhone, email, setEmail,
+    companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
+    linkedin, setLinkedin,
+    onSearch, onReset,
+  } = props
+
+  const [open, setOpen] = useState<string[]>(['civil', 'address', 'contact', 'company'])
+  const tog = (k: string) => setOpen(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
 
   return (
-    <div className="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
+    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-      {/* ── Localisation ──────────────────────────────────────────────── */}
-      <div>
-        <button
-          type="button"
-          onClick={() => toggle('location')}
-          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#124bd2]">
-              <MapPin size={14} />
-            </span>
-            Localisation
-          </span>
-          {openSections.includes('location')
-            ? <ChevronUp size={14} className="text-slate-400" />
-            : <ChevronDown size={14} className="text-slate-400" />
-          }
-        </button>
-        {openSections.includes('location') && (
-          <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Département
-              </label>
-              <select
-                value={department}
-                onChange={e => { setDepartment(e.target.value); onSearch() }}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
-              >
-                <option value="">Tous les départements</option>
-                {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Code postal
-              </label>
-              <input
-                type="text"
-                value={zipCode}
-                onChange={e => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                onBlur={onSearch}
-                onKeyDown={e => { if (e.key === 'Enter') onSearch() }}
-                placeholder="75001"
-                maxLength={5}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      {/* 1 — État civil */}
+      <AdvSection id="civil" icon={<UserCircle2 size={15} />} title="État civil"
+        color="bg-blue-50 text-[#124bd2]" open={open.includes('civil')} onToggle={() => tog('civil')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
+          <AdvInput label="Nom" value={lastName} onChange={setLastName} onEnter={onSearch} placeholder="Dupont" />
+          <AdvInput label="Poste / Titre" value={jobTitle} onChange={setJobTitle} onEnter={onSearch} placeholder="Directeur commercial" />
+        </div>
+      </AdvSection>
 
-      {/* ── Entreprise ────────────────────────────────────────────────── */}
-      <div>
-        <button
-          type="button"
-          onClick={() => toggle('company')}
-          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
-              <Building2 size={14} />
-            </span>
-            Type d'entreprise
-          </span>
-          {openSections.includes('company')
-            ? <ChevronUp size={14} className="text-slate-400" />
-            : <ChevronDown size={14} className="text-slate-400" />
-          }
-        </button>
-        {openSections.includes('company') && (
-          <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Activité (NAF)
-              </label>
-              <select
-                value={activityCode}
-                onChange={e => { setActivityCode(e.target.value); onSearch() }}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
-              >
-                <option value="">Tous les types</option>
-                {Object.entries(TYPE_LABELS).map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Taille (salariés)
-              </label>
-              <select
-                value={employeeRange}
-                onChange={e => { setEmployeeRange(e.target.value); onSearch() }}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
-              >
-                <option value="">Toutes tailles</option>
-                {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Forme juridique
-              </label>
-              <select
-                value={legalForm}
-                onChange={e => { setLegalForm(e.target.value); onSearch() }}
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
-              >
-                <option value="">Toutes formes</option>
-                {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* 2 — Adresse */}
+      <AdvSection id="address" icon={<MapPin size={15} />} title="Adresse"
+        color="bg-emerald-50 text-emerald-600" open={open.includes('address')} onToggle={() => tog('address')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Rue / Adresse" value={address} onChange={setAddress} onEnter={onSearch} placeholder="122 Boulevard Murat" />
+          <AdvInput label="Ville" value={city} onChange={setCity} onEnter={onSearch} placeholder="Paris" />
+          <AdvInput label="Code postal" value={zipCode}
+            onChange={v => setZipCode(v.replace(/\D/g, '').slice(0, 5))}
+            onEnter={onSearch} placeholder="75016" />
+          <AdvSelect label="Département" value={department} onChange={v => { setDepartment(v); onSearch() }}>
+            <option value="">Tous les départements</option>
+            {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
+          </AdvSelect>
+        </div>
+      </AdvSection>
 
-      {/* ── Statut & Ancienneté ───────────────────────────────────────── */}
-      <div>
-        <button
-          type="button"
-          onClick={() => toggle('status')}
-          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-              <Zap size={14} />
-            </span>
-            Statut & Ancienneté
-          </span>
-          {openSections.includes('status')
-            ? <ChevronUp size={14} className="text-slate-400" />
-            : <ChevronDown size={14} className="text-slate-400" />
-          }
-        </button>
-        {openSections.includes('status') && (
-          <div className="flex flex-wrap gap-3 px-5 pb-5">
-            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 has-[:checked]:border-[#124bd2] has-[:checked]:bg-blue-50 has-[:checked]:text-[#124bd2]">
-              <input
-                type="checkbox"
-                checked={activeOnly}
-                onChange={e => { setActiveOnly(e.target.checked); onSearch() }}
-                className="accent-[#124bd2]"
-              />
-              Actives uniquement
-            </label>
-          </div>
-        )}
-      </div>
+      {/* 3 — Coordonnées */}
+      <AdvSection id="contact" icon={<Phone size={15} />} title="Coordonnées"
+        color="bg-purple-50 text-purple-600" open={open.includes('contact')} onToggle={() => tog('contact')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Téléphone" value={phone} onChange={setPhone} onEnter={onSearch} placeholder="06 12 34 56 78" type="tel" />
+          <AdvInput label="Email" value={email} onChange={setEmail} onEnter={onSearch} placeholder="jean.dupont@agence.fr" type="email" />
+        </div>
+      </AdvSection>
 
-      {/* ── Footer actions ────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between bg-slate-50 px-5 py-3">
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-slate-400 transition hover:text-slate-700"
-        >
-          Réinitialiser les filtres
+      {/* 4 — Entreprise */}
+      <AdvSection id="company" icon={<Building2 size={15} />} title="Entreprise"
+        color="bg-amber-50 text-amber-600" open={open.includes('company')} onToggle={() => tog('company')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
+          <AdvSelect label="Secteur d'activité" value={activityCode} onChange={v => { setActivityCode(v); onSearch() }}>
+            <option value="">Tous les secteurs</option>
+            {Object.entries(TYPE_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </AdvSelect>
+          <AdvSelect label="Taille (effectif)" value={employeeRange} onChange={v => { setEmployeeRange(v); onSearch() }}>
+            <option value="">Toutes tailles</option>
+            {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
+          </AdvSelect>
+          <AdvSelect label="Forme juridique" value={legalForm} onChange={v => { setLegalForm(v); onSearch() }}>
+            <option value="">Toutes formes</option>
+            {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
+          </AdvSelect>
+        </div>
+      </AdvSection>
+
+      {/* 5 — Réseaux sociaux */}
+      <AdvSection id="social" icon={<Globe size={15} />} title="Réseaux sociaux"
+        color="bg-sky-50 text-sky-600" open={open.includes('social')} onToggle={() => tog('social')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="LinkedIn (URL ou nom)" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
+        </div>
+      </AdvSection>
+
+      {/* 6 — Autres informations */}
+      <AdvSection id="other" icon={<Info size={15} />} title="Autres informations"
+        color="bg-slate-100 text-slate-500" open={open.includes('other')} onToggle={() => tog('other')}>
+        <p className="text-xs text-slate-400">D'autres critères seront disponibles après l'import de votre base de données.</p>
+      </AdvSection>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3">
+        <button type="button" onClick={onReset}
+          className="flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-700">
+          <RefreshCw size={11} /> Réinitialiser
         </button>
-        <button
-          type="button"
-          onClick={onSearch}
-          className="flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
-        >
-          <Search size={12} />
-          Appliquer
+        <button type="button" onClick={onSearch}
+          className="flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+          <Search size={12} /> Rechercher
         </button>
       </div>
     </div>
@@ -957,6 +946,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [zipCode, setZipCode]           = useState('')
   const [employeeRange, setEmployeeRange] = useState('')
   const [legalForm, setLegalForm]       = useState('')
+  // Filtres avancés — champs texte (libres)
+  const [advFirstName, setAdvFirstName]     = useState('')
+  const [advLastName, setAdvLastName]       = useState('')
+  const [advJobTitle, setAdvJobTitle]       = useState('')
+  const [advCity, setAdvCity]               = useState('')
+  const [advAddress, setAdvAddress]         = useState('')
+  const [advPhone, setAdvPhone]             = useState('')
+  const [advEmail, setAdvEmail]             = useState('')
+  const [advCompanyName, setAdvCompanyName] = useState('')
+  const [advLinkedin, setAdvLinkedin]       = useState('')
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
@@ -974,7 +973,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [selectedCompany, setSelectedCompany] = useState<ProspectResult | null>(null)
   const [showRecent, setShowRecent]           = useState(false)
   const [recentSearches, setRecentSearches]   = useState<string[]>([])
-  const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.siren)))
+  const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.id)))
   const [appView, setAppView]                 = useState<AppView>('search')
   const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
@@ -988,7 +987,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   // Refs
   const searchInputRef  = useRef<HTMLInputElement>(null)
   const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const activeFiltersCount = [department, activityCode, !activeOnly, zipCode, employeeRange, legalForm].filter(Boolean).length
+  const activeFiltersCount = [
+    department, activityCode, zipCode, employeeRange, legalForm,
+    advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
+  ].filter(Boolean).length
 
   // Charger les recherches récentes
   useEffect(() => {
@@ -1007,6 +1009,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
+
+  // Construit la requête FTS en combinant la barre principale + tous les champs avancés texte
+  const buildQuery = () =>
+    [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+      .map(s => s.trim()).filter(Boolean).join(' ')
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
@@ -1037,12 +1044,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     }
   }, [usedQuota, account.quota])
 
-  // Debounce search-as-you-type
+  // Debounce search-as-you-type (barre principale uniquement)
   useEffect(() => {
     if (!hasSearched) return // pas de debounce avant la 1ère recherche manuelle
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+      const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+        .map(s => s.trim()).filter(Boolean).join(' ')
+      doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
     }, 420)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [inputValue]) // eslint-disable-line
@@ -1052,7 +1061,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     if (debounceRef.current) clearTimeout(debounceRef.current)
     setQuery(inputValue)
     setShowRecent(false)
-    doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleQuickFilter = (f: typeof QUICK_FILTERS[0]) => {
@@ -1065,6 +1074,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
   const handleRecentSearch = (q: string) => {
     setInputValue(q); setQuery(q); setShowRecent(false)
+    // Pour une recherche récente on efface les champs avancés texte et relance sur q seul
     doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
@@ -1074,7 +1084,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   }, []) // eslint-disable-line
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -1194,7 +1204,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   onChange={e => setInputValue(e.target.value)}
                   onFocus={() => setShowRecent(true)}
                   onBlur={() => setTimeout(() => setShowRecent(false), 150)}
-                  placeholder="Agence immobilière · Paris 08"
+                  placeholder="Nom, prénom, entreprise, téléphone, adresse..."
                   autoComplete="off"
                   className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                 />
@@ -1270,17 +1280,35 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             {/* Panneau de recherche avancée */}
             {showFilters && (
               <AdvancedFilters
-                department={department}       setDepartment={v => { setDepartment(v); setPage(1) }}
-                activityCode={activityCode}   setActivityCode={v => { setActivityCode(v); setPage(1) }}
-                activeOnly={activeOnly}       setActiveOnly={v => { setActiveOnly(v); setPage(1) }}
-                zipCode={zipCode}             setZipCode={v => { setZipCode(v); setPage(1) }}
-                employeeRange={employeeRange} setEmployeeRange={v => { setEmployeeRange(v); setPage(1) }}
-                legalForm={legalForm}         setLegalForm={v => { setLegalForm(v); setPage(1) }}
+                // État civil
+                firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
+                lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
+                jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}
+                // Adresse
+                city={advCity}                 setCity={v => { setAdvCity(v); setPage(1) }}
+                address={advAddress}           setAddress={v => { setAdvAddress(v); setPage(1) }}
+                zipCode={zipCode}              setZipCode={v => { setZipCode(v); setPage(1) }}
+                department={department}        setDepartment={v => { setDepartment(v); setPage(1) }}
+                // Coordonnées
+                phone={advPhone}               setPhone={v => { setAdvPhone(v); setPage(1) }}
+                email={advEmail}               setEmail={v => { setAdvEmail(v); setPage(1) }}
+                // Entreprise
+                companyName={advCompanyName}   setCompanyName={v => { setAdvCompanyName(v); setPage(1) }}
+                activityCode={activityCode}    setActivityCode={v => { setActivityCode(v); setPage(1) }}
+                employeeRange={employeeRange}  setEmployeeRange={v => { setEmployeeRange(v); setPage(1) }}
+                legalForm={legalForm}          setLegalForm={v => { setLegalForm(v); setPage(1) }}
+                // Réseaux sociaux
+                linkedin={advLinkedin}         setLinkedin={v => { setAdvLinkedin(v); setPage(1) }}
                 onSearch={() => {
+                  const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+                    .map(s => s.trim()).filter(Boolean).join(' ')
                   setQuery(inputValue)
-                  doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                  doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
                 }}
                 onReset={() => {
+                  setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                  setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
+                  setAdvCompanyName(''); setAdvLinkedin('')
                   setDepartment(''); setActivityCode(''); setActiveOnly(true)
                   setZipCode(''); setEmployeeRange(''); setLegalForm('')
                   setPage(1)
@@ -1371,7 +1399,15 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   Elle sera disponible très prochainement.
                 </p>
                 <button
-                  onClick={() => { setInputValue(''); setDepartment(''); setActivityCode(''); setActiveOnly(true); setZipCode(''); setEmployeeRange(''); setLegalForm(''); doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' }) }}
+                  onClick={() => {
+                    setInputValue(''); setQuery('')
+                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                    setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
+                    setAdvCompanyName(''); setAdvLinkedin('')
+                    setDepartment(''); setActivityCode(''); setActiveOnly(true)
+                    setZipCode(''); setEmployeeRange(''); setLegalForm('')
+                    doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+                  }}
                   className="mt-6 rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2]"
                 >
                   Réinitialiser les filtres
