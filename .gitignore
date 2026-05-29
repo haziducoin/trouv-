@@ -29,3 +29,6 @@ dist-ssr
 # Screenshots / images temporaires
 *.png
 !public/*.png
+
+# Local admin tools
+scripts/db.mjs
