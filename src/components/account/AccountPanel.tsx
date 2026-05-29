@@ -32,6 +32,7 @@ import {
   getAuditEvents,
   getDataMetrics,
   isOAuthPreviewEnabled,
+  PersonalEmailError,
   reviewAccessRequest,
   usesRemoteDatabase,
   type Account,
@@ -137,9 +138,16 @@ export default function AccountPanel({
     setRegisterError('')
     try {
       const newAccount = await createAccessRequest(form)
-      setRequestCreated(newAccount)
+      // Redirection directe vers l'accès limité, sans écran d'attente
+      onAuthenticated(newAccount)
     } catch (error) {
-      setRegisterError(error instanceof Error ? error.message : 'Impossible de créer la demande.')
+      if (error instanceof PersonalEmailError) {
+        setRegisterError(
+          `${error.email} est une adresse personnelle. Utilisez votre email professionnel (@votre-agence.fr).`,
+        )
+      } else {
+        setRegisterError(error instanceof Error ? error.message : 'Impossible de créer le compte.')
+      }
     }
   }
 

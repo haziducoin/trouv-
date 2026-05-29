@@ -259,6 +259,12 @@ export async function initializeAccounts() {
 
 export async function createAccessRequest(input: RegistrationInput, company?: VerifiedCompany) {
   const email = input.email.trim().toLowerCase()
+
+  // ── Bloquer les emails personnels dès l'inscription ──────────────────────
+  if (isPersonalEmail(email)) {
+    throw new PersonalEmailError(email)
+  }
+
   const companyName = company?.name ?? ''
   const sirenValue  = company?.siren ?? ''
 
@@ -284,7 +290,8 @@ export async function createAccessRequest(input: RegistrationInput, company?: Ve
       throw new Error(error?.message ?? 'Impossible de créer la demande distante.')
     }
 
-    await supabase.auth.signOut()
+    // On garde la session ouverte → onAuthStateChange(SIGNED_IN) dans App.tsx
+    // prend le relais et route l'utilisateur directement vers l'accès limité.
     return {
       id: data.user.id,
       firstName: input.firstName.trim(),
@@ -442,19 +449,20 @@ export async function restoreSession() {
     }
     const [account] = profileResult
 
-    // ── Nouvel utilisateur OAuth — pas encore de profil ───────────────────
+    // ── Nouvel utilisateur (OAuth ou email/password) — pas encore de profil ─
     if (!account) {
       const meta = (data.session.user.user_metadata ?? {}) as Record<string, string>
-      const givenName  = (meta.given_name  ?? meta.name?.split(' ')[0]           ?? sessionEmail.split('@')[0]).trim()
-      const familyName = (meta.family_name ?? meta.name?.split(' ').slice(1).join(' ') ?? '').trim()
+      // OAuth → given_name/family_name ; email/password → first_name/last_name
+      const givenName  = (meta.given_name  ?? meta.first_name  ?? meta.name?.split(' ')[0]           ?? sessionEmail.split('@')[0]).trim()
+      const familyName = (meta.family_name ?? meta.last_name   ?? meta.name?.split(' ').slice(1).join(' ') ?? '').trim()
       return {
         id:           data.session.user.id,
         firstName:    givenName,
         lastName:     familyName,
         email:        sessionEmail,
-        companyName:  '',
-        siren:        '',
-        role:         'agent' as UserRole,
+        companyName:  meta.company_name ?? '',
+        siren:        meta.siren ?? '',
+        role:         (meta.requested_role as UserRole) ?? 'agent',
         status:       'pending' as AccessStatus,
         quota:        quotaByRole.agent,
         monthlyUsage: 0,
