@@ -143,7 +143,12 @@ export default function App() {
   if (sessionLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f8ff]">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#124bd2] border-t-transparent" />
+        <img
+          src="/favicon.svg"
+          alt="trouvé!"
+          className="h-8 w-8 animate-spin"
+          style={{ animationDuration: '1s', animationTimingFunction: 'linear' }}
+        />
       </div>
     )
   }
