@@ -42,35 +42,46 @@ export default function App() {
   useEffect(() => {
     if (isDemoMode || isSuccessPage) return
 
-    // ── Tentative initiale (session déjà existante) ───────────────────────
-    restoreSession()
-      .then(a  => { setAccount(a); setSessionLoading(false) })
-      .catch((err: unknown) => {
-        if (err instanceof PersonalEmailError) setBlockedEmail(err.email)
-        setSessionLoading(false)
-      })
+    // ── Mode local (sans Supabase) ────────────────────────────────────────
+    if (!isRemoteDatabaseConfigured) {
+      restoreSession()
+        .then(a  => { setAccount(a); setSessionLoading(false) })
+        .catch((err: unknown) => {
+          if (err instanceof PersonalEmailError) setBlockedEmail(err.email)
+          setSessionLoading(false)
+        })
+      return
+    }
 
-    // ── Listener OAuth PKCE : Supabase échange le ?code= de façon asynchrone
-    // après le redirect. SIGNED_IN se déclenche quand c'est prêt. ────────────
-    if (!isRemoteDatabaseConfigured) return
+    // ── Mode Supabase — on enregistre le listener EN PREMIER ─────────────
+    // Supabase traite le ?code= PKCE dès la création du client.
+    // INITIAL_SESSION fire avec la session résultante (ou null si pas de code).
+    // C'est le seul moyen fiable de capter le retour OAuth sans race condition.
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
-      async (event) => {
-        if (event === 'SIGNED_IN') {
+      async (event, session) => {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          if (!session) {
+            // Pas de session active → landing page
+            setSessionLoading(false)
+            return
+          }
           try {
             const a = await restoreSession()
             setAccount(a)
-            setSessionLoading(false)
           } catch (err) {
             if (err instanceof PersonalEmailError) {
               setBlockedEmail((err as PersonalEmailError).email)
             }
+          } finally {
             setSessionLoading(false)
           }
         } else if (event === 'SIGNED_OUT') {
           setAccount(null)
+          setSessionLoading(false)
         }
       }
     )
+
     return () => subscription.unsubscribe()
   }, [])
 
