@@ -23,7 +23,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import trouveLogo from '@/assets/trouve-logo.png'
-import { findCompanyBySiren, normalizeSiren, type VerifiedCompany } from '@/lib/companyApi'
 import {
   authenticate,
   authenticateWithOAuth,
@@ -84,11 +83,8 @@ export default function AccountPanel({
     lastName: '',
     email: '',
     password: '',
-    siren: '',
     role: 'agent' as Exclude<UserRole, 'admin'>,
   })
-  const [company, setCompany] = useState<VerifiedCompany | null>(null)
-  const [sirenState, setSirenState] = useState<'idle' | 'loading' | 'error' | 'verified'>('idle')
   const [registerError, setRegisterError] = useState('')
   const [requestCreated, setRequestCreated] = useState<Account | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -136,39 +132,11 @@ export default function AccountPanel({
     [accounts, currentAccount],
   )
 
-  const verifyCompany = async () => {
-    setCompany(null)
-    setRegisterError('')
-    setSirenState('loading')
-    try {
-      const result = await findCompanyBySiren(form.siren)
-      if (!result) {
-        setSirenState('error')
-        setRegisterError('Aucune entreprise trouvée pour ce numéro SIREN.')
-        return
-      }
-      if (!result.isActive) {
-        setSirenState('error')
-        setRegisterError("L'entreprise doit être active pour demander un accès.")
-        return
-      }
-      setCompany(result)
-      setSirenState('verified')
-    } catch (error) {
-      setSirenState('error')
-      setRegisterError(error instanceof Error ? error.message : 'Vérification impossible.')
-    }
-  }
-
   const handleRegistration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setRegisterError('')
-    if (!company || company.siren !== normalizeSiren(form.siren)) {
-      setRegisterError("Vérifiez d'abord votre SIREN avant de soumettre la demande.")
-      return
-    }
     try {
-      const newAccount = await createAccessRequest(form, company)
+      const newAccount = await createAccessRequest(form)
       setRequestCreated(newAccount)
     } catch (error) {
       setRegisterError(error instanceof Error ? error.message : 'Impossible de créer la demande.')
@@ -247,7 +215,7 @@ export default function AccountPanel({
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {isRegister
-                  ? 'Vérifiez votre société par SIREN, puis envoyez une demande nominative à valider.'
+                  ? 'Créez votre accès professionnel et soumettez votre demande à valider.'
                   : 'Connectez-vous à votre compte pour continuer.'}
               </p>
 
@@ -303,8 +271,7 @@ export default function AccountPanel({
                     de validation. Vous recevrez une confirmation après contrôle de la société.
                   </p>
                   <div className="mt-5 rounded-2xl bg-white p-4 text-sm text-slate-600">
-                    <p className="font-semibold text-[#07113d]">{requestCreated.companyName}</p>
-                    <p className="mt-1">SIREN {requestCreated.siren} · {roleLabels[requestCreated.role]}</p>
+                    <p className="font-semibold text-[#07113d]">{requestCreated.email}</p>
                   </div>
                   <button
                     type="button"
@@ -341,47 +308,6 @@ export default function AccountPanel({
                     value={form.email}
                     onChange={(value) => setForm({ ...form, email: value })}
                   />
-                  <div className="grid gap-3 sm:grid-cols-[1fr_1.05fr]">
-                    <select
-                      id="register-role"
-                      value={form.role}
-                      onChange={(event) =>
-                        setForm({ ...form, role: event.target.value as Exclude<UserRole, 'admin'> })
-                      }
-                      className="h-[50px] rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-[#0757f8] focus:ring-4 focus:ring-blue-100"
-                    >
-                      <option value="agent">Agent nominatif</option>
-                      <option value="agence">Agence / équipe</option>
-                    </select>
-                    <div className="flex gap-2">
-                      <AuthInput
-                        id="register-siren"
-                        label="SIREN société"
-                        inputMode="numeric"
-                        value={form.siren}
-                        onChange={(value) => {
-                          setForm({ ...form, siren: value })
-                          setCompany(null)
-                          setSirenState('idle')
-                          setRegisterError('')
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={verifyCompany}
-                        disabled={sirenState === 'loading'}
-                        className="h-[50px] rounded-xl bg-blue-50 px-4 text-sm font-semibold text-[#0757f8] transition hover:bg-blue-100 disabled:opacity-60"
-                      >
-                        {sirenState === 'loading' ? '...' : 'OK'}
-                      </button>
-                    </div>
-                  </div>
-                  {company && (
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                      <span className="font-semibold">{company.name}</span>
-                      <span className="mt-1 block text-xs">SIREN {company.siren} · entreprise active</span>
-                    </div>
-                  )}
                   <AuthInput
                     id="register-password"
                     label="Mot de passe"
@@ -511,8 +437,7 @@ export default function AccountPanel({
               </p>
             )}
             <div className="mt-5 rounded-2xl bg-white p-4 text-sm text-slate-600">
-              <p className="font-medium text-slate-950">{requestCreated.companyName}</p>
-              <p className="mt-1">SIREN {requestCreated.siren} · {roleLabels[requestCreated.role]}</p>
+              <p className="font-medium text-slate-950">{requestCreated.email}</p>
               <p className="mt-1 text-amber-700">Statut : en validation</p>
             </div>
             <button
@@ -551,58 +476,6 @@ export default function AccountPanel({
               value={form.email}
               onChange={(value) => setForm({ ...form, email: value })}
             />
-            <div>
-              <label htmlFor="register-role" className="mb-2 block text-xs font-medium text-slate-600">Profil demandé</label>
-              <select
-                id="register-role"
-                value={form.role}
-                onChange={(event) =>
-                  setForm({ ...form, role: event.target.value as Exclude<UserRole, 'admin'> })
-                }
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-blue-600"
-              >
-                <option value="agent">Agent - accès nominatif</option>
-                <option value="agence">Agence - gestion d'équipe</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="register-siren" className="mb-2 block text-xs font-medium text-slate-600">
-                Société rattachée
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="register-siren"
-                  required
-                  inputMode="numeric"
-                  value={form.siren}
-                  onChange={(event) => {
-                    setForm({ ...form, siren: event.target.value })
-                    setCompany(null)
-                    setSirenState('idle')
-                    setRegisterError('')
-                  }}
-                  placeholder="SIREN - 9 chiffres"
-                  className="h-12 flex-1 rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-blue-600"
-                />
-                <button
-                  type="button"
-                  onClick={verifyCompany}
-                  disabled={sirenState === 'loading'}
-                  className="rounded-xl border border-blue-100 bg-blue-50 px-4 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
-                >
-                  {sirenState === 'loading' ? '...' : 'Vérifier'}
-                </button>
-              </div>
-            </div>
-            {company && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="flex items-center gap-2 text-sm font-medium text-emerald-800">
-                  <BadgeCheck size={16} />
-                  {company.name}
-                </p>
-                <p className="mt-1 text-xs text-emerald-700">SIREN {company.siren} · Entreprise active</p>
-              </div>
-            )}
             <Field
               id="register-password"
               label="Mot de passe"
@@ -651,8 +524,7 @@ export default function AccountPanel({
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-600">
                 <p className="font-medium text-slate-900">Compte admin de démonstration</p>
                 <p>{DEMO_ADMIN.email}</p>
-                <p>{DEMO_ADMIN.password}</p>
-                <p className="mt-2 text-slate-500">Permet de valider les demandes créées localement.</p>
+                <p className="mt-2 text-slate-500">Le mot de passe de démonstration n'est plus affiché dans l'interface client.</p>
               </div>
             ) : (
               <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-blue-800">

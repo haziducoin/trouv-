@@ -257,8 +257,10 @@ export async function initializeAccounts() {
   return usesRemoteDatabase ? fetchRemoteProfiles() : initializeLocalAccounts()
 }
 
-export async function createAccessRequest(input: RegistrationInput, company: VerifiedCompany) {
+export async function createAccessRequest(input: RegistrationInput, company?: VerifiedCompany) {
   const email = input.email.trim().toLowerCase()
+  const companyName = company?.name ?? ''
+  const sirenValue  = company?.siren ?? ''
 
   if (usesRemoteDatabase) {
     const supabase = getSupabaseClient()
@@ -270,11 +272,11 @@ export async function createAccessRequest(input: RegistrationInput, company: Ver
           first_name: input.firstName.trim(),
           last_name: input.lastName.trim(),
           requested_role: input.role,
-          siren: company.siren,
-          company_name: company.name,
-          activity_code: company.activityCode ?? null,
-          address: company.address ?? null,
-          administrative_status: company.isActive ? 'A' : null,
+          siren: sirenValue,
+          company_name: companyName,
+          activity_code: company?.activityCode ?? null,
+          address: company?.address ?? null,
+          administrative_status: company?.isActive ? 'A' : null,
         },
       },
     })
@@ -288,8 +290,8 @@ export async function createAccessRequest(input: RegistrationInput, company: Ver
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       email,
-      companyName: company.name,
-      siren: company.siren,
+      companyName,
+      siren: sirenValue,
       role: input.role,
       status: 'pending',
       quota: quotaByRole[input.role],
@@ -308,8 +310,8 @@ export async function createAccessRequest(input: RegistrationInput, company: Ver
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     email,
-    companyName: company.name,
-    siren: company.siren,
+    companyName,
+    siren: sirenValue,
     role: input.role,
     status: 'pending',
     quota: quotaByRole[input.role],
