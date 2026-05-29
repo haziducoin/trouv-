@@ -38,6 +38,14 @@ export default function App() {
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
   const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(null)
   const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
+  const [loadingTooLong, setLoadingTooLong] = useState(false)
+
+  // Après 4 s de chargement, on propose un bouton de secours
+  useEffect(() => {
+    if (!sessionLoading) return
+    const t = setTimeout(() => setLoadingTooLong(true), 4000)
+    return () => clearTimeout(t)
+  }, [sessionLoading])
 
   useEffect(() => {
     if (isDemoMode || isSuccessPage) return
@@ -57,9 +65,15 @@ export default function App() {
     // Supabase traite le ?code= PKCE dès la création du client.
     // INITIAL_SESSION fire avec la session résultante (ou null si pas de code).
     // C'est le seul moyen fiable de capter le retour OAuth sans race condition.
+
+    // Timeout de sécurité : si INITIAL_SESSION ne fire jamais (réseau lent,
+    // token corrompu, etc.), on débloque la page après 6 secondes.
+    const safetyTimeout = setTimeout(() => setSessionLoading(false), 6000)
+
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          clearTimeout(safetyTimeout)
           if (!session) {
             // Pas de session active → landing page
             setSessionLoading(false)
@@ -76,13 +90,14 @@ export default function App() {
             setSessionLoading(false)
           }
         } else if (event === 'SIGNED_OUT') {
+          clearTimeout(safetyTimeout)
           setAccount(null)
           setSessionLoading(false)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => { clearTimeout(safetyTimeout); subscription.unsubscribe() }
   }, [])
 
   const handleAuthenticated = (a: Account) => {
@@ -142,13 +157,24 @@ export default function App() {
   // ── Splash pendant restauration ───────────────────────────────────────────
   if (sessionLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f8ff]">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#f5f8ff]">
         <img
           src="/favicon.svg"
           alt="trouvé!"
           className="h-8 w-8 animate-spin"
           style={{ animationDuration: '1s', animationTimingFunction: 'linear' }}
         />
+        {loadingTooLong && (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-xs text-slate-400">La connexion prend du temps…</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]"
+            >
+              Actualiser
+            </button>
+          </div>
+        )}
       </div>
     )
   }
