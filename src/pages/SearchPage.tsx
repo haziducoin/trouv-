@@ -7,8 +7,9 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
-  Phone, Mail, Database, Calendar, Briefcase, Plus,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock,
 } from 'lucide-react'
+import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
 
 type AppView = 'search' | 'history' | 'favorites'
 import trouveLogo from '@/assets/trouve-logo.png'
@@ -21,10 +22,14 @@ import { recordSearch, saveFavorite, type Account } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
+export type AccessLevel = 'full' | 'demo' | 'limited'
+
 interface SearchPageProps {
-  account: Account
-  onLogout: () => void
+  account:       Account
+  onLogout:      () => void
   onOpenAccount: () => void
+  accessLevel?:  AccessLevel
+  maxSearches?:  number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,8 +124,118 @@ function QuotaBar({ used, total }: { used: number; total: number }) {
   )
 }
 
+// ─── BlurPill — contenu masqué (mode limité) ─────────────────────────────────
+function BlurPill({ w = 'w-24', h = 'h-3' }: { w?: string; h?: string }) {
+  return (
+    <span className={`inline-block ${w} ${h} rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse`} />
+  )
+}
+
+// ─── DemoBanner — bandeau d'accès restreint ───────────────────────────────────
+function DemoBanner({
+  accessLevel, used, max, onCta,
+}: {
+  accessLevel: AccessLevel; used: number; max: number; onCta: () => void
+}) {
+  const remaining = Math.max(0, max - used)
+  if (accessLevel === 'demo') {
+    return (
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#124bd2] text-white text-xs">
+          <Search size={13} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[#124bd2] dark:text-blue-300">Mode aperçu</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+            Téléphone et email masqués · {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900">
+            <div className="h-full rounded-full bg-[#124bd2] transition-all" style={{ width: `${Math.min(100, (used / max) * 100)}%` }} />
+          </div>
+          <span className="text-xs font-bold tabular-nums text-[#124bd2] dark:text-blue-300">{used}/{max}</span>
+          <button onClick={onCta}
+            className="ml-1 flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+            Accès complet <ArrowRight size={11} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+  // limited
+  return (
+    <div className="mb-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-xs">
+        <Lock size={13} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Accès en attente de validation</p>
+        <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+          Résultats masqués · {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-amber-200 dark:bg-amber-900">
+          <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, (used / max) * 100)}%` }} />
+        </div>
+        <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">{used}/{max}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── ConversionModal — appel à l'action après épuisement ─────────────────────
+function ConversionModal({
+  accessLevel, account, onClose, onLogout,
+}: {
+  accessLevel: AccessLevel
+  account: { email: string; companyName: string | null }
+  onClose: () => void
+  onLogout: () => void
+}) {
+  const isDemoMode = accessLevel === 'demo'
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+        <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${isDemoMode ? 'bg-blue-50 text-[#124bd2]' : 'bg-amber-50 text-amber-500'}`}>
+          {isDemoMode ? <Zap size={28} /> : <Lock size={28} />}
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+          {isDemoMode ? 'Votre aperçu est terminé !' : 'Limite d\'essai atteinte'}
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          {isDemoMode
+            ? 'Vous avez utilisé toutes vos recherches gratuites. Créez un compte pour accéder aux coordonnées complètes et à la base de données entière.'
+            : `Vous avez utilisé toutes vos recherches d'essai. Notre équipe valide votre accès sous 24–48h. Vous recevrez un email à ${account.email} dès que votre compte est activé.`
+          }
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          {isDemoMode ? (
+            <>
+              <button onClick={() => window.location.replace('/?pricing=1')}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+                <Zap size={15} /> Créer mon compte
+              </button>
+              <button onClick={onClose}
+                className="rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+                Continuer à explorer
+              </button>
+            </>
+          ) : (
+            <button onClick={onLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+              <LogOut size={14} /> Se déconnecter
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
-function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; onClose: () => void }) {
+function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospect: ProspectResult; onClose: () => void; accessLevel?: AccessLevel }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -170,19 +285,28 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
               {prospect.phone && (
                 <div className="flex items-center gap-2.5">
                   <Phone size={13} className="shrink-0 text-slate-300" />
-                  <a href={`tel:${prospect.phone}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phone}</a>
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phone)} <Lock size={9} className="text-slate-300" /></span>
+                    : <a href={`tel:${prospect.phone}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phone}</a>
+                  }
                 </div>
               )}
               {prospect.phoneMobile && (
                 <div className="flex items-center gap-2.5">
                   <Phone size={13} className="shrink-0 text-slate-300" />
-                  <a href={`tel:${prospect.phoneMobile}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phoneMobile} <span className="text-slate-400">(mobile)</span></a>
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phoneMobile)} <Lock size={9} className="text-slate-300" /> <span className="text-slate-300">(mobile)</span></span>
+                    : <a href={`tel:${prospect.phoneMobile}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phoneMobile} <span className="text-slate-400">(mobile)</span></a>
+                  }
                 </div>
               )}
               {prospect.email && (
                 <div className="flex items-center gap-2.5">
                   <Mail size={13} className="shrink-0 text-slate-300" />
-                  <a href={`mailto:${prospect.email}`} className="truncate text-xs text-[#124bd2] hover:underline">{prospect.email}</a>
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskEmail(prospect.email)} <Lock size={9} className="text-slate-300" /></span>
+                    : <a href={`mailto:${prospect.email}`} className="truncate text-xs text-[#124bd2] hover:underline">{prospect.email}</a>
+                  }
                 </div>
               )}
               {prospect.linkedinUrl && (
@@ -281,155 +405,223 @@ function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: strin
 
 // ─── Composant ProspectCard ────────────────────────────────────────────────────
 function ProspectCard({
-  prospect, isFavorite, onToggleFavorite, viewMode, onDetail,
+  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full',
 }: {
   prospect:          ProspectResult
   isFavorite:        boolean
   onToggleFavorite:  (p: ProspectResult) => void
   viewMode:          'grid' | 'list'
   onDetail:          (p: ProspectResult) => void
+  accessLevel?:      AccessLevel
 }) {
   const initials = prospectInitials(prospect.fullName)
   const accent   = prospectAccent(prospect.jobTitle)
 
   if (viewMode === 'list') {
+    const isLimited = accessLevel === 'limited'
+    const isDemo    = accessLevel === 'demo'
     return (
-      <div className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-900">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${accent}`}>
-          {initials}
+      <div className={`group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
+          {isLimited ? '' : initials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => onDetail(prospect)}
-              className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
-              {prospect.fullName}
-            </button>
-            {prospect.jobTitle && (
-              <span className="text-xs text-slate-400">{prospect.jobTitle}</span>
-            )}
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-              {prospect.isActive ? 'Actif' : 'Inactif'}
-            </span>
-          </div>
-          <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
-            {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
-            {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
-          </p>
+          {isLimited ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
+              <BlurPill w="w-40" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => onDetail(prospect)}
+                  className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
+                  {prospect.fullName}
+                </button>
+                {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {prospect.isActive ? 'Actif' : 'Inactif'}
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+                {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
+                {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
+              </p>
+            </>
+          )}
         </div>
         <div className="hidden shrink-0 items-center gap-3 sm:flex">
-          {prospect.phone && (
-            <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2] dark:text-slate-400">
-              <Phone size={11} /> {prospect.phone}
-            </a>
-          )}
-          {prospect.email && (
-            <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-              className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px] dark:text-slate-500">
-              {prospect.email}
-            </a>
+          {isLimited ? (
+            <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
+          ) : isDemo ? (
+            <>
+              {prospect.phone && (
+                <span className="flex items-center gap-1 text-xs text-slate-400">
+                  <Phone size={11} className="text-slate-300" />{maskPhone(prospect.phone)}<Lock size={9} className="text-slate-300" />
+                </span>
+              )}
+              {prospect.email && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  {maskEmail(prospect.email)}<Lock size={9} className="text-slate-300" />
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {prospect.phone && (
+                <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2] dark:text-slate-400">
+                  <Phone size={11} /> {prospect.phone}
+                </a>
+              )}
+              {prospect.email && (
+                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+                  className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px] dark:text-slate-500">
+                  {prospect.email}
+                </a>
+              )}
+            </>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-          <button
-            onClick={() => onToggleFavorite(prospect)}
-            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-          >
-            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-          </button>
-          <button onClick={() => onDetail(prospect)}
-            className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
-            <ArrowRight size={15} />
-          </button>
-        </div>
+        {!isLimited && (
+          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+            <button
+              onClick={() => onToggleFavorite(prospect)}
+              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+            >
+              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <button onClick={() => onDetail(prospect)}
+              className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
+              <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
       </div>
     )
   }
 
   // Vue grille
+  const isLimited = accessLevel === 'limited'
+  const isDemo    = accessLevel === 'demo'
   return (
     <div
-      className="card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 cursor-pointer hover:border-blue-200 hover:shadow-sm transition dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-900"
-      onClick={() => onDetail(prospect)}
+      className={`card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}
+      onClick={() => !isLimited && onDetail(prospect)}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${accent}`}>
-          {initials}
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
+          {isLimited ? <Lock size={14} className="text-slate-300 dark:text-slate-600" /> : initials}
         </div>
-        <button
-          onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
-          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-          className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
-        >
-          <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-        </button>
+        {!isLimited && (
+          <button
+            onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
+          >
+            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
       </div>
 
       {/* Identité */}
       <div className="mt-3">
-        <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
-        {prospect.jobTitle && (
-          <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>
-        )}
-        {prospect.companyName && (
-          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
-            <Building2 size={10} className="shrink-0" /> {prospect.companyName}
-          </p>
+        {isLimited ? (
+          <div className="space-y-1.5">
+            <BlurPill w="w-36" h="h-4" />
+            <BlurPill w="w-24" />
+            <BlurPill w="w-28" />
+          </div>
+        ) : (
+          <>
+            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
+            {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
+            {prospect.companyName && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                <Building2 size={10} className="shrink-0" /> {prospect.companyName}
+              </p>
+            )}
+          </>
         )}
       </div>
 
       <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
 
       {/* Coordonnées */}
-      <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-        {prospect.phone ? (
-          <p className="flex items-center gap-2">
-            <Phone size={11} className="shrink-0 text-slate-300" />
-            <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
-              className="hover:text-[#124bd2] transition">{prospect.phone}</a>
-          </p>
-        ) : prospect.phoneMobile ? (
-          <p className="flex items-center gap-2">
-            <Phone size={11} className="shrink-0 text-slate-300" />
-            <a href={`tel:${prospect.phoneMobile}`} onClick={e => e.stopPropagation()}
-              className="hover:text-[#124bd2] transition">{prospect.phoneMobile}</a>
-          </p>
-        ) : (
-          <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
-            <Phone size={11} className="shrink-0" /> —
-          </p>
-        )}
+      {isLimited ? (
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2"><Phone size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-28" /></div>
+          <div className="flex items-center gap-2"><Mail size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-32" /></div>
+          <div className="flex items-center gap-2"><MapPin size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-20" /></div>
+        </div>
+      ) : (
+        <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+          {/* Phone */}
+          {(prospect.phone || prospect.phoneMobile) ? (
+            <p className="flex items-center gap-2">
+              <Phone size={11} className="shrink-0 text-slate-300" />
+              {isDemo ? (
+                <span className="flex items-center gap-1 text-slate-400">
+                  {maskPhone(prospect.phone ?? prospect.phoneMobile ?? '')}
+                  <Lock size={9} className="text-slate-300" />
+                </span>
+              ) : (
+                <a href={`tel:${prospect.phone ?? prospect.phoneMobile}`} onClick={e => e.stopPropagation()}
+                  className="hover:text-[#124bd2] transition">{prospect.phone ?? prospect.phoneMobile}</a>
+              )}
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
+              <Phone size={11} className="shrink-0" /> —
+            </p>
+          )}
 
-        {prospect.email ? (
-          <p className="flex items-center gap-2">
-            <Mail size={11} className="shrink-0 text-slate-300" />
-            <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-              className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
-          </p>
-        ) : (
-          <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
-            <Mail size={11} className="shrink-0" /> —
-          </p>
-        )}
+          {/* Email */}
+          {prospect.email ? (
+            <p className="flex items-center gap-2">
+              <Mail size={11} className="shrink-0 text-slate-300" />
+              {isDemo ? (
+                <span className="flex items-center gap-1 text-slate-400">
+                  {maskEmail(prospect.email)}
+                  <Lock size={9} className="text-slate-300" />
+                </span>
+              ) : (
+                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+                  className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
+              )}
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
+              <Mail size={11} className="shrink-0" /> —
+            </p>
+          )}
 
-        {prospect.city && (
-          <p className="flex items-center gap-2">
-            <MapPin size={11} className="shrink-0 text-slate-300" />
-            <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
-          </p>
-        )}
-      </div>
+          {/* City */}
+          {prospect.city && (
+            <p className="flex items-center gap-2">
+              <MapPin size={11} className="shrink-0 text-slate-300" />
+              <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="mt-4">
-        <button
-          onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
-        >
-          Voir la fiche <ArrowRight size={12} />
-        </button>
+        {isLimited ? (
+          <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-100 py-2 text-xs font-medium text-slate-300 dark:border-slate-800 dark:text-slate-600">
+            <Lock size={11} /> Accès restreint
+          </div>
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); onDetail(prospect) }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+          >
+            Voir la fiche <ArrowRight size={12} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -832,7 +1024,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
 }
 
 // ─── Page principale ───────────────────────────────────────────────────────────
-export default function SearchPage({ account, onLogout, onOpenAccount }: SearchPageProps) {
+export default function SearchPage({ account, onLogout, onOpenAccount, accessLevel = 'full', maxSearches }: SearchPageProps) {
   // État de recherche
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
@@ -874,6 +1066,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
 
+  // Compteur de recherches pour modes demo / limited
+  const DEMO_COUNT_KEY = `trouve_demo_count_${account.id}`
+  const [demoSearchCount, setDemoSearchCount] = useState<number>(() => {
+    if (accessLevel === 'full') return 0
+    return parseInt(localStorage.getItem(`trouve_demo_count_${account.id}`) ?? '0', 10)
+  })
+  const [showConversionModal, setShowConversionModal] = useState(false)
+
   // Sync dark mode with <html> class
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -913,11 +1113,39 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
-    if (usedQuota >= account.quota && account.quota > 0) {
-      setError('Quota mensuel atteint — passez à un plan supérieur pour continuer.')
+    setLoading(true); setError(null)
+
+    // ── Modes démo / limité → données locales ───────────────────────────────
+    if (accessLevel !== 'full') {
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 200))
+      const res = searchDemoProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
+      setResults(res.results)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
+      setPage(pg)
+      setHasSearched(true)
+      setLoading(false)
+
+      // Compter uniquement les vraies recherches (pas le chargement initial vide)
+      const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
+                      !params.zipCode && !params.employeeRange && !params.legalForm
+      if (!isEmpty && maxSearches !== undefined) {
+        setDemoSearchCount(prev => {
+          const next = prev + 1
+          localStorage.setItem(DEMO_COUNT_KEY, String(next))
+          if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+          return next
+        })
+      }
       return
     }
-    setLoading(true); setError(null)
+
+    // ── Mode complet → Supabase ──────────────────────────────────────────────
+    if (usedQuota >= account.quota && account.quota > 0) {
+      setError('Quota mensuel atteint — passez à un plan supérieur pour continuer.')
+      setLoading(false)
+      return
+    }
 
     try {
       const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
@@ -927,7 +1155,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
       setPage(pg)
       setHasSearched(true)
 
-      // Ne compter le quota que pour les vraies recherches (pas la préchargement vide au montage)
       const hasQuery = Boolean(params.query?.trim())
       if (hasQuery) {
         saveRecentSearch(params.query!.trim())
@@ -935,7 +1162,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
         setUsedQuota(q => q + 1)
         recordSearch(params.query!, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
       } else if (params.department || params.activityCode || params.zipCode || params.employeeRange || params.legalForm) {
-        // Filtre seul sans texte — on compte quand même
         setUsedQuota(q => q + 1)
         recordSearch(`filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
       }
@@ -944,7 +1170,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     } finally {
       setLoading(false)
     }
-  }, [usedQuota, account.quota])
+  }, [accessLevel, usedQuota, account.quota, account.id, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
 
   // Debounce search-as-you-type (barre principale uniquement)
   useEffect(() => {
@@ -1035,8 +1261,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
           ))}
         </nav>
 
-        {/* Quota bar sidebar */}
-        {account.quota > 0 && (
+        {/* Quota bar sidebar (mode full uniquement) */}
+        {accessLevel === 'full' && account.quota > 0 && (
           <div className="border-t border-white/8 px-4 py-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Quota mensuel</span>
@@ -1101,8 +1327,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                 </h1>
               </div>
               <div className="flex items-center gap-2">
-                {/* Quota visuel */}
-                {account.quota > 0 && (
+                {/* Quota visuel (mode full uniquement) */}
+                {accessLevel === 'full' && account.quota > 0 && (
                   <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 sm:flex dark:border-slate-700 dark:bg-slate-800">
                     <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
                       <div
@@ -1140,6 +1366,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </div>
             </div>
 
+            {/* Bandeau accès restreint */}
+            {accessLevel !== 'full' && maxSearches !== undefined && (
+              <DemoBanner
+                accessLevel={accessLevel}
+                used={demoSearchCount}
+                max={maxSearches}
+                onCta={() => window.location.replace('/?pricing=1')}
+              />
+            )}
+
             {/* Barre de recherche principale */}
             <form onSubmit={handleSearch} className="flex gap-3">
               <div className="relative flex-1">
@@ -1171,7 +1407,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   </div>
                 )}
               </div>
-              <button type="submit" disabled={isLoading}
+              <button type="submit"
+                disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
                 className="flex h-14 items-center gap-2 rounded-2xl bg-[#124bd2] px-8 text-base font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
                 {isLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Rechercher'}
               </button>
@@ -1356,7 +1593,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="grid" onDetail={setSelectedCompany} />
+                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel} />
                     ))}
                   </div>
                 ) : (
@@ -1364,7 +1601,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="list" onDetail={setSelectedCompany} />
+                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel} />
                     ))}
                   </div>
                 )}
@@ -1410,8 +1647,18 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
       </div>
 
       {/* Slide-over détail prospect */}
-      {selectedCompany && (
-        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} />
+      {selectedCompany && accessLevel !== 'limited' && (
+        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} accessLevel={accessLevel} />
+      )}
+
+      {/* Modal de conversion (fin de quota démo/limité) */}
+      {showConversionModal && (
+        <ConversionModal
+          accessLevel={accessLevel}
+          account={{ email: account.email, companyName: account.companyName ?? null }}
+          onClose={() => setShowConversionModal(false)}
+          onLogout={onLogout}
+        />
       )}
     </div>
   )

@@ -13,7 +13,7 @@ if (localStorage.getItem('trouve_dark') === '1') {
 
 // ─── URL params ───────────────────────────────────────────────────────────────
 const _params       = new URLSearchParams(window.location.search)
-const isDemoMode    = import.meta.env.DEV && _params.has('demo')
+const isDemoMode    = _params.has('demo')
 const isSuccessPage = _params.has('success')
 const successPlan   = _params.get('plan') ?? 'agence'
 
@@ -182,12 +182,26 @@ export default function App() {
     )
   }
 
+  // ── Mode démo (?demo=1) — lien de prospection sans compte ───────────────
+  if (isDemoMode) {
+    return (
+      <SearchPage
+        account={DEMO_ACCOUNT}
+        accessLevel="demo"
+        maxSearches={5}
+        onLogout={() => window.location.replace('/')}
+        onOpenAccount={() => {}}
+      />
+    )
+  }
+
   // ── Connecté + approuvé → page de recherche ───────────────────────────────
   if (account && account.status === 'approved') {
     return (
       <>
         <SearchPage
           account={account}
+          accessLevel="full"
           onLogout={handleLogout}
           onOpenAccount={() => setAccountPanel('workspace')}
         />
@@ -206,12 +220,15 @@ export default function App() {
     )
   }
 
-  // ── En attente de validation ──────────────────────────────────────────────
+  // ── En attente — accès limité, résultats masqués ──────────────────────────
   if (account && account.status === 'pending') {
     return (
-      <PendingApprovalPage
+      <SearchPage
         account={account}
+        accessLevel="limited"
+        maxSearches={10}
         onLogout={handleLogout}
+        onOpenAccount={() => {}}
       />
     )
   }
