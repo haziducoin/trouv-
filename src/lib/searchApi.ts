@@ -39,13 +39,60 @@ export interface CompanyResult {
 }
 
 export interface SearchParams {
-  query:       string
-  department?: string
-  activityCode?: string
-  activeOnly?: boolean
-  page?:       number
-  perPage?:    number
+  query:          string
+  department?:    string
+  activityCode?:  string
+  activeOnly?:    boolean
+  zipCode?:       string
+  employeeRange?: string
+  legalForm?:     string
+  page?:          number
+  perPage?:       number
 }
+
+// Tranches d'effectif salarié (codes INSEE)
+export const EMPLOYEE_RANGES = [
+  { code: '00', label: '0 salarié' },
+  { code: '01', label: '1-2 salariés' },
+  { code: '02', label: '3-5 salariés' },
+  { code: '03', label: '6-9 salariés' },
+  { code: '11', label: '10-19 salariés' },
+  { code: '12', label: '20-49 salariés' },
+  { code: '21', label: '50-99 salariés' },
+  { code: '22', label: '100-199 salariés' },
+  { code: '31', label: '200-249 salariés' },
+  { code: '32', label: '250-499 salariés' },
+  { code: '41', label: '500-999 salariés' },
+  { code: '42', label: '1 000+ salariés' },
+]
+
+// Formes juridiques courantes
+export const LEGAL_FORMS = [
+  { code: '5499', label: 'SARL / EURL' },
+  { code: '5710', label: 'SAS' },
+  { code: '5720', label: 'SASU' },
+  { code: '1000', label: 'Entrepreneur individuel' },
+  { code: '6540', label: 'SA' },
+  { code: '5308', label: 'SCPI' },
+  { code: '9220', label: 'Association' },
+]
+
+// Régions métropolitaines
+export const REGIONS = [
+  { code: '11', label: 'Île-de-France' },
+  { code: '24', label: 'Centre-Val de Loire' },
+  { code: '27', label: 'Bourgogne-Franche-Comté' },
+  { code: '28', label: 'Normandie' },
+  { code: '32', label: 'Hauts-de-France' },
+  { code: '44', label: 'Grand Est' },
+  { code: '52', label: 'Pays de la Loire' },
+  { code: '53', label: 'Bretagne' },
+  { code: '75', label: 'Nouvelle-Aquitaine' },
+  { code: '76', label: 'Occitanie' },
+  { code: '84', label: 'Auvergne-Rhône-Alpes' },
+  { code: '93', label: 'Provence-Alpes-Côte d\'Azur' },
+  { code: '94', label: 'Corse' },
+]
 
 export interface SearchResponse {
   results:    CompanyResult[]
@@ -106,6 +153,9 @@ export async function searchCompanies(params: SearchParams): Promise<SearchRespo
 
   if (params.department) p.set('departement', params.department)
   if (params.activeOnly) p.set('etat_administratif', 'A')
+  if (params.zipCode?.trim())   p.set('code_postal', params.zipCode.trim())
+  if (params.employeeRange)     p.set('tranche_effectif_salarie', params.employeeRange)
+  if (params.legalForm)         p.set('nature_juridique', params.legalForm)
 
   const res = await fetch(`${BASE}?${p}`, {
     headers: { 'Accept': 'application/json' },

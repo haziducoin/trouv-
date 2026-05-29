@@ -3,18 +3,20 @@ import {
   Search, SlidersHorizontal, Star, ChevronLeft, ChevronRight,
   Building2, MapPin, Hash, Users, LogOut, X,
   Zap, RefreshCw, ExternalLink, LayoutGrid, List,
-  ShieldCheck, AlertCircle, Download, Clock, Keyboard,
+  ShieldCheck, AlertCircle, Download, Clock,
   ArrowRight, Globe, TrendingUp, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
+  Phone, Mail, Database,
 } from 'lucide-react'
 
 type AppView = 'search' | 'history' | 'favorites'
 import trouveLogo from '@/assets/trouve-logo.png'
+import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
-  searchCompanies, DEPARTMENTS, TYPE_LABELS,
-  type CompanyResult, type SearchParams,
-} from '@/lib/searchApi'
+  searchProspects, exportProspectsCSV,
+  type ProspectResult, type ProspectSearchParams,
+} from '@/lib/prospectApi'
 import { recordSearch, saveFavorite, type Account } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 
@@ -80,22 +82,36 @@ function saveRecentSearch(q: string) {
 const PER_PAGE_OPTIONS = [20, 50, 100]
 
 // Favoris persistés localement (indexed by SIREN)
-const FAV_STORE_KEY = 'trouve_fav_data_v1'
+const FAV_STORE_KEY = 'trouve_fav_data_v2'
 
-interface FavStored { siren: string; name: string; city: string; type: string; savedAt: string }
+interface FavStored {
+  id:          string
+  name:        string
+  jobTitle:    string
+  companyName: string
+  city:        string
+  savedAt:     string
+}
 
 function loadStoredFavs(): FavStored[] {
   try { return JSON.parse(localStorage.getItem(FAV_STORE_KEY) ?? '[]') } catch { return [] }
 }
-function saveStoredFav(c: CompanyResult) {
-  const favs = loadStoredFavs().filter(f => f.siren !== c.siren)
+function saveStoredFav(p: ProspectResult) {
+  const favs = loadStoredFavs().filter(f => f.id !== p.id)
   localStorage.setItem(FAV_STORE_KEY, JSON.stringify([
-    { siren: c.siren, name: c.name, city: c.city, type: c.typeLabel, savedAt: new Date().toISOString() },
+    {
+      id:          p.id,
+      name:        p.fullName,
+      jobTitle:    p.jobTitle    ?? '',
+      companyName: p.companyName ?? '',
+      city:        p.city        ?? '',
+      savedAt:     new Date().toISOString(),
+    },
     ...favs,
   ].slice(0, 200)))
 }
-function removeStoredFav(siren: string) {
-  localStorage.setItem(FAV_STORE_KEY, JSON.stringify(loadStoredFavs().filter(f => f.siren !== siren)))
+function removeStoredFav(id: string) {
+  localStorage.setItem(FAV_STORE_KEY, JSON.stringify(loadStoredFavs().filter(f => f.id !== id)))
 }
 
 // ─── Favoris Drawer ───────────────────────────────────────────────────────────
@@ -114,9 +130,9 @@ function FavoritesDrawer({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const handleRemove = (siren: string) => {
-    removeStoredFav(siren)
-    onToggleFav(siren)
+  const handleRemove = (id: string) => {
+    removeStoredFav(id)
+    onToggleFav(id)
     setFavs(loadStoredFavs())
   }
 
@@ -143,8 +159,8 @@ function FavoritesDrawer({
           <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-800">
             <button
               onClick={() => {
-                const csv = ['SIREN;Nom;Ville;Type;Ajouté le',
-                  ...favs.map(f => `${f.siren};"${f.name}";"${f.city}";"${f.type}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
+                const csv = ['Nom;Poste;Entreprise;Ville;Ajouté le',
+                  ...favs.map(f => `"${f.name}";"${f.jobTitle}";"${f.companyName}";"${f.city}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
                 ].join('\n')
                 const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
                 const url = URL.createObjectURL(blob)
@@ -170,30 +186,21 @@ function FavoritesDrawer({
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {favs.map(f => (
-                <div key={f.siren} className="flex items-start gap-3 px-5 py-4">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold ${typeAccent(f.type)}`}>
-                    {companyInitials(f.name)}
+                <div key={f.id} className="flex items-start gap-3 px-5 py-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-[#124bd2]">
+                    {prospectInitials(f.name)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{f.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.type} · {f.city}</p>
-                    <p className="mt-0.5 font-mono text-[10px] text-slate-300">{f.siren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')}</p>
+                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.jobTitle} · {f.companyName}</p>
+                    <p className="mt-0.5 text-xs text-slate-300">{f.city}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <a
-                      href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${f.siren}`}
-                      target="_blank" rel="noopener"
-                      className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]"
-                    >
-                      <ExternalLink size={13} />
-                    </a>
-                    <button
-                      onClick={() => handleRemove(f.siren)}
-                      className="rounded-lg p-1.5 text-amber-400 transition hover:text-red-400"
-                    >
-                      <Star size={13} fill="currentColor" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRemove(f.id)}
+                    className="rounded-lg p-1.5 text-amber-400 transition hover:text-red-400"
+                  >
+                    <Star size={13} fill="currentColor" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -236,8 +243,8 @@ function QuotaBar({ used, total }: { used: number; total: number }) {
   )
 }
 
-// ─── Company Detail Slide-Over ─────────────────────────────────────────────────
-function CompanySlideOver({ company, onClose }: { company: CompanyResult; onClose: () => void }) {
+// ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
+function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; onClose: () => void }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -246,138 +253,144 @@ function CompanySlideOver({ company, onClose }: { company: CompanyResult; onClos
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      {/* Panel */}
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
+      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
           <div className="flex items-center gap-4">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-bold ${typeAccent(company.typeLabel)}`}>
-              {companyInitials(company.name)}
+            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-bold ${prospectAccent(prospect.jobTitle)}`}>
+              {prospectInitials(prospect.fullName)}
             </div>
             <div>
-              <h2 className="font-bold leading-snug text-slate-800 dark:text-slate-100">{company.name}</h2>
-              <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{company.typeLabel}</p>
+              <h2 className="font-bold leading-snug text-slate-800">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500">{prospect.jobTitle}</p>}
+              {prospect.companyName && (
+                <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                  <Building2 size={11} /> {prospect.companyName}
+                </p>
+              )}
             </div>
           </div>
-          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600">
             <X size={18} />
           </button>
         </div>
 
         {/* Statut */}
-        <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-3 dark:border-slate-800">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${company.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${company.isActive ? 'bg-emerald-500' : 'bg-red-400'}`} />
-            {company.isActive ? 'Entreprise active' : 'Activité cessée'}
+        <div className="border-b border-slate-100 px-6 py-3">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${prospect.isActive ? 'bg-emerald-500' : 'bg-red-400'}`} />
+            {prospect.isActive ? 'Contact actif' : 'Inactif'}
           </span>
-          {isNew(company.createdAt) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#124bd2]">
-              <TrendingUp size={10} /> Nouvelle
-            </span>
-          )}
         </div>
 
         {/* Corps */}
         <div className="flex-1 space-y-5 p-6">
-          {/* Bloc identité */}
+
+          {/* Coordonnées */}
           <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Identité</p>
-            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              <Row icon={<Hash size={13} className="text-slate-300" />} label="SIREN" value={formatSiren(company.siren)} mono />
-              <Row icon={<Zap size={13} className="text-slate-300" />} label="Code NAF" value={`${company.activityCode} — ${company.activityLabel || company.typeLabel}`} />
-              {company.createdAt && (
-                <Row icon={<Clock size={13} className="text-slate-300" />} label="Création" value={new Date(company.createdAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric'})} />
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              {prospect.phone && (
+                <div className="flex items-center gap-2.5">
+                  <Phone size={13} className="shrink-0 text-slate-300" />
+                  <a href={`tel:${prospect.phone}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phone}</a>
+                </div>
               )}
-              {company.etablissements > 1 && (
-                <Row icon={<Building2 size={13} className="text-slate-300" />} label="Établissements" value={String(company.etablissements)} />
+              {prospect.phoneMobile && (
+                <div className="flex items-center gap-2.5">
+                  <Phone size={13} className="shrink-0 text-slate-300" />
+                  <a href={`tel:${prospect.phoneMobile}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phoneMobile} <span className="text-slate-400">(mobile)</span></a>
+                </div>
+              )}
+              {prospect.email && (
+                <div className="flex items-center gap-2.5">
+                  <Mail size={13} className="shrink-0 text-slate-300" />
+                  <a href={`mailto:${prospect.email}`} className="truncate text-xs text-[#124bd2] hover:underline">{prospect.email}</a>
+                </div>
+              )}
+              {prospect.linkedinUrl && (
+                <div className="flex items-center gap-2.5">
+                  <ExternalLink size={13} className="shrink-0 text-slate-300" />
+                  <a href={prospect.linkedinUrl} target="_blank" rel="noopener" className="truncate text-xs text-[#124bd2] hover:underline">LinkedIn</a>
+                </div>
+              )}
+              {!prospect.phone && !prospect.email && !prospect.phoneMobile && (
+                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
               )}
             </div>
           </section>
 
-          {/* Bloc localisation */}
-          <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Localisation</p>
-            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              {company.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={company.address} />}
-              <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${company.city} (${company.zipCode})`} />
-              <Row icon={<MapPin size={13} className="text-slate-300" />} label="Département" value={departmentLabel(company.department)} />
-            </div>
-          </section>
-
-          {/* Bloc RH */}
-          {company.employees && company.employees !== 'NC' && (
+          {/* Entreprise */}
+          {(prospect.companyName || prospect.activityCode || prospect.companySize) && (
             <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ressources humaines</p>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <Row icon={<Users size={13} className="text-slate-300" />} label="Salariés" value={`${company.employees} salariés`} />
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+                {prospect.companyName && <Row icon={<Building2 size={13} className="text-slate-300" />} label="Société" value={prospect.companyName} />}
+                {prospect.companySiren && <Row icon={<Hash size={13} className="text-slate-300" />} label="SIREN" value={prospect.companySiren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')} mono />}
+                {prospect.activityCode && <Row icon={<Zap size={13} className="text-slate-300" />} label="Activité" value={`${prospect.activityCode}${prospect.activityLabel ? ` — ${prospect.activityLabel}` : ''}`} />}
+                {prospect.companySize && <Row icon={<Users size={13} className="text-slate-300" />} label="Effectif" value={prospect.companySize} />}
+                {prospect.companyType && <Row icon={<FileText size={13} className="text-slate-300" />} label="Forme" value={prospect.companyType} />}
               </div>
             </section>
           )}
 
-          {/* Liens externes */}
-          <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sources</p>
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${company.siren}`}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/30 dark:hover:bg-blue-950/50"
-              >
-                <ShieldCheck size={13} /> Annuaire officiel
-              </a>
-              <a
-                href={`https://www.societe.com/cgi-bin/search?champs=${company.siren}`}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              >
-                <Globe size={13} /> Societe.com
-              </a>
-              <a
-                href={`https://www.infogreffe.fr/societe/${company.siren}`}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              >
-                <FileText size={13} /> Infogreffe
-              </a>
-              <a
-                href={`https://pappers.fr/entreprise/${company.siren}`}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              >
-                <Info size={13} /> Pappers
-              </a>
-            </div>
-          </section>
+          {/* Localisation */}
+          {(prospect.address || prospect.city) && (
+            <section>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+                {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
+                {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                {prospect.region && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Région" value={prospect.region} />}
+              </div>
+            </section>
+          )}
+
+          {/* Sources externes */}
+          {prospect.companySiren && (
+            <section>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Sources entreprise</p>
+              <div className="grid grid-cols-2 gap-2">
+                <a href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${prospect.companySiren}`}
+                  target="_blank" rel="noopener"
+                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100">
+                  <ShieldCheck size={13} /> Annuaire officiel
+                </a>
+                <a href={`https://pappers.fr/entreprise/${prospect.companySiren}`}
+                  target="_blank" rel="noopener"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
+                  <Info size={13} /> Pappers
+                </a>
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-// Returns a colour pair (bg + text) for the company avatar based on typeLabel
-function typeAccent(typeLabel: string): string {
-  const t = typeLabel.toLowerCase()
-  if (t.includes('agence') || t.includes('agent'))
-    return 'bg-blue-50 text-[#124bd2] dark:bg-blue-950/40 dark:text-blue-400'
-  if (t.includes('bailleur') || t.includes('location') || t.includes('social'))
-    return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
-  if (t.includes('marchand'))
-    return 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'
-  if (t.includes('administration') || t.includes('gestionnaire') || t.includes('administrat'))
-    return 'bg-orange-50 text-orange-500 dark:bg-orange-950/40 dark:text-orange-400'
-  if (t.includes('fonds') || t.includes('investissement') || t.includes('scpi'))
-    return 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-  return 'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-}
-
-// Get 1-2 letter initials from a company name
-function companyInitials(name: string): string {
-  const words = name.replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean)
+// Initiales pour l'avatar prospect
+function prospectInitials(fullName: string): string {
+  const words = fullName.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return '?'
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
-  return (words[0][0] + words[1][0]).toUpperCase()
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase()
+}
+
+// Couleur avatar selon le poste
+function prospectAccent(jobTitle: string | null): string {
+  const t = (jobTitle ?? '').toLowerCase()
+  if (t.includes('directeur') || t.includes('direction') || t.includes('pdg') || t.includes('gérant'))
+    return 'bg-blue-50 text-[#124bd2]'
+  if (t.includes('commercial') || t.includes('vente') || t.includes('agent'))
+    return 'bg-emerald-50 text-emerald-600'
+  if (t.includes('responsable') || t.includes('manager') || t.includes('chef'))
+    return 'bg-purple-50 text-purple-600'
+  if (t.includes('négociateur') || t.includes('conseiller'))
+    return 'bg-amber-50 text-amber-600'
+  return 'bg-slate-50 text-slate-500'
 }
 
 function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
@@ -390,59 +403,64 @@ function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: strin
   )
 }
 
-// ─── Composant CompanyCard ─────────────────────────────────────────────────────
-function CompanyCard({
-  company, isFavorite, onToggleFavorite, viewMode, onDetail,
+// ─── Composant ProspectCard ────────────────────────────────────────────────────
+function ProspectCard({
+  prospect, isFavorite, onToggleFavorite, viewMode, onDetail,
 }: {
-  company: CompanyResult
-  isFavorite: boolean
-  onToggleFavorite: (c: CompanyResult) => void
-  viewMode: 'grid' | 'list'
-  onDetail: (c: CompanyResult) => void
+  prospect:          ProspectResult
+  isFavorite:        boolean
+  onToggleFavorite:  (p: ProspectResult) => void
+  viewMode:          'grid' | 'list'
+  onDetail:          (p: ProspectResult) => void
 }) {
+  const initials = prospectInitials(prospect.fullName)
+  const accent   = prospectAccent(prospect.jobTitle)
+
   if (viewMode === 'list') {
     return (
-      <div className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-900">
-        {/* Avatar */}
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${typeAccent(company.typeLabel)}`}>
-          {companyInitials(company.name)}
+      <div className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition hover:border-blue-200 hover:shadow-sm">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${accent}`}>
+          {initials}
         </div>
-
-        {/* Infos */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onDetail(company)}
-              className="truncate font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100"
-            >
-              {company.name}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => onDetail(prospect)}
+              className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left">
+              {prospect.fullName}
             </button>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${company.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-              {company.isActive ? 'Actif' : 'Cessé'}
-            </span>
-            {isNew(company.createdAt) && (
-              <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#124bd2]">Nouveau</span>
+            {prospect.jobTitle && (
+              <span className="text-xs text-slate-400">{prospect.jobTitle}</span>
             )}
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+              {prospect.isActive ? 'Actif' : 'Inactif'}
+            </span>
           </div>
-          <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">{company.typeLabel} · {company.city} ({company.zipCode}) · {company.employees ? `${company.employees} sal.` : ''}</p>
+          <p className="mt-0.5 truncate text-xs text-slate-400">
+            {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
+            {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
+          </p>
         </div>
-
-        {/* SIREN */}
-        <p className="hidden shrink-0 font-mono text-xs text-slate-400 sm:block dark:text-slate-500">{formatSiren(company.siren)}</p>
-
-        {/* Actions */}
+        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+          {prospect.phone && (
+            <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2]">
+              <Phone size={11} /> {prospect.phone}
+            </a>
+          )}
+          {prospect.email && (
+            <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+              className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px]">
+              {prospect.email}
+            </a>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-          <button
-            onClick={() => onToggleFavorite(company)}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-          >
+          <button onClick={() => onToggleFavorite(prospect)}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}>
             <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
-          <button
-            onClick={() => onDetail(company)}
-            className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]"
-            title="Voir la fiche"
-          >
+          <button onClick={() => onDetail(prospect)}
+            className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
             <ArrowRight size={15} />
           </button>
         </div>
@@ -452,78 +470,86 @@ function CompanyCard({
 
   // Vue grille
   return (
-    <div className={`card-lift group flex flex-col rounded-2xl border bg-white p-5 cursor-pointer dark:bg-slate-900 ${company.isActive ? 'border-slate-200 hover:border-blue-200 dark:border-slate-800 dark:hover:border-blue-800' : 'border-slate-200 opacity-75 dark:border-slate-800'}`}
-      onClick={() => onDetail(company)}
+    <div
+      className="card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 cursor-pointer hover:border-blue-200 hover:shadow-sm transition"
+      onClick={() => onDetail(prospect)}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${typeAccent(company.typeLabel)}`}>
-          {companyInitials(company.name)}
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${accent}`}>
+          {initials}
         </div>
-        <div className="flex items-center gap-1">
-          {isNew(company.createdAt) && (
-            <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-[#124bd2]">NEW</span>
-          )}
-          <button
-            onClick={e => { e.stopPropagation(); onToggleFavorite(company) }}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
-          >
-            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-          </button>
-        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+          className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
+        >
+          <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+        </button>
       </div>
 
-      {/* Nom + statut */}
+      {/* Identité */}
       <div className="mt-3">
-        <p className="line-clamp-2 font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{company.name}</p>
-        <span className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${company.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${company.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-          {company.isActive ? 'Actif' : 'Cessé'}
-        </span>
+        <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition">{prospect.fullName}</p>
+        {prospect.jobTitle && (
+          <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>
+        )}
+        {prospect.companyName && (
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+            <Building2 size={10} className="shrink-0" /> {prospect.companyName}
+          </p>
+        )}
       </div>
 
-      <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
+      <div className="my-3 h-px bg-slate-100" />
 
-      {/* Détails */}
-      <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-        <p className="flex items-center gap-2">
-          <Hash size={12} className="shrink-0 text-slate-300" />
-          <span className="font-mono tracking-tight">{formatSiren(company.siren)}</span>
-        </p>
-        <p className="flex items-center gap-2">
-          <MapPin size={12} className="shrink-0 text-slate-300" />
-          <span className="truncate">{company.city} ({company.zipCode})</span>
-        </p>
-        <p className="flex items-center gap-2">
-          <Zap size={12} className="shrink-0 text-slate-300" />
-          <span className="truncate">{company.typeLabel}</span>
-        </p>
-        {company.employees && company.employees !== 'NC' && (
+      {/* Coordonnées */}
+      <div className="flex-1 space-y-1.5 text-xs text-slate-500">
+        {prospect.phone ? (
           <p className="flex items-center gap-2">
-            <Users size={12} className="shrink-0 text-slate-300" />
-            <span>{company.employees} salariés</span>
+            <Phone size={11} className="shrink-0 text-slate-300" />
+            <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
+              className="hover:text-[#124bd2] transition">{prospect.phone}</a>
+          </p>
+        ) : prospect.phoneMobile ? (
+          <p className="flex items-center gap-2">
+            <Phone size={11} className="shrink-0 text-slate-300" />
+            <a href={`tel:${prospect.phoneMobile}`} onClick={e => e.stopPropagation()}
+              className="hover:text-[#124bd2] transition">{prospect.phoneMobile}</a>
+          </p>
+        ) : (
+          <p className="flex items-center gap-2 text-slate-300">
+            <Phone size={11} className="shrink-0" /> —
+          </p>
+        )}
+
+        {prospect.email ? (
+          <p className="flex items-center gap-2">
+            <Mail size={11} className="shrink-0 text-slate-300" />
+            <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+              className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
+          </p>
+        ) : (
+          <p className="flex items-center gap-2 text-slate-300">
+            <Mail size={11} className="shrink-0" /> —
+          </p>
+        )}
+
+        {prospect.city && (
+          <p className="flex items-center gap-2">
+            <MapPin size={11} className="shrink-0 text-slate-300" />
+            <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
           </p>
         )}
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4">
         <button
-          onClick={e => { e.stopPropagation(); onDetail(company) }}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
+          onClick={e => { e.stopPropagation(); onDetail(prospect) }}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50"
         >
-          Voir la fiche
-          <ArrowRight size={12} />
+          Voir la fiche <ArrowRight size={12} />
         </button>
-        <a
-          href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${company.siren}`}
-          target="_blank" rel="noopener"
-          onClick={e => e.stopPropagation()}
-          className="flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-500 dark:hover:border-blue-800"
-          title="Fiche officielle"
-        >
-          <ExternalLink size={13} />
-        </a>
       </div>
     </div>
   )
@@ -539,15 +565,15 @@ function FavoritesView({
 }) {
   const [favs, setFavs] = useState<FavStored[]>(loadStoredFavs)
 
-  const handleRemove = (siren: string) => {
-    removeStoredFav(siren)
-    onToggleFav(siren)
+  const handleRemove = (id: string) => {
+    removeStoredFav(id)
+    onToggleFav(id)
     setFavs(loadStoredFavs())
   }
 
   const handleExport = () => {
-    const csv = ['SIREN;Nom;Ville;Type;Ajouté le',
-      ...favs.map(f => `${f.siren};"${f.name}";"${f.city}";"${f.type}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
+    const csv = ['Nom;Poste;Entreprise;Ville;Ajouté le',
+      ...favs.map(f => `"${f.name}";"${f.jobTitle}";"${f.companyName}";"${f.city}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
     ].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -598,35 +624,24 @@ function FavoritesView({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {favs.map(f => (
             <div
-              key={f.siren}
-              className="card-lift group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              key={f.id}
+              className="card-lift group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4"
             >
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold ${typeAccent(f.type)}`}>
-                {companyInitials(f.name)}
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-[#124bd2]">
+                {prospectInitials(f.name)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{f.name}</p>
-                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.type}</p>
-                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.city}</p>
-                <p className="mt-1 font-mono text-[10px] text-slate-300 dark:text-slate-600">
-                  {f.siren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')}
-                </p>
+                <p className="truncate text-sm font-semibold text-slate-800">{f.name}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{f.jobTitle}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{f.companyName}</p>
+                <p className="mt-0.5 text-xs text-slate-300">{f.city}</p>
               </div>
-              <div className="flex shrink-0 flex-col gap-0.5 opacity-0 transition group-hover:opacity-100">
-                <a
-                  href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${f.siren}`}
-                  target="_blank" rel="noopener"
-                  className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2] dark:text-slate-600 dark:hover:text-blue-400"
-                >
-                  <ExternalLink size={13} />
-                </a>
-                <button
-                  onClick={() => handleRemove(f.siren)}
-                  className="rounded-lg p-1.5 text-amber-400 transition hover:text-red-400"
-                >
-                  <Star size={13} fill="currentColor" />
-                </button>
-              </div>
+              <button
+                onClick={() => handleRemove(f.id)}
+                className="rounded-lg p-1.5 text-amber-400 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+              >
+                <Star size={13} fill="currentColor" />
+              </button>
             </div>
           ))}
         </div>
@@ -731,6 +746,206 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
   )
 }
 
+// ─── Recherche avancée ────────────────────────────────────────────────────────
+interface AdvancedFiltersProps {
+  department:     string; setDepartment:     (v: string) => void
+  activityCode:   string; setActivityCode:   (v: string) => void
+  activeOnly:     boolean; setActiveOnly:    (v: boolean) => void
+  zipCode:        string; setZipCode:        (v: string) => void
+  employeeRange:  string; setEmployeeRange:  (v: string) => void
+  legalForm:      string; setLegalForm:      (v: string) => void
+  onSearch:       () => void
+  onReset:        () => void
+}
+
+function AdvancedFilters({
+  department, setDepartment,
+  activityCode, setActivityCode,
+  activeOnly, setActiveOnly,
+  zipCode, setZipCode,
+  employeeRange, setEmployeeRange,
+  legalForm, setLegalForm,
+  onSearch, onReset,
+}: AdvancedFiltersProps) {
+  const [openSections, setOpenSections] = useState(['location', 'company', 'status'])
+  const toggle = (k: string) =>
+    setOpenSections(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
+
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
+
+      {/* ── Localisation ──────────────────────────────────────────────── */}
+      <div>
+        <button
+          type="button"
+          onClick={() => toggle('location')}
+          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#124bd2]">
+              <MapPin size={14} />
+            </span>
+            Localisation
+          </span>
+          {openSections.includes('location')
+            ? <ChevronUp size={14} className="text-slate-400" />
+            : <ChevronDown size={14} className="text-slate-400" />
+          }
+        </button>
+        {openSections.includes('location') && (
+          <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Département
+              </label>
+              <select
+                value={department}
+                onChange={e => { setDepartment(e.target.value); onSearch() }}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+              >
+                <option value="">Tous les départements</option>
+                {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Code postal
+              </label>
+              <input
+                type="text"
+                value={zipCode}
+                onChange={e => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                onBlur={onSearch}
+                onKeyDown={e => { if (e.key === 'Enter') onSearch() }}
+                placeholder="75001"
+                maxLength={5}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Entreprise ────────────────────────────────────────────────── */}
+      <div>
+        <button
+          type="button"
+          onClick={() => toggle('company')}
+          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+              <Building2 size={14} />
+            </span>
+            Type d'entreprise
+          </span>
+          {openSections.includes('company')
+            ? <ChevronUp size={14} className="text-slate-400" />
+            : <ChevronDown size={14} className="text-slate-400" />
+          }
+        </button>
+        {openSections.includes('company') && (
+          <div className="grid grid-cols-1 gap-3 px-5 pb-5 sm:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Activité (NAF)
+              </label>
+              <select
+                value={activityCode}
+                onChange={e => { setActivityCode(e.target.value); onSearch() }}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+              >
+                <option value="">Tous les types</option>
+                {Object.entries(TYPE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Taille (salariés)
+              </label>
+              <select
+                value={employeeRange}
+                onChange={e => { setEmployeeRange(e.target.value); onSearch() }}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+              >
+                <option value="">Toutes tailles</option>
+                {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Forme juridique
+              </label>
+              <select
+                value={legalForm}
+                onChange={e => { setLegalForm(e.target.value); onSearch() }}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+              >
+                <option value="">Toutes formes</option>
+                {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Statut & Ancienneté ───────────────────────────────────────── */}
+      <div>
+        <button
+          type="button"
+          onClick={() => toggle('status')}
+          className="flex w-full items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Zap size={14} />
+            </span>
+            Statut & Ancienneté
+          </span>
+          {openSections.includes('status')
+            ? <ChevronUp size={14} className="text-slate-400" />
+            : <ChevronDown size={14} className="text-slate-400" />
+          }
+        </button>
+        {openSections.includes('status') && (
+          <div className="flex flex-wrap gap-3 px-5 pb-5">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 has-[:checked]:border-[#124bd2] has-[:checked]:bg-blue-50 has-[:checked]:text-[#124bd2]">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={e => { setActiveOnly(e.target.checked); onSearch() }}
+                className="accent-[#124bd2]"
+              />
+              Actives uniquement
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer actions ────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between bg-slate-50 px-5 py-3">
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-xs text-slate-400 transition hover:text-slate-700"
+        >
+          Réinitialiser les filtres
+        </button>
+        <button
+          type="button"
+          onClick={onSearch}
+          className="flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
+        >
+          <Search size={12} />
+          Appliquer
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function SearchPage({ account, onLogout, onOpenAccount }: SearchPageProps) {
   // État de recherche
@@ -739,13 +954,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [department, setDepartment]     = useState('')
   const [activityCode, setActivityCode] = useState('')
   const [activeOnly, setActiveOnly]     = useState(true)
+  const [zipCode, setZipCode]           = useState('')
+  const [employeeRange, setEmployeeRange] = useState('')
+  const [legalForm, setLegalForm]       = useState('')
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters]   = useState(false)
 
   // Résultats
-  const [results, setResults]       = useState<CompanyResult[]>([])
+  const [results, setResults]       = useState<ProspectResult[]>([])
   const [total, setTotal]           = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [isLoading, setLoading]     = useState(false)
@@ -753,7 +971,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   const [error, setError]           = useState<string | null>(null)
 
   // UI extras
-  const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<ProspectResult | null>(null)
   const [showRecent, setShowRecent]           = useState(false)
   const [recentSearches, setRecentSearches]   = useState<string[]>([])
   const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.siren)))
@@ -770,7 +988,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   // Refs
   const searchInputRef  = useRef<HTMLInputElement>(null)
   const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const activeFiltersCount = [department, activityCode, !activeOnly].filter(Boolean).length
+  const activeFiltersCount = [department, activityCode, !activeOnly, zipCode, employeeRange, legalForm].filter(Boolean).length
 
   // Charger les recherches récentes
   useEffect(() => {
@@ -791,7 +1009,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
   }, [])
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
-  const doSearch = useCallback(async (params: SearchParams, pg = 1) => {
+  const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
     if (usedQuota >= account.quota && account.quota > 0) {
       setError('Quota mensuel atteint — passez à un plan supérieur pour continuer.')
       return
@@ -799,7 +1017,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     setLoading(true); setError(null)
 
     try {
-      const res = await searchCompanies({ ...params, page: pg, perPage: params.perPage ?? perPage })
+      const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
       setResults(res.results)
       setTotal(res.total)
       setTotalPages(res.totalPages)
@@ -811,7 +1029,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
         setRecentSearches(readRecentSearches())
       }
       setUsedQuota(q => q + 1)
-      recordSearch(params.query || 'secteur immobilier', { department: params.department, activityCode: params.activityCode, activeOnly: params.activeOnly }, res.total).catch(() => {})
+      recordSearch(params.query || 'prospects immobilier', { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
     } catch (err: any) {
       setError(err.message ?? 'Erreur lors de la recherche')
     } finally {
@@ -824,7 +1042,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     if (!hasSearched) return // pas de debounce avant la 1ère recherche manuelle
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      doSearch({ query: inputValue, department, activityCode, activeOnly })
+      doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
     }, 420)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [inputValue]) // eslint-disable-line
@@ -834,7 +1052,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     if (debounceRef.current) clearTimeout(debounceRef.current)
     setQuery(inputValue)
     setShowRecent(false)
-    doSearch({ query: inputValue, department, activityCode, activeOnly })
+    doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleQuickFilter = (f: typeof QUICK_FILTERS[0]) => {
@@ -842,33 +1060,33 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     setQuery(f.query)
     setDepartment(f.dept)
     setActivityCode(f.code)
-    doSearch({ query: f.query, department: f.dept, activityCode: f.code, activeOnly })
+    doSearch({ query: f.query, department: f.dept, activityCode: f.code, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
     setInputValue(q); setQuery(q); setShowRecent(false)
-    doSearch({ query: q, department, activityCode, activeOnly })
+    doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
-  // Recherche auto au montage
+  // Recherche auto au montage (pas de recherche vide — attendre la saisie)
   useEffect(() => {
     doSearch({ query: '', department: '', activityCode: '', activeOnly: true })
   }, []) // eslint-disable-line
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query, department, activityCode, activeOnly }, pg)
+    doSearch({ query, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const toggleFavorite = async (company: CompanyResult) => {
+  const toggleFavorite = async (prospect: ProspectResult) => {
     const newFavs = new Set(favorites)
-    if (newFavs.has(company.siren)) {
-      newFavs.delete(company.siren)
-      removeStoredFav(company.siren)
+    if (newFavs.has(prospect.id)) {
+      newFavs.delete(prospect.id)
+      removeStoredFav(prospect.id)
     } else {
-      newFavs.add(company.siren)
-      saveStoredFav(company)
-      saveFavorite(account, { targetSiren: company.siren, targetName: company.name, targetCity: company.city }).catch(() => {})
+      newFavs.add(prospect.id)
+      saveStoredFav(prospect)
+      saveFavorite(account, { targetSiren: prospect.companySiren ?? undefined, targetName: prospect.fullName, targetCity: prospect.city ?? undefined }).catch(() => {})
     }
     setFavorites(newFavs)
   }
@@ -1002,25 +1220,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </button>
             </form>
 
-            {/* Filtres inline */}
+            {/* Filtres inline + raccourcis */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <select value={department} onChange={e => { setDepartment(e.target.value); setPage(1) }}
-                className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none transition focus:border-blue-300">
-                <option value="">Tous départements</option>
-                {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
-              </select>
-              <select value={activityCode} onChange={e => { setActivityCode(e.target.value); setPage(1) }}
-                className="h-8 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none transition focus:border-blue-300">
-                <option value="">Tous les types</option>
-                {Object.entries(TYPE_LABELS).map(([code, label]) => (
-                  <option key={code} value={code}>{label}</option>
-                ))}
-              </select>
-              <label className="flex h-8 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600">
-                <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
-                Actives uniquement
-              </label>
-              <div className="mx-1 h-4 w-px bg-slate-200" />
+              {/* Raccourcis géographiques et thématiques */}
               {QUICK_FILTERS.map(f => (
                 <button key={f.label} onClick={() => handleQuickFilter(f)}
                   className={`h-8 rounded-full border px-3 text-xs font-medium transition ${
@@ -1031,13 +1233,61 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   {f.label}
                 </button>
               ))}
+
+              <div className="mx-1 h-4 w-px bg-slate-200" />
+
+              {/* Bouton Filtres avancés */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(v => !v)}
+                className={`flex h-8 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition ${
+                  showFilters || activeFiltersCount > 0
+                    ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2]'
+                }`}
+              >
+                <SlidersHorizontal size={12} />
+                Filtres avancés
+                {activeFiltersCount > 0 && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#124bd2] text-[9px] font-bold text-white">
+                    {activeFiltersCount}
+                  </span>
+                )}
+                {showFilters
+                  ? <ChevronUp size={11} />
+                  : <ChevronDown size={11} />
+                }
+              </button>
+
               {results.length > 0 && (
-                <button onClick={() => exportCSV(results, query)}
+                <button onClick={() => exportProspectsCSV(results, query)}
                   className="ml-auto flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
                   <Download size={12} /> CSV
                 </button>
               )}
             </div>
+
+            {/* Panneau de recherche avancée */}
+            {showFilters && (
+              <AdvancedFilters
+                department={department}       setDepartment={v => { setDepartment(v); setPage(1) }}
+                activityCode={activityCode}   setActivityCode={v => { setActivityCode(v); setPage(1) }}
+                activeOnly={activeOnly}       setActiveOnly={v => { setActiveOnly(v); setPage(1) }}
+                zipCode={zipCode}             setZipCode={v => { setZipCode(v); setPage(1) }}
+                employeeRange={employeeRange} setEmployeeRange={v => { setEmployeeRange(v); setPage(1) }}
+                legalForm={legalForm}         setLegalForm={v => { setLegalForm(v); setPage(1) }}
+                onSearch={() => {
+                  setQuery(inputValue)
+                  doSearch({ query: inputValue, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                }}
+                onReset={() => {
+                  setDepartment(''); setActivityCode(''); setActiveOnly(true)
+                  setZipCode(''); setEmployeeRange(''); setLegalForm('')
+                  setPage(1)
+                  doSearch({ query: inputValue, department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+                }}
+              />
+            )}
 
             {/* Toolbar résultats */}
             <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
@@ -1096,7 +1346,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </div>
             )}
 
-            {/* Empty state */}
+            {/* Empty state — recherche non lancée */}
             {!isLoading && !hasSearched && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
@@ -1104,24 +1354,27 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800">Commencez votre prospection</h3>
                 <p className="mt-2 max-w-sm text-sm text-slate-400">
-                  Entrez un nom, une ville, ou laissez vide pour voir toutes les agences immobilières de France.
+                  Recherchez par nom, poste, entreprise, téléphone ou ville.
                 </p>
               </div>
             )}
 
-            {/* Aucun résultat */}
+            {/* Aucun résultat / base non encore importée */}
             {!isLoading && hasSearched && results.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                  <Building2 size={28} />
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
+                  <Database size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">Aucun résultat</h3>
-                <p className="mt-2 text-sm text-slate-400">Essayez avec d'autres critères ou supprimez des filtres.</p>
+                <h3 className="text-lg font-semibold text-slate-700">Aucun prospect trouvé</h3>
+                <p className="mt-2 max-w-sm text-sm text-slate-400">
+                  La base de données est en cours d'importation.<br />
+                  Elle sera disponible très prochainement.
+                </p>
                 <button
-                  onClick={() => { setInputValue(''); setDepartment(''); setActivityCode(''); setActiveOnly(true); doSearch({ query: '', department: '', activityCode: '', activeOnly: true }) }}
-                  className="mt-4 rounded-xl bg-[#124bd2] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
+                  onClick={() => { setInputValue(''); setDepartment(''); setActivityCode(''); setActiveOnly(true); setZipCode(''); setEmployeeRange(''); setLegalForm(''); doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' }) }}
+                  className="mt-6 rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2]"
                 >
-                  Réinitialiser
+                  Réinitialiser les filtres
                 </button>
               </div>
             )}
@@ -1131,17 +1384,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               <>
                 {viewMode === 'grid' ? (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {results.map(c => (
-                      <CompanyCard key={c.siren} company={c}
-                        isFavorite={favorites.has(c.siren)} onToggleFavorite={toggleFavorite}
+                    {results.map(p => (
+                      <ProspectCard key={p.id} prospect={p}
+                        isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
                         viewMode="grid" onDetail={setSelectedCompany} />
                     ))}
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {results.map(c => (
-                      <CompanyCard key={c.siren} company={c}
-                        isFavorite={favorites.has(c.siren)} onToggleFavorite={toggleFavorite}
+                    {results.map(p => (
+                      <ProspectCard key={p.id} prospect={p}
+                        isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
                         viewMode="list" onDetail={setSelectedCompany} />
                     ))}
                   </div>
@@ -1149,10 +1402,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
                 {/* Export bas de page */}
                 <div className="mt-4 flex justify-end">
-                  <button onClick={() => exportCSV(results, query)}
+                  <button onClick={() => exportProspectsCSV(results, query)}
                     className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
                     <Download size={13} />
-                    Exporter ces {results.length} résultats en CSV
+                    Exporter ces {results.length} prospects en CSV
                   </button>
                 </div>
 
@@ -1187,9 +1440,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
         )}
       </div>
 
-      {/* Slide-over détail entreprise */}
+      {/* Slide-over détail prospect */}
       {selectedCompany && (
-        <CompanySlideOver company={selectedCompany} onClose={() => setSelectedCompany(null)} />
+        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} />
       )}
     </div>
   )

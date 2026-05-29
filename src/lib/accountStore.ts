@@ -337,7 +337,7 @@ export async function authenticate(email: string, password: string) {
       password,
     })
     if (error || !data.user) {
-      throw new Error('Email ou mot de passe incorrect.')
+      throw new Error(error?.message ?? 'Connexion impossible — utilisateur introuvable.')
     }
 
     const [account] = await fetchRemoteProfiles(data.user.id)
@@ -347,7 +347,7 @@ export async function authenticate(email: string, password: string) {
     }
     if (account.status === 'rejected' || account.status === 'suspended') {
       await supabase.auth.signOut()
-      throw new Error('Votre accès professionnel n’est pas actif.')
+      throw new Error("Votre accès professionnel n'est pas actif.")
     }
 
     const { error: logError } = await supabase.rpc('record_login')
@@ -368,7 +368,7 @@ export async function authenticate(email: string, password: string) {
     throw new Error('Votre accès attend encore la validation administrateur.')
   }
   if (account.status === 'rejected' || account.status === 'suspended') {
-    throw new Error('Votre accès professionnel n’est pas actif.')
+    throw new Error("Votre accès professionnel n'est pas actif.")
   }
 
   const connectedAccount = { ...account, lastLoginAt: new Date().toISOString() }
@@ -581,7 +581,7 @@ export async function reviewAccessRequest(
   const accounts = await initializeLocalAccounts()
   const target = accounts.find((account) => account.id === accountId)
   if (!target) {
-    throw new Error('Cette demande n’existe plus.')
+    throw new Error("Cette demande n'existe plus.")
   }
 
   const updatedAccounts = accounts.map((account) =>
