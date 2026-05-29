@@ -400,14 +400,16 @@ export default function AccountPanel({
                 </form>
               ) : (
                 <form onSubmit={handleLogin} className="space-y-4">
-                  <AuthInput id="login-email" label="Adresse e-mail" type="email" icon={Mail} value={email} onChange={setEmail} />
+                  <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />
                   <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} trailingIcon={Eye} />
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="flex items-center gap-2 font-medium text-[#07113d]">
-                      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#0757f8] focus:ring-[#0757f8]" />
-                      Se souvenir de moi
-                    </label>
-                    <button type="button" className="font-semibold text-[#0757f8]">Mot de passe oublié ?</button>
+                  <div className="flex items-center justify-end text-sm">
+                    <button
+                      type="button"
+                      onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${encodeURIComponent(email || '(à renseigner)')}`, '_blank')}
+                      className="font-semibold text-[#0757f8] hover:underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
                   </div>
                   {loginError && (
                     <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{loginError}</p>
@@ -624,8 +626,17 @@ export default function AccountPanel({
 
         {!requestCreated && drawerView === 'login' && (
           <form onSubmit={handleLogin} className="space-y-4">
-            <Field id="login-email" label="Email" type="email" value={email} onChange={setEmail} />
-            <Field id="login-password" label="Mot de passe" type="password" value={password} onChange={setPassword} />
+            <Field id="login-email" label="Email" type="email" placeholder="prenom.nom@votre-agence.fr" value={email} onChange={setEmail} />
+            <Field id="login-password" label="Mot de passe" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${encodeURIComponent(email || '(à renseigner)')}`, '_blank')}
+                className="text-xs font-medium text-[#0757f8] hover:underline"
+              >
+                Mot de passe oublié ?
+              </button>
+            </div>
             {loginError && (
               <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{loginError}</p>
             )}
@@ -1059,6 +1070,7 @@ function Field({
   type = 'text',
   value,
   minLength,
+  placeholder,
   onChange,
 }: {
   id: string
@@ -1066,6 +1078,7 @@ function Field({
   type?: string
   value: string
   minLength?: number
+  placeholder?: string
   onChange: (value: string) => void
 }) {
   return (
@@ -1077,8 +1090,9 @@ function Field({
         type={type}
         minLength={minLength}
         value={value}
+        placeholder={placeholder ?? label}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition focus:border-blue-600"
+        className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
       />
     </div>
   )

@@ -90,11 +90,11 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
         <div className="mb-8 grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
             <p className="text-2xl font-bold text-[#124bd2]">{entries.length}</p>
-            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Recherches ce mois</p>
+            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Recherches au total</p>
           </div>
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
             <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {Math.max(...entries.map(e => e.resultCount)).toLocaleString('fr-FR')}
+              {(entries.reduce((m, e) => Math.max(m, e.resultCount), 0)).toLocaleString('fr-FR')}
             </p>
             <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Meilleur résultat</p>
           </div>
@@ -178,7 +178,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
       <div className="flex items-center justify-between border-b border-slate-200 bg-white/85 px-5 py-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#124bd2]">Historique</p>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Recherches effectuees</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Recherches effectuées</h2>
         </div>
         {onClose && (
           <button

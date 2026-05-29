@@ -4,7 +4,7 @@ import {
   Building2, MapPin, Hash, Users, LogOut, X,
   Zap, RefreshCw, ExternalLink, LayoutGrid, List,
   ShieldCheck, AlertCircle, Download, Clock,
-  ArrowRight, Globe, TrendingUp, FileText, Info,
+  ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
   Phone, Mail, Database, Calendar, Briefcase, Plus,
@@ -98,104 +98,7 @@ function removeStoredFav(id: string) {
   localStorage.setItem(FAV_STORE_KEY, JSON.stringify(loadStoredFavs().filter(f => f.id !== id)))
 }
 
-// ─── Favoris Drawer ───────────────────────────────────────────────────────────
-function FavoritesDrawer({
-  onClose, onToggleFav, favorites,
-}: {
-  onClose: () => void
-  onToggleFav: (siren: string) => void
-  favorites: Set<string>
-}) {
-  const [favs, setFavs] = useState<FavStored[]>(loadStoredFavs)
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  const handleRemove = (id: string) => {
-    removeStoredFav(id)
-    onToggleFav(id)
-    setFavs(loadStoredFavs())
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-sm flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Star size={16} className="text-amber-400" fill="currentColor" />
-            <h2 className="font-semibold text-slate-800 dark:text-slate-100">Mes favoris</h2>
-            {favs.length > 0 && (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-600">{favs.length}</span>
-            )}
-          </div>
-          <button onClick={onClose} className="rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Export CSV favoris */}
-        {favs.length > 0 && (
-          <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-800">
-            <button
-              onClick={() => {
-                const csv = ['Nom;Poste;Entreprise;Ville;Ajouté le',
-                  ...favs.map(f => `"${f.name}";"${f.jobTitle}";"${f.companyName}";"${f.city}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
-                ].join('\n')
-                const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a'); a.href = url; a.download = 'favoris.csv'; a.click(); URL.revokeObjectURL(url)
-              }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-700"
-            >
-              <Download size={12} /> Exporter mes favoris ({favs.length}) en CSV
-            </button>
-          </div>
-        )}
-
-        {/* Liste */}
-        <div className="flex-1 overflow-y-auto">
-          {favs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-300">
-                <Star size={24} />
-              </div>
-              <p className="font-medium text-slate-700">Aucun favori</p>
-              <p className="mt-1 text-xs text-slate-400">Cliquez sur ★ sur une fiche pour la sauvegarder ici.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {favs.map(f => (
-                <div key={f.id} className="flex items-start gap-3 px-5 py-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-[#124bd2]">
-                    {prospectInitials(f.name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{f.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.jobTitle} · {f.companyName}</p>
-                    <p className="mt-0.5 text-xs text-slate-300">{f.city}</p>
-                  </div>
-                  <button
-                    onClick={() => handleRemove(f.id)}
-                    className="rounded-lg p-1.5 text-amber-400 transition hover:text-red-400"
-                  >
-                    <Star size={13} fill="currentColor" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Composant QuotaBar ────────────────────────────────────────────────────────
+// ─── Composant QuotaBar (inline, non utilisé seul mais gardé pour référence) ──
 function QuotaBar({ used, total }: { used: number; total: number }) {
   const pct     = quotaPercent(used, total)
   const isLow   = pct >= 80
@@ -227,16 +130,16 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
           <div className="flex items-center gap-4">
             <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-bold ${prospectAccent(prospect.jobTitle)}`}>
               {prospectInitials(prospect.fullName)}
             </div>
             <div>
-              <h2 className="font-bold leading-snug text-slate-800">{prospect.fullName}</h2>
-              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500">{prospect.jobTitle}</p>}
+              <h2 className="font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
               {prospect.companyName && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
                   <Building2 size={11} /> {prospect.companyName}
@@ -244,13 +147,13 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
               )}
             </div>
           </div>
-          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600">
+          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
             <X size={18} />
           </button>
         </div>
 
         {/* Statut */}
-        <div className="border-b border-slate-100 px-6 py-3">
+        <div className="border-b border-slate-100 px-6 py-3 dark:border-slate-800">
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${prospect.isActive ? 'bg-emerald-500' : 'bg-red-400'}`} />
             {prospect.isActive ? 'Contact actif' : 'Inactif'}
@@ -263,7 +166,7 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
           {/* Coordonnées */}
           <section>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
               {prospect.phone && (
                 <div className="flex items-center gap-2.5">
                   <Phone size={13} className="shrink-0 text-slate-300" />
@@ -298,7 +201,7 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
           {(prospect.companyName || prospect.activityCode || prospect.companySize) && (
             <section>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
                 {prospect.companyName && <Row icon={<Building2 size={13} className="text-slate-300" />} label="Société" value={prospect.companyName} />}
                 {prospect.companySiren && <Row icon={<Hash size={13} className="text-slate-300" />} label="SIREN" value={prospect.companySiren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')} mono />}
                 {prospect.activityCode && <Row icon={<Zap size={13} className="text-slate-300" />} label="Activité" value={`${prospect.activityCode}${prospect.activityLabel ? ` — ${prospect.activityLabel}` : ''}`} />}
@@ -312,7 +215,7 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
           {(prospect.address || prospect.city) && (
             <section>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
                 {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
                 {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
                 {prospect.region && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Région" value={prospect.region} />}
@@ -327,12 +230,12 @@ function ProspectSlideOver({ prospect, onClose }: { prospect: ProspectResult; on
               <div className="grid grid-cols-2 gap-2">
                 <a href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${prospect.companySiren}`}
                   target="_blank" rel="noopener"
-                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100">
+                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100 dark:bg-blue-950/30 dark:border-blue-900 dark:hover:bg-blue-950/50">
                   <ShieldCheck size={13} /> Annuaire officiel
                 </a>
                 <a href={`https://pappers.fr/entreprise/${prospect.companySiren}`}
                   target="_blank" rel="noopener"
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
                   <Info size={13} /> Pappers
                 </a>
               </div>
@@ -391,14 +294,14 @@ function ProspectCard({
 
   if (viewMode === 'list') {
     return (
-      <div className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition hover:border-blue-200 hover:shadow-sm">
+      <div className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-900">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${accent}`}>
           {initials}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => onDetail(prospect)}
-              className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left">
+              className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
               {prospect.fullName}
             </button>
             {prospect.jobTitle && (
@@ -408,7 +311,7 @@ function ProspectCard({
               {prospect.isActive ? 'Actif' : 'Inactif'}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-xs text-slate-400">
+          <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
             {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
             {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
           </p>
@@ -416,20 +319,23 @@ function ProspectCard({
         <div className="hidden shrink-0 items-center gap-3 sm:flex">
           {prospect.phone && (
             <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2]">
+              className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2] dark:text-slate-400">
               <Phone size={11} /> {prospect.phone}
             </a>
           )}
           {prospect.email && (
             <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-              className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px]">
+              className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px] dark:text-slate-500">
               {prospect.email}
             </a>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-          <button onClick={() => onToggleFavorite(prospect)}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}>
+          <button
+            onClick={() => onToggleFavorite(prospect)}
+            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+          >
             <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
           <button onClick={() => onDetail(prospect)}
@@ -444,7 +350,7 @@ function ProspectCard({
   // Vue grille
   return (
     <div
-      className="card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 cursor-pointer hover:border-blue-200 hover:shadow-sm transition"
+      className="card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 cursor-pointer hover:border-blue-200 hover:shadow-sm transition dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-900"
       onClick={() => onDetail(prospect)}
     >
       {/* Header */}
@@ -454,6 +360,7 @@ function ProspectCard({
         </div>
         <button
           onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
           className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
         >
           <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -462,7 +369,7 @@ function ProspectCard({
 
       {/* Identité */}
       <div className="mt-3">
-        <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition">{prospect.fullName}</p>
+        <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
         {prospect.jobTitle && (
           <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>
         )}
@@ -473,10 +380,10 @@ function ProspectCard({
         )}
       </div>
 
-      <div className="my-3 h-px bg-slate-100" />
+      <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
 
       {/* Coordonnées */}
-      <div className="flex-1 space-y-1.5 text-xs text-slate-500">
+      <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
         {prospect.phone ? (
           <p className="flex items-center gap-2">
             <Phone size={11} className="shrink-0 text-slate-300" />
@@ -490,7 +397,7 @@ function ProspectCard({
               className="hover:text-[#124bd2] transition">{prospect.phoneMobile}</a>
           </p>
         ) : (
-          <p className="flex items-center gap-2 text-slate-300">
+          <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
             <Phone size={11} className="shrink-0" /> —
           </p>
         )}
@@ -502,7 +409,7 @@ function ProspectCard({
               className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
           </p>
         ) : (
-          <p className="flex items-center gap-2 text-slate-300">
+          <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
             <Mail size={11} className="shrink-0" /> —
           </p>
         )}
@@ -519,7 +426,7 @@ function ProspectCard({
       <div className="mt-4">
         <button
           onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
         >
           Voir la fiche <ArrowRight size={12} />
         </button>
@@ -598,16 +505,16 @@ function FavoritesView({
           {favs.map(f => (
             <div
               key={f.id}
-              className="card-lift group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4"
+              className="card-lift group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-[#124bd2]">
                 {prospectInitials(f.name)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-800">{f.name}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{f.jobTitle}</p>
-                <p className="mt-0.5 text-xs text-slate-400">{f.companyName}</p>
-                <p className="mt-0.5 text-xs text-slate-300">{f.city}</p>
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{f.name}</p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.jobTitle}</p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.companyName}</p>
+                <p className="mt-0.5 text-xs text-slate-300 dark:text-slate-600">{f.city}</p>
               </div>
               <button
                 onClick={() => handleRemove(f.id)}
@@ -659,12 +566,12 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
       {/* Trigger — initiale + nom complet + chevron */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm"
+        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold shrink-0">
           {initial}
         </span>
-        <span className="max-w-[140px] truncate text-sm font-medium text-slate-700">{displayName}</span>
+        <span className="max-w-[140px] truncate text-sm font-medium text-slate-700 dark:text-slate-200">{displayName}</span>
         {open
           ? <ChevronUp size={13} className="text-slate-400" />
           : <ChevronDown size={13} className="text-slate-400" />
@@ -752,11 +659,11 @@ function AdvSection({
   open: boolean; onToggle: () => void; children: React.ReactNode
 }) {
   return (
-    <div className="border-b border-slate-100 last:border-0">
+    <div className="border-b border-slate-100 last:border-0 dark:border-slate-800">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium text-slate-700 hover:bg-slate-50/80 transition"
+        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium text-slate-700 hover:bg-slate-50/80 transition dark:text-slate-200 dark:hover:bg-slate-800/50"
       >
         <span className="flex items-center gap-3">
           <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
@@ -795,7 +702,7 @@ function AdvInput({
         onChange={e => onChange(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && onEnter) onEnter() }}
         placeholder={placeholder}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300"
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
       />
     </div>
   )
@@ -814,7 +721,7 @@ function AdvSelect({
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white"
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       >
         {children}
       </select>
@@ -836,7 +743,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
   const tog = (k: string) => setOpen(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
 
   return (
-    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
 
       {/* 1 — État civil */}
       <AdvSection id="civil" icon={<UserCircle2 size={15} />} title="État civil"
@@ -910,9 +817,9 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
       </AdvSection>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-800/50">
         <button type="button" onClick={onReset}
-          className="flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-700">
+          className="flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300">
           <RefreshCw size={11} /> Réinitialiser
         </button>
         <button type="button" onClick={onSearch}
@@ -1020,12 +927,18 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
       setPage(pg)
       setHasSearched(true)
 
-      if (params.query?.trim()) {
-        saveRecentSearch(params.query.trim())
+      // Ne compter le quota que pour les vraies recherches (pas la préchargement vide au montage)
+      const hasQuery = Boolean(params.query?.trim())
+      if (hasQuery) {
+        saveRecentSearch(params.query!.trim())
         setRecentSearches(readRecentSearches())
+        setUsedQuota(q => q + 1)
+        recordSearch(params.query!, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+      } else if (params.department || params.activityCode || params.zipCode || params.employeeRange || params.legalForm) {
+        // Filtre seul sans texte — on compte quand même
+        setUsedQuota(q => q + 1)
+        recordSearch(`filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
       }
-      setUsedQuota(q => q + 1)
-      recordSearch(params.query || 'prospects immobilier', { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
     } catch (err: any) {
       setError(err.message ?? 'Erreur lors de la recherche')
     } finally {
@@ -1090,7 +1003,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
       {/* ── Sidebar gauche (fixe, dark) ──────────────────────────────────── */}
       <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d]">
@@ -1121,6 +1034,30 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             </button>
           ))}
         </nav>
+
+        {/* Quota bar sidebar */}
+        {account.quota > 0 && (
+          <div className="border-t border-white/8 px-4 py-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Quota mensuel</span>
+              <span className={`text-[10px] font-bold tabular-nums ${
+                usedQuota / account.quota >= 0.9 ? 'text-red-400' :
+                usedQuota / account.quota >= 0.7 ? 'text-amber-400' : 'text-white/50'
+              }`}>
+                {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
+              </span>
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  usedQuota / account.quota >= 0.9 ? 'bg-red-400' :
+                  usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#1B54FF]'
+                }`}
+                style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
+              />
+            </div>
+          </div>
+        )}
 
       </aside>
 
@@ -1156,18 +1093,47 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             {/* En-tête */}
             <div className="mb-7 flex items-start justify-between">
               <div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2]">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
                   Recherche professionnelle
                 </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d]">
+                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
                   {hasSearched && query ? `"${query}"` : 'Nouveau ciblage'}
                 </h1>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {/* Quota visuel */}
+                {account.quota > 0 && (
+                  <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 sm:flex dark:border-slate-700 dark:bg-slate-800">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          usedQuota / account.quota >= 0.9 ? 'bg-red-500' :
+                          usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#124bd2]'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium tabular-nums ${
+                      usedQuota / account.quota >= 0.9 ? 'text-red-500' :
+                      usedQuota / account.quota >= 0.7 ? 'text-amber-600' : 'text-slate-500'
+                    }`}>
+                      {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
+                    </span>
+                  </div>
+                )}
+                {/* Dark mode toggle */}
+                <button
+                  type="button"
+                  aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                  onClick={() => setDarkMode(d => !d)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700"
+                >
+                  {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+                </button>
                 {account.status === 'approved' && (
-                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                  <div className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 lg:flex">
                     <ShieldCheck size={12} />
-                    Compte nominatif validé
+                    Accès validé
                   </div>
                 )}
                 <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
@@ -1187,19 +1153,19 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                   onBlur={() => setTimeout(() => setShowRecent(false), 150)}
                   placeholder="Nom, prénom, entreprise, téléphone, adresse..."
                   autoComplete="off"
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
                 />
                 {showRecent && recentSearches.length > 0 && (
-                  <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg">
+                  <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-800">
                     <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Récents</p>
                     {recentSearches.map(r => (
                       <button key={r} type="button" onMouseDown={() => handleRecentSearch(r)}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
                         <Clock size={13} className="shrink-0 text-slate-300" /> {r}
                       </button>
                     ))}
                     <button type="button" onMouseDown={() => { localStorage.removeItem(RECENT_SEARCHES_KEY); setRecentSearches([]) }}
-                      className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600">
+                      className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600 dark:border-slate-800 dark:text-slate-500 dark:hover:text-slate-300">
                       <X size={11} /> Effacer l'historique
                     </button>
                   </div>
@@ -1220,7 +1186,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                 className={`flex h-9 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition ${
                   showFilters || activeFiltersCount > 0
                     ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2]'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                 }`}
               >
                 <SlidersHorizontal size={14} />
@@ -1238,7 +1204,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
 
               {results.length > 0 && (
                 <button onClick={() => exportProspectsCSV(results, query)}
-                  className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   <Download size={12} /> CSV
                 </button>
               )}
@@ -1288,24 +1254,24 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
               <div>
                 {hasSearched && !isLoading && (
-                  <p className="text-sm text-slate-500">
-                    <span className="font-semibold text-slate-800">{total.toLocaleString('fr-FR')}</span>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{total.toLocaleString('fr-FR')}</span>
                     {' '}résultat{total > 1 ? 's' : ''}
-                    {query && <span> pour <em className="text-slate-700">"{query}"</em></span>}
+                    {query && <span> pour <em className="text-slate-700 dark:text-slate-200">"{query}"</em></span>}
                     {department && <span> · {departmentLabel(department)}</span>}
                   </p>
                 )}
               </div>
               {hasSearched && !isLoading && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Consultation journalisée</span>
-                  <select value={perPage} onChange={e => { const pp = Number(e.target.value); setPerPage(pp); doSearch({ query, department, activityCode, activeOnly, perPage: pp }, 1) }}
-                    className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Consultation journalisée</span>
+                  <select value={perPage} onChange={e => { const pp = Number(e.target.value); setPerPage(pp); doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm, perPage: pp }, 1) }}
+                    className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                     {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
                   </select>
-                  <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
-                    <button onClick={() => setViewMode('grid')} className={`rounded-md p-1.5 transition ${viewMode === 'grid' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={13} /></button>
-                    <button onClick={() => setViewMode('list')} className={`rounded-md p-1.5 transition ${viewMode === 'list' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600'}`}><List size={13} /></button>
+                  <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-800">
+                    <button onClick={() => setViewMode('grid')} className={`rounded-md p-1.5 transition ${viewMode === 'grid' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}><LayoutGrid size={13} /></button>
+                    <button onClick={() => setViewMode('list')} className={`rounded-md p-1.5 transition ${viewMode === 'list' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}><List size={13} /></button>
                   </div>
                 </div>
               )}
@@ -1324,17 +1290,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             {isLoading && (
               <div className={viewMode === 'grid' ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-2'}>
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5">
+                  <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-slate-100" />
+                      <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-3 w-3/4 rounded bg-slate-100" />
-                        <div className="h-2.5 w-1/2 rounded bg-slate-100" />
+                        <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
+                        <div className="h-2.5 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
                       </div>
                     </div>
                     <div className="mt-4 space-y-2">
-                      <div className="h-2.5 w-full rounded bg-slate-100" />
-                      <div className="h-2.5 w-2/3 rounded bg-slate-100" />
+                      <div className="h-2.5 w-full rounded bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-2.5 w-2/3 rounded bg-slate-100 dark:bg-slate-800" />
                     </div>
                   </div>
                 ))}
@@ -1344,10 +1310,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             {/* Empty state — recherche non lancée */}
             {!isLoading && !hasSearched && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2] dark:bg-blue-950/30">
                   <Search size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800">Commencez votre prospection</h3>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Commencez votre prospection</h3>
                 <p className="mt-2 max-w-sm text-sm text-slate-400">
                   Recherchez par nom, poste, entreprise, téléphone ou ville.
                 </p>
@@ -1357,10 +1323,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
             {/* Aucun résultat / base non encore importée */}
             {!isLoading && hasSearched && results.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-500">
                   <Database size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">Aucun prospect trouvé</h3>
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">Aucun prospect trouvé</h3>
                 <p className="mt-2 max-w-sm text-sm text-slate-400">
                   La base de données est en cours d'importation.<br />
                   Elle sera disponible très prochainement.
@@ -1375,7 +1341,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                     setZipCode(''); setEmployeeRange(''); setLegalForm('')
                     doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
                   }}
-                  className="mt-6 rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2]"
+                  className="mt-6 rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400"
                 >
                   Réinitialiser les filtres
                 </button>
@@ -1406,7 +1372,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                 {/* Export bas de page */}
                 <div className="mt-4 flex justify-end">
                   <button onClick={() => exportProspectsCSV(results, query)}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                     <Download size={13} />
                     Exporter ces {results.length} prospects en CSV
                   </button>
@@ -1416,20 +1382,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
                 {totalPages > 1 && (
                   <div className="mt-8 flex items-center justify-center gap-2">
                     <button onClick={() => handlePageChange(page - 1)} disabled={page <= 1}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40">
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                       <ChevronLeft size={16} />
                     </button>
                     {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
                       const pg = i + Math.max(1, Math.min(page - 3, totalPages - 6))
                       return (
                         <button key={pg} onClick={() => handlePageChange(pg)}
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}>
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
                           {pg}
                         </button>
                       )
                     })}
                     <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40">
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                       <ChevronRight size={16} />
                     </button>
                     <span className="ml-2 hidden text-xs text-slate-400 sm:inline">

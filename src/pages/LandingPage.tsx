@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  AlertCircle,
   ArrowRight,
   BadgeCheck,
   Ban,
@@ -16,6 +17,7 @@ import {
   Sparkles,
   Timer,
   UserRoundCheck,
+  X,
   Zap,
 } from 'lucide-react'
 import AccountPanel, { type AccountPanelView } from '@/components/account/AccountPanel'
@@ -190,6 +192,7 @@ export default function LandingPage({
   const [currentAccount, setCurrentAccount]     = useState<Account | null>(null)
   const [billingPeriod, setBillingPeriod]       = useState<BillingPeriod>('monthly')
   const [checkoutLoading, setCheckoutLoading]   = useState<string | null>(null)
+  const [checkoutError, setCheckoutError]       = useState<string | null>(null)
 
   const accountPanel    = externalAccountPanel  !== undefined ? externalAccountPanel  : _localPanel
   const setAccountPanel = onOpenAccountPanel    !== undefined ? onOpenAccountPanel    : _setLocalPanel
@@ -234,10 +237,13 @@ export default function LandingPage({
       })
 
       const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else console.error('Checkout error:', data.error)
-    } catch (err) {
-      console.error('Checkout failed:', err)
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setCheckoutError(data.error ?? 'Une erreur est survenue. Veuillez réessayer.')
+      }
+    } catch {
+      setCheckoutError('Service momentanément indisponible. Réessayez dans quelques instants.')
     } finally {
       setCheckoutLoading(null)
     }
@@ -660,6 +666,17 @@ export default function LandingPage({
               <p className="mt-3 text-center text-xs text-emerald-600 font-medium">
                 💡 Idéal pour tester sans engagement annuel · 1 mois offert par trimestre
               </p>
+            )}
+
+            {/* Erreur checkout */}
+            {checkoutError && (
+              <div className="mt-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <AlertCircle size={16} className="shrink-0 text-red-500" />
+                <span className="flex-1">{checkoutError}</span>
+                <button onClick={() => setCheckoutError(null)} className="text-red-400 hover:text-red-600 transition">
+                  <X size={14} />
+                </button>
+              </div>
             )}
 
             {/* Grille de plans */}
