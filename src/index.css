@@ -1,59 +1,173 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 220 25% 7%;
-    --foreground: 220 10% 98%;
-    --card: 220 25% 9%;
-    --card-foreground: 220 10% 98%;
-    --popover: 220 25% 7%;
-    --popover-foreground: 220 10% 98%;
-    --primary: 210 100% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 220 10% 90%;
-    --muted: 220 20% 15%;
-    --muted-foreground: 220 10% 65%;
-    --accent: 190 90% 50%;
-    --accent-foreground: 220 25% 7%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 220 10% 98%;
-    --border: 220 20% 15%;
-    --input: 220 20% 15%;
-    --ring: 210 100% 60%;
-    --radius: 0.75rem;
-  }
-
   * {
     @apply border-border;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    height: 100%;
+    scroll-behavior: smooth;
+  }
+
+  #root {
+    min-height: 100%;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 
   body {
+    min-height: 100%;
+    min-height: 100dvh;
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.01em;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+  ::selection {
+    background: rgba(27, 84, 255, 0.15);
+    color: inherit;
   }
+
+  /* Focus ring premium */
+  :focus-visible {
+    outline: 2px solid #1B54FF;
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* Scrollbar subtle */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+
+  .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+  .dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 }
 
-@layer components {
-  .search-grid-item {
-    @apply rounded-xl border border-border/50 bg-secondary/50 p-4 transition-all hover:border-primary/30 hover:bg-secondary;
-  }
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 84% 5%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 222 83% 45%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 25 95% 53%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 222 83% 45%;
+
+  --chart-1: 222 83% 45%;
+  --chart-2: 25 95% 53%;
+  --chart-3: 142 70% 45%;
+  --chart-4: 47 96% 53%;
+  --chart-5: 263 70% 50%;
+
+  --sidebar: 210 40% 98%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 222 83% 45%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 210 40% 94%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-ring: 222 83% 45%;
+
+  --font-sans: 'Poppins', sans-serif;
+  --font-serif: 'Poppins', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --tracking-normal: -0.01em;
+  --spacing: 0.25rem;
+  --radius: 0.75rem;
+}
+
+:root.dark {
+  --background: 222 47% 4%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 6%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 6%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 4%;
+  --secondary: 222 47% 12%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 222 47% 12%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 25 95% 58%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 222 47% 15%;
+  --input: 222 47% 15%;
+  --ring: 217 91% 60%;
+
+  --sidebar: 222 47% 4%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 222 47% 4%;
+  --sidebar-accent: 222 47% 10%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 222 47% 15%;
+  --sidebar-ring: 217 91% 60%;
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-fade-up {
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
+/* Glow button effect */
+.btn-glow:hover {
+  box-shadow: 0 0 0 4px rgba(27, 84, 255, 0.18), 0 8px 24px -6px rgba(27, 84, 255, 0.45);
+}
+.btn-glow:active {
+  transform: translateY(1px);
+}
+
+/* Card lift on hover */
+.card-lift {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.14);
+}
+.dark .card-lift:hover {
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+}

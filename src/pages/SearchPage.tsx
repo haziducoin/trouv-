@@ -1,242 +1,1665 @@
-import { useState, useEffect } from 'react'
-import { 
-  Search, 
-  History, 
-  Settings, 
-  LogOut, 
-  User, 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle2,
-  Clock,
-  ArrowLeft,
-  Filter,
-  Download
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  Search, SlidersHorizontal, Star, ChevronLeft, ChevronRight,
+  Building2, MapPin, Hash, Users, LogOut, X,
+  Zap, RefreshCw, ExternalLink, LayoutGrid, List,
+  ShieldCheck, AlertCircle, Download, Clock,
+  ArrowRight, Globe, FileText, Info,
+  Moon, Sun, History, ChevronUp, ChevronDown,
+  UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock,
 } from 'lucide-react'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { blink } from '@/blink/client'
-import { useAuth } from '@/hooks/useAuth'
+import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
 
-export default function SearchPage() {
-  const { user, isLoading, logout } = useAuth()
-  const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
-  const [results, setResults] = useState<any[]>([])
+type AppView = 'search' | 'history' | 'favorites'
+import trouveLogo from '@/assets/trouve-logo.png'
+import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
+import {
+  searchProspects, exportProspectsCSV,
+  type ProspectResult, type ProspectSearchParams,
+} from '@/lib/prospectApi'
+import { recordSearch, saveFavorite, type Account } from '@/lib/accountStore'
+import HistoryPage from './HistoryPage'
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      navigate({ to: '/' })
-    }
-  }, [user, isLoading, navigate])
+// ─── Props ────────────────────────────────────────────────────────────────────
+export type AccessLevel = 'full' | 'demo' | 'limited'
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!searchQuery.trim()) return
+interface SearchPageProps {
+  account:       Account
+  onLogout:      () => void
+  onOpenAccount: () => void
+  accessLevel?:  AccessLevel
+  maxSearches?:  number
+}
 
-    setIsSearching(true)
-    // Simulate API delay
-    setTimeout(() => {
-      const mockResults = [
-        { id: 1, type: 'Email Leak', source: 'Canva 2019', status: 'High Risk', date: '2019-05-24' },
-        { id: 2, type: 'Password Hash', source: 'LinkedIn 2016', status: 'Mitigated', date: '2016-06-12' },
-        { id: 3, type: 'IP Address', source: 'Unknown Database', status: 'Low Risk', date: '2023-11-02' },
-      ]
-      setResults(mockResults)
-      setIsSearching(false)
-      
-      // Save to history in DB
-      blink.db.searches.create({
-        userId: user?.id,
-        searchType: 'omni',
-        queryParams: JSON.stringify({ query: searchQuery }),
-        results: JSON.stringify(mockResults)
-      }).catch(console.error)
-    }, 1500)
-  }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const RECENT_SEARCHES_KEY = 'trouve_recent_q'
+const MAX_RECENT = 6
 
-  if (isLoading || !user) {
+function quotaPercent(used: number, total: number) {
+  if (total <= 0) return 0
+  return Math.min(100, Math.round((used / total) * 100))
+}
+
+function formatSiren(s: string) {
+  return s.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')
+}
+
+function departmentLabel(code: string) {
+  return DEPARTMENTS.find(d => d.code === code)?.label ?? `Dép. ${code}`
+}
+
+function isNew(createdAt: string | null) {
+  if (!createdAt) return false
+  const d = new Date(createdAt)
+  const months12Ago = new Date()
+  months12Ago.setMonth(months12Ago.getMonth() - 12)
+  return d > months12Ago
+}
+
+function readRecentSearches(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveRecentSearch(q: string) {
+  if (!q.trim()) return
+  const recent = readRecentSearches().filter(r => r !== q)
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify([q, ...recent].slice(0, MAX_RECENT)))
+}
+
+// ─── Résultats par page ───────────────────────────────────────────────────────
+const PER_PAGE_OPTIONS = [20, 50, 100]
+
+// Favoris persistés localement (indexed by SIREN)
+const FAV_STORE_KEY = 'trouve_fav_data_v2'
+
+interface FavStored {
+  id:          string
+  name:        string
+  jobTitle:    string
+  companyName: string
+  city:        string
+  savedAt:     string
+}
+
+function loadStoredFavs(): FavStored[] {
+  try { return JSON.parse(localStorage.getItem(FAV_STORE_KEY) ?? '[]') } catch { return [] }
+}
+function saveStoredFav(p: ProspectResult) {
+  const favs = loadStoredFavs().filter(f => f.id !== p.id)
+  localStorage.setItem(FAV_STORE_KEY, JSON.stringify([
+    {
+      id:          p.id,
+      name:        p.fullName,
+      jobTitle:    p.jobTitle    ?? '',
+      companyName: p.companyName ?? '',
+      city:        p.city        ?? '',
+      savedAt:     new Date().toISOString(),
+    },
+    ...favs,
+  ].slice(0, 200)))
+}
+function removeStoredFav(id: string) {
+  localStorage.setItem(FAV_STORE_KEY, JSON.stringify(loadStoredFavs().filter(f => f.id !== id)))
+}
+
+// ─── Composant QuotaBar (inline, non utilisé seul mais gardé pour référence) ──
+function QuotaBar({ used, total }: { used: number; total: number }) {
+  const pct     = quotaPercent(used, total)
+  const isLow   = pct >= 80
+  const isEmpty = used >= total
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-slate-200 sm:block dark:bg-slate-700">
+        <div
+          className={`h-full rounded-full transition-all ${isEmpty ? 'bg-red-500' : isLow ? 'bg-amber-400' : 'bg-[#124bd2]'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={`text-xs font-medium tabular-nums ${isEmpty ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-slate-500'}`}>
+        {used.toLocaleString('fr-FR')}&thinsp;/&thinsp;{total.toLocaleString('fr-FR')}
+      </span>
+    </div>
+  )
+}
+
+// ─── BlurPill — contenu masqué (mode limité) ─────────────────────────────────
+function BlurPill({ w = 'w-24', h = 'h-3' }: { w?: string; h?: string }) {
+  return (
+    <span className={`inline-block ${w} ${h} rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse`} />
+  )
+}
+
+// ─── DemoBanner — bandeau d'accès restreint ───────────────────────────────────
+function DemoBanner({
+  accessLevel, used, max, onCta,
+}: {
+  accessLevel: AccessLevel; used: number; max: number; onCta: () => void
+}) {
+  const remaining = Math.max(0, max - used)
+  if (accessLevel === 'demo') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#124bd2] text-white text-xs">
+          <Search size={13} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[#124bd2] dark:text-blue-300">Mode aperçu</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+            Téléphone et email masqués · {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900">
+            <div className="h-full rounded-full bg-[#124bd2] transition-all" style={{ width: `${Math.min(100, (used / max) * 100)}%` }} />
+          </div>
+          <span className="text-xs font-bold tabular-nums text-[#124bd2] dark:text-blue-300">{used}/{max}</span>
+          <button onClick={onCta}
+            className="ml-1 flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+            Accès complet <ArrowRight size={11} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+  // limited
+  return (
+    <div className="mb-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-xs">
+        <Lock size={13} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Accès en attente de validation</p>
+        <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+          Résultats masqués · {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-amber-200 dark:bg-amber-900">
+          <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, (used / max) * 100)}%` }} />
+        </div>
+        <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">{used}/{max}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── ConversionModal — appel à l'action après épuisement ─────────────────────
+function ConversionModal({
+  accessLevel, account, onClose, onLogout,
+}: {
+  accessLevel: AccessLevel
+  account: { email: string; companyName: string | null }
+  onClose: () => void
+  onLogout: () => void
+}) {
+  const isDemoMode = accessLevel === 'demo'
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+        <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${isDemoMode ? 'bg-blue-50 text-[#124bd2]' : 'bg-amber-50 text-amber-500'}`}>
+          {isDemoMode ? <Zap size={28} /> : <Lock size={28} />}
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+          {isDemoMode ? 'Votre aperçu est terminé !' : 'Limite d\'essai atteinte'}
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          {isDemoMode
+            ? 'Vous avez utilisé toutes vos recherches gratuites. Créez un compte pour accéder aux coordonnées complètes et à la base de données entière.'
+            : `Vous avez utilisé toutes vos recherches d'essai. Notre équipe valide votre accès sous 24–48h. Vous recevrez un email à ${account.email} dès que votre compte est activé.`
+          }
+        </p>
+        <div className="mt-6 flex flex-col gap-2">
+          {isDemoMode ? (
+            <>
+              <button onClick={() => window.location.replace('/?pricing=1')}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+                <Zap size={15} /> Créer mon compte
+              </button>
+              <button onClick={onClose}
+                className="rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+                Continuer à explorer
+              </button>
+            </>
+          ) : (
+            <button onClick={onLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+              <LogOut size={14} /> Se déconnecter
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
+function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospect: ProspectResult; onClose: () => void; accessLevel?: AccessLevel }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
+          <div className="flex items-center gap-4">
+            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-bold ${prospectAccent(prospect.jobTitle)}`}>
+              {prospectInitials(prospect.fullName)}
+            </div>
+            <div>
+              <h2 className="font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
+              {prospect.companyName && (
+                <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                  <Building2 size={11} /> {prospect.companyName}
+                </p>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Statut */}
+        <div className="border-b border-slate-100 px-6 py-3 dark:border-slate-800">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${prospect.isActive ? 'bg-emerald-500' : 'bg-red-400'}`} />
+            {prospect.isActive ? 'Contact actif' : 'Inactif'}
+          </span>
+        </div>
+
+        {/* Corps */}
+        <div className="flex-1 space-y-5 p-6">
+
+          {/* Coordonnées */}
+          <section>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+              {prospect.phone && (
+                <div className="flex items-center gap-2.5">
+                  <Phone size={13} className="shrink-0 text-slate-300" />
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phone)} <Lock size={9} className="text-slate-300" /></span>
+                    : <a href={`tel:${prospect.phone}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phone}</a>
+                  }
+                </div>
+              )}
+              {prospect.phoneMobile && (
+                <div className="flex items-center gap-2.5">
+                  <Phone size={13} className="shrink-0 text-slate-300" />
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phoneMobile)} <Lock size={9} className="text-slate-300" /> <span className="text-slate-300">(mobile)</span></span>
+                    : <a href={`tel:${prospect.phoneMobile}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phoneMobile} <span className="text-slate-400">(mobile)</span></a>
+                  }
+                </div>
+              )}
+              {prospect.email && (
+                <div className="flex items-center gap-2.5">
+                  <Mail size={13} className="shrink-0 text-slate-300" />
+                  {accessLevel === 'demo'
+                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskEmail(prospect.email)} <Lock size={9} className="text-slate-300" /></span>
+                    : <a href={`mailto:${prospect.email}`} className="truncate text-xs text-[#124bd2] hover:underline">{prospect.email}</a>
+                  }
+                </div>
+              )}
+              {prospect.linkedinUrl && (
+                <div className="flex items-center gap-2.5">
+                  <ExternalLink size={13} className="shrink-0 text-slate-300" />
+                  <a href={prospect.linkedinUrl} target="_blank" rel="noopener" className="truncate text-xs text-[#124bd2] hover:underline">LinkedIn</a>
+                </div>
+              )}
+              {!prospect.phone && !prospect.email && !prospect.phoneMobile && (
+                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+              )}
+            </div>
+          </section>
+
+          {/* Entreprise */}
+          {(prospect.companyName || prospect.activityCode || prospect.companySize) && (
+            <section>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+                {prospect.companyName && <Row icon={<Building2 size={13} className="text-slate-300" />} label="Société" value={prospect.companyName} />}
+                {prospect.companySiren && <Row icon={<Hash size={13} className="text-slate-300" />} label="SIREN" value={prospect.companySiren.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')} mono />}
+                {prospect.activityCode && <Row icon={<Zap size={13} className="text-slate-300" />} label="Activité" value={`${prospect.activityCode}${prospect.activityLabel ? ` — ${prospect.activityLabel}` : ''}`} />}
+                {prospect.companySize && <Row icon={<Users size={13} className="text-slate-300" />} label="Effectif" value={prospect.companySize} />}
+                {prospect.companyType && <Row icon={<FileText size={13} className="text-slate-300" />} label="Forme" value={prospect.companyType} />}
+              </div>
+            </section>
+          )}
+
+          {/* Localisation */}
+          {(prospect.address || prospect.city) && (
+            <section>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
+              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+                {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
+                {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                {prospect.region && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Région" value={prospect.region} />}
+              </div>
+            </section>
+          )}
+
+          {/* Sources externes */}
+          {prospect.companySiren && (
+            <section>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Sources entreprise</p>
+              <div className="grid grid-cols-2 gap-2">
+                <a href={`https://annuaire-entreprises.data.gouv.fr/entreprise/${prospect.companySiren}`}
+                  target="_blank" rel="noopener"
+                  className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs font-medium text-[#124bd2] transition hover:bg-blue-100 dark:bg-blue-950/30 dark:border-blue-900 dark:hover:bg-blue-950/50">
+                  <ShieldCheck size={13} /> Annuaire officiel
+                </a>
+                <a href={`https://pappers.fr/entreprise/${prospect.companySiren}`}
+                  target="_blank" rel="noopener"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                  <Info size={13} /> Pappers
+                </a>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Initiales pour l'avatar prospect
+function prospectInitials(fullName: string): string {
+  const words = fullName.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase()
+}
+
+// Couleur avatar selon le poste
+function prospectAccent(jobTitle: string | null): string {
+  const t = (jobTitle ?? '').toLowerCase()
+  if (t.includes('directeur') || t.includes('direction') || t.includes('pdg') || t.includes('gérant'))
+    return 'bg-blue-50 text-[#124bd2]'
+  if (t.includes('commercial') || t.includes('vente') || t.includes('agent'))
+    return 'bg-emerald-50 text-emerald-600'
+  if (t.includes('responsable') || t.includes('manager') || t.includes('chef'))
+    return 'bg-purple-50 text-purple-600'
+  if (t.includes('négociateur') || t.includes('conseiller'))
+    return 'bg-amber-50 text-amber-600'
+  return 'bg-slate-50 text-slate-500'
+}
+
+function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span className="shrink-0 text-xs text-slate-400 w-24 dark:text-slate-500">{label}</span>
+      <span className={`flex-1 break-words text-xs text-slate-700 dark:text-slate-300 ${mono ? 'font-mono' : ''}`}>{value}</span>
+    </div>
+  )
+}
+
+// ─── Composant ProspectCard ────────────────────────────────────────────────────
+function ProspectCard({
+  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full',
+}: {
+  prospect:          ProspectResult
+  isFavorite:        boolean
+  onToggleFavorite:  (p: ProspectResult) => void
+  viewMode:          'grid' | 'list'
+  onDetail:          (p: ProspectResult) => void
+  accessLevel?:      AccessLevel
+}) {
+  const initials = prospectInitials(prospect.fullName)
+  const accent   = prospectAccent(prospect.jobTitle)
+
+  if (viewMode === 'list') {
+    const isLimited = accessLevel === 'limited'
+    const isDemo    = accessLevel === 'demo'
+    return (
+      <div className={`group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
+          {isLimited ? '' : initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          {isLimited ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
+              <BlurPill w="w-40" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => onDetail(prospect)}
+                  className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
+                  {prospect.fullName}
+                </button>
+                {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prospect.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {prospect.isActive ? 'Actif' : 'Inactif'}
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+                {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
+                {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
+              </p>
+            </>
+          )}
+        </div>
+        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+          {isLimited ? (
+            <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
+          ) : isDemo ? (
+            <>
+              {prospect.phone && (
+                <span className="flex items-center gap-1 text-xs text-slate-400">
+                  <Phone size={11} className="text-slate-300" />{maskPhone(prospect.phone)}<Lock size={9} className="text-slate-300" />
+                </span>
+              )}
+              {prospect.email && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  {maskEmail(prospect.email)}<Lock size={9} className="text-slate-300" />
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {prospect.phone && (
+                <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2] dark:text-slate-400">
+                  <Phone size={11} /> {prospect.phone}
+                </a>
+              )}
+              {prospect.email && (
+                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+                  className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px] dark:text-slate-500">
+                  {prospect.email}
+                </a>
+              )}
+            </>
+          )}
+        </div>
+        {!isLimited && (
+          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+            <button
+              onClick={() => onToggleFavorite(prospect)}
+              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+            >
+              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <button onClick={() => onDetail(prospect)}
+              className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
+              <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
       </div>
     )
   }
 
+  // Vue grille
+  const isLimited = accessLevel === 'limited'
+  const isDemo    = accessLevel === 'demo'
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-border/40 hidden md:flex flex-col bg-card/30 backdrop-blur-sm">
-        <div className="p-6 border-b border-border/40">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <Search className="text-white w-5 h-5" />
+    <div
+      className={`card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}
+      onClick={() => !isLimited && onDetail(prospect)}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
+          {isLimited ? <Lock size={14} className="text-slate-300 dark:text-slate-600" /> : initials}
+        </div>
+        {!isLimited && (
+          <button
+            onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
+          >
+            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
+        )}
+      </div>
+
+      {/* Identité */}
+      <div className="mt-3">
+        {isLimited ? (
+          <div className="space-y-1.5">
+            <BlurPill w="w-36" h="h-4" />
+            <BlurPill w="w-24" />
+            <BlurPill w="w-28" />
+          </div>
+        ) : (
+          <>
+            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
+            {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
+            {prospect.companyName && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                <Building2 size={10} className="shrink-0" /> {prospect.companyName}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
+
+      {/* Coordonnées */}
+      {isLimited ? (
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2"><Phone size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-28" /></div>
+          <div className="flex items-center gap-2"><Mail size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-32" /></div>
+          <div className="flex items-center gap-2"><MapPin size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-20" /></div>
+        </div>
+      ) : (
+        <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+          {/* Phone */}
+          {(prospect.phone || prospect.phoneMobile) ? (
+            <p className="flex items-center gap-2">
+              <Phone size={11} className="shrink-0 text-slate-300" />
+              {isDemo ? (
+                <span className="flex items-center gap-1 text-slate-400">
+                  {maskPhone(prospect.phone ?? prospect.phoneMobile ?? '')}
+                  <Lock size={9} className="text-slate-300" />
+                </span>
+              ) : (
+                <a href={`tel:${prospect.phone ?? prospect.phoneMobile}`} onClick={e => e.stopPropagation()}
+                  className="hover:text-[#124bd2] transition">{prospect.phone ?? prospect.phoneMobile}</a>
+              )}
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
+              <Phone size={11} className="shrink-0" /> —
+            </p>
+          )}
+
+          {/* Email */}
+          {prospect.email ? (
+            <p className="flex items-center gap-2">
+              <Mail size={11} className="shrink-0 text-slate-300" />
+              {isDemo ? (
+                <span className="flex items-center gap-1 text-slate-400">
+                  {maskEmail(prospect.email)}
+                  <Lock size={9} className="text-slate-300" />
+                </span>
+              ) : (
+                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+                  className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
+              )}
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
+              <Mail size={11} className="shrink-0" /> —
+            </p>
+          )}
+
+          {/* City */}
+          {prospect.city && (
+            <p className="flex items-center gap-2">
+              <MapPin size={11} className="shrink-0 text-slate-300" />
+              <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-4">
+        {isLimited ? (
+          <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-100 py-2 text-xs font-medium text-slate-300 dark:border-slate-800 dark:text-slate-600">
+            <Lock size={11} /> Accès restreint
+          </div>
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); onDetail(prospect) }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+          >
+            Voir la fiche <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Vue Favoris (inline) ─────────────────────────────────────────────────────
+function FavoritesView({
+  favorites, onToggleFav, onGoSearch,
+}: {
+  favorites: Set<string>
+  onToggleFav: (siren: string) => void
+  onGoSearch: () => void
+}) {
+  const [favs, setFavs] = useState<FavStored[]>(loadStoredFavs)
+
+  const handleRemove = (id: string) => {
+    removeStoredFav(id)
+    onToggleFav(id)
+    setFavs(loadStoredFavs())
+  }
+
+  const handleExport = () => {
+    const csv = ['Nom;Poste;Entreprise;Ville;Ajouté le',
+      ...favs.map(f => `"${f.name}";"${f.jobTitle}";"${f.companyName}";"${f.city}";${new Date(f.savedAt).toLocaleDateString('fr-FR')}`)
+    ].join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'favoris.csv'; a.click(); URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-5 py-6 animate-fade-in">
+      {/* Toolbar */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Mes favoris</h2>
+          <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            {favs.length} contact{favs.length !== 1 ? 's' : ''} sauvegardé{favs.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {favs.length > 0 && (
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-700"
+          >
+            <Download size={12} /> Exporter en CSV
+          </button>
+        )}
+      </div>
+
+      {/* Empty state */}
+      {favs.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 dark:bg-amber-950/30">
+            <Star size={26} className="text-amber-300" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Aucun favori</h2>
+          <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+            Cliquez sur ★ sur une fiche pour sauvegarder une entreprise.
+          </p>
+          <button
+            onClick={onGoSearch}
+            className="mt-6 flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f3fc7]"
+          >
+            <Search size={14} /> Lancer une recherche
+          </button>
+        </div>
+      )}
+
+      {/* Grille favoris */}
+      {favs.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {favs.map(f => (
+            <div
+              key={f.id}
+              className="card-lift group flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-[#124bd2]">
+                {prospectInitials(f.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{f.name}</p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.jobTitle}</p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{f.companyName}</p>
+                <p className="mt-0.5 text-xs text-slate-300 dark:text-slate-600">{f.city}</p>
+              </div>
+              <button
+                onClick={() => handleRemove(f.id)}
+                className="rounded-lg p-1.5 text-amber-400 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+              >
+                <Star size={13} fill="currentColor" />
+              </button>
             </div>
-            <span className="text-lg font-bold tracking-tight">z<span className="text-primary">Searcher</span></span>
-          </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── User Menu dropdown ────────────────────────────────────────────────────────
+function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Nom affiché : société > prénom nom > préfixe email
+  const displayName = account.companyName
+    || `${account.firstName} ${account.lastName}`.trim()
+    || account.email.split('@')[0]
+
+  // Initiale pour l'avatar dans le bouton trigger
+  const initial = (
+    account.firstName?.[0] ?? account.companyName?.[0] ?? account.email[0] ?? 'U'
+  ).toUpperCase()
+
+  const items = [
+    { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
+    { icon: LayoutDashboard, label: 'Dashboard',              action: () => setOpen(false) },
+    { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
+    { icon: FolderSearch,    label: 'Dossier investigation',  action: () => setOpen(false) },
+    { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
+  ]
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger — initiale + nom complet + chevron */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold shrink-0">
+          {initial}
+        </span>
+        <span className="max-w-[140px] truncate text-sm font-medium text-slate-700 dark:text-slate-200">{displayName}</span>
+        {open
+          ? <ChevronUp size={13} className="text-slate-400" />
+          : <ChevronDown size={13} className="text-slate-400" />
+        }
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          {/* Header — username affiché une seule fois ici */}
+          <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
+              {initial}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{displayName}</p>
+              <p className="truncate text-xs text-slate-400">{account.email}</p>
+            </div>
+          </div>
+
+          {/* Items — sans flèches */}
+          <div className="py-1.5">
+            {items.map(({ icon: Icon, label, action }) => (
+              <button
+                key={label}
+                onClick={action}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                  <Icon size={15} className="text-[#1B54FF]" />
+                </span>
+                <span className="whitespace-nowrap font-medium">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Separator + Logout */}
+          <div className="border-t border-slate-100 py-1.5 dark:border-slate-800">
+            <button
+              onClick={() => { setOpen(false); onLogout() }}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
+                <LogOut size={15} className="text-red-500" />
+              </span>
+              <span className="font-medium">Déconnexion</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Recherche avancée (6 sections) ──────────────────────────────────────────
+interface AdvancedFiltersProps {
+  // État civil
+  firstName: string; setFirstName: (v: string) => void
+  lastName:  string; setLastName:  (v: string) => void
+  jobTitle:  string; setJobTitle:  (v: string) => void
+  // Adresse
+  city:       string; setCity:       (v: string) => void
+  address:    string; setAddress:    (v: string) => void
+  zipCode:    string; setZipCode:    (v: string) => void
+  department: string; setDepartment: (v: string) => void
+  // Coordonnées
+  phone: string; setPhone: (v: string) => void
+  email: string; setEmail: (v: string) => void
+  // Entreprise
+  companyName:   string; setCompanyName:   (v: string) => void
+  activityCode:  string; setActivityCode:  (v: string) => void
+  employeeRange: string; setEmployeeRange: (v: string) => void
+  legalForm:     string; setLegalForm:     (v: string) => void
+  // Réseaux sociaux
+  linkedin: string; setLinkedin: (v: string) => void
+  // Actions
+  onSearch: () => void
+  onReset:  () => void
+}
+
+function AdvSection({
+  id, icon, title, color, open, onToggle, children,
+}: {
+  id: string; icon: React.ReactNode; title: string; color: string
+  open: boolean; onToggle: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium text-slate-700 hover:bg-slate-50/80 transition dark:text-slate-200 dark:hover:bg-slate-800/50"
+      >
+        <span className="flex items-center gap-3">
+          <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${color}`}>
+            {icon}
+          </span>
+          <span className="font-semibold">{title}</span>
+        </span>
+        {open
+          ? <ChevronUp size={14} className="text-slate-300" />
+          : <ChevronDown size={14} className="text-slate-300" />
+        }
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-1">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdvInput({
+  label, value, onChange, onEnter, placeholder, type = 'text',
+}: {
+  label: string; value: string; onChange: (v: string) => void
+  onEnter?: () => void; placeholder?: string; type?: string
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && onEnter) onEnter() }}
+        placeholder={placeholder}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
+      />
+    </div>
+  )
+}
+
+function AdvSelect({
+  label, value, onChange, children,
+}: {
+  label: string; value: string; onChange: (v: string) => void; children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+      >
+        {children}
+      </select>
+    </div>
+  )
+}
+
+function AdvancedFilters(props: AdvancedFiltersProps) {
+  const {
+    firstName, setFirstName, lastName, setLastName, jobTitle, setJobTitle,
+    city, setCity, address, setAddress, zipCode, setZipCode, department, setDepartment,
+    phone, setPhone, email, setEmail,
+    companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
+    linkedin, setLinkedin,
+    onSearch, onReset,
+  } = props
+
+  const [open, setOpen] = useState<string[]>(['civil', 'origin', 'contact', 'address', 'networks', 'other'])
+  const tog = (k: string) => setOpen(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+
+      {/* 1 — État civil */}
+      <AdvSection id="civil" icon={<UserCircle2 size={15} />} title="État civil"
+        color="bg-blue-50 text-[#124bd2]" open={open.includes('civil')} onToggle={() => tog('civil')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
+          <AdvInput label="Nom" value={lastName} onChange={setLastName} onEnter={onSearch} placeholder="Dupont" />
+          <AdvInput label="Poste / Titre" value={jobTitle} onChange={setJobTitle} onEnter={onSearch} placeholder="Directeur commercial" />
+        </div>
+      </AdvSection>
+
+      {/* 2 — Origine (entreprise) */}
+      <AdvSection id="origin" icon={<Calendar size={15} />} title="Origine"
+        color="bg-violet-50 text-violet-600" open={open.includes('origin')} onToggle={() => tog('origin')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
+          <AdvSelect label="Secteur d'activité (NAF)" value={activityCode} onChange={v => { setActivityCode(v); onSearch() }}>
+            <option value="">Tous les secteurs</option>
+            {Object.entries(TYPE_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </AdvSelect>
+          <AdvSelect label="Taille de l'entreprise" value={employeeRange} onChange={v => { setEmployeeRange(v); onSearch() }}>
+            <option value="">Toutes tailles</option>
+            {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
+          </AdvSelect>
+          <AdvSelect label="Forme juridique" value={legalForm} onChange={v => { setLegalForm(v); onSearch() }}>
+            <option value="">Toutes formes</option>
+            {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
+          </AdvSelect>
+        </div>
+      </AdvSection>
+
+      {/* 3 — Coordonnées */}
+      <AdvSection id="contact" icon={<Mail size={15} />} title="Coordonnées"
+        color="bg-purple-50 text-purple-600" open={open.includes('contact')} onToggle={() => tog('contact')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Téléphone" value={phone} onChange={setPhone} onEnter={onSearch} placeholder="06 12 34 56 78" type="tel" />
+          <AdvInput label="Email" value={email} onChange={setEmail} onEnter={onSearch} placeholder="jean.dupont@agence.fr" type="email" />
+        </div>
+      </AdvSection>
+
+      {/* 4 — Adresse */}
+      <AdvSection id="address" icon={<MapPin size={15} />} title="Adresse"
+        color="bg-emerald-50 text-emerald-600" open={open.includes('address')} onToggle={() => tog('address')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Rue / Adresse" value={address} onChange={setAddress} onEnter={onSearch} placeholder="122 Boulevard Murat" />
+          <AdvInput label="Ville" value={city} onChange={setCity} onEnter={onSearch} placeholder="Paris" />
+          <AdvInput label="Code postal" value={zipCode}
+            onChange={v => setZipCode(v.replace(/\D/g, '').slice(0, 5))}
+            onEnter={onSearch} placeholder="75016" />
+          <AdvSelect label="Département" value={department} onChange={v => { setDepartment(v); onSearch() }}>
+            <option value="">Tous les départements</option>
+            {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
+          </AdvSelect>
+        </div>
+      </AdvSection>
+
+      {/* 5 — Jeux & Réseaux */}
+      <AdvSection id="networks" icon={<Briefcase size={15} />} title="Jeux & Réseaux"
+        color="bg-indigo-50 text-indigo-600" open={open.includes('networks')} onToggle={() => tog('networks')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="LinkedIn (URL ou nom)" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
+        </div>
+      </AdvSection>
+
+      {/* 6 — Autres données */}
+      <AdvSection id="other" icon={<Plus size={15} />} title="Autres données"
+        color="bg-slate-100 text-slate-500" open={open.includes('other')} onToggle={() => tog('other')}>
+        <p className="text-xs text-slate-400">D'autres critères seront disponibles après l'import de votre base de données.</p>
+      </AdvSection>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-800/50">
+        <button type="button" onClick={onReset}
+          className="flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300">
+          <RefreshCw size={11} /> Réinitialiser
+        </button>
+        <button type="button" onClick={onSearch}
+          className="flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+          <Search size={12} /> Rechercher
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page principale ───────────────────────────────────────────────────────────
+export default function SearchPage({ account, onLogout, onOpenAccount, accessLevel = 'full', maxSearches }: SearchPageProps) {
+  // État de recherche
+  const [query, setQuery]               = useState('')
+  const [inputValue, setInputValue]     = useState('')
+  const [department, setDepartment]     = useState('')
+  const [activityCode, setActivityCode] = useState('')
+  const [activeOnly, setActiveOnly]     = useState(true)
+  const [zipCode, setZipCode]           = useState('')
+  const [employeeRange, setEmployeeRange] = useState('')
+  const [legalForm, setLegalForm]       = useState('')
+  // Filtres avancés — champs texte (libres)
+  const [advFirstName, setAdvFirstName]     = useState('')
+  const [advLastName, setAdvLastName]       = useState('')
+  const [advJobTitle, setAdvJobTitle]       = useState('')
+  const [advCity, setAdvCity]               = useState('')
+  const [advAddress, setAdvAddress]         = useState('')
+  const [advPhone, setAdvPhone]             = useState('')
+  const [advEmail, setAdvEmail]             = useState('')
+  const [advCompanyName, setAdvCompanyName] = useState('')
+  const [advLinkedin, setAdvLinkedin]       = useState('')
+  const [page, setPage]                 = useState(1)
+  const [perPage, setPerPage]           = useState(20)
+  const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
+  const [showFilters, setShowFilters]   = useState(false)
+
+  // Résultats
+  const [results, setResults]       = useState<ProspectResult[]>([])
+  const [total, setTotal]           = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [isLoading, setLoading]     = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+
+  // UI extras
+  const [selectedCompany, setSelectedCompany] = useState<ProspectResult | null>(null)
+  const [showRecent, setShowRecent]           = useState(false)
+  const [recentSearches, setRecentSearches]   = useState<string[]>([])
+  const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.id)))
+  const [appView, setAppView]                 = useState<AppView>('search')
+  const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
+  const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
+
+  // Compteur de recherches pour modes demo / limited
+  const DEMO_COUNT_KEY = `trouve_demo_count_${account.id}`
+  const [demoSearchCount, setDemoSearchCount] = useState<number>(() => {
+    if (accessLevel === 'full') return 0
+    return parseInt(localStorage.getItem(`trouve_demo_count_${account.id}`) ?? '0', 10)
+  })
+  const [showConversionModal, setShowConversionModal] = useState(false)
+
+  // Sync dark mode with <html> class
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('trouve_dark', darkMode ? '1' : '0')
+  }, [darkMode])
+
+  // Refs
+  const searchInputRef  = useRef<HTMLInputElement>(null)
+  const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeFiltersCount = [
+    department, activityCode, zipCode, employeeRange, legalForm,
+    advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
+  ].filter(Boolean).length
+
+  // Charger les recherches récentes
+  useEffect(() => {
+    setRecentSearches(readRecentSearches())
+  }, [])
+
+  // ⌘K / Ctrl+K pour focaliser la recherche
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // Construit la requête FTS en combinant la barre principale + tous les champs avancés texte
+  const buildQuery = () =>
+    [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+      .map(s => s.trim()).filter(Boolean).join(' ')
+
+  // ─── Lancer une recherche ───────────────────────────────────────────────────
+  const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
+    setLoading(true); setError(null)
+
+    // ── Modes démo / limité → données locales ───────────────────────────────
+    if (accessLevel !== 'full') {
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 200))
+      const res = searchDemoProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
+      setResults(res.results)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
+      setPage(pg)
+      setHasSearched(true)
+      setLoading(false)
+
+      // Compter uniquement les vraies recherches (pas le chargement initial vide)
+      const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
+                      !params.zipCode && !params.employeeRange && !params.legalForm
+      if (!isEmpty && maxSearches !== undefined) {
+        setDemoSearchCount(prev => {
+          const next = prev + 1
+          localStorage.setItem(DEMO_COUNT_KEY, String(next))
+          if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+          return next
+        })
+      }
+      return
+    }
+
+    // ── Mode complet → Supabase ──────────────────────────────────────────────
+    if (usedQuota >= account.quota && account.quota > 0) {
+      setError('Quota mensuel atteint — passez à un plan supérieur pour continuer.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
+      setResults(res.results)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
+      setPage(pg)
+      setHasSearched(true)
+
+      const hasQuery = Boolean(params.query?.trim())
+      if (hasQuery) {
+        saveRecentSearch(params.query!.trim())
+        setRecentSearches(readRecentSearches())
+        setUsedQuota(q => q + 1)
+        recordSearch(params.query!, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+      } else if (params.department || params.activityCode || params.zipCode || params.employeeRange || params.legalForm) {
+        setUsedQuota(q => q + 1)
+        recordSearch(`filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+      }
+    } catch (err: any) {
+      setError(err.message ?? 'Erreur lors de la recherche')
+    } finally {
+      setLoading(false)
+    }
+  }, [accessLevel, usedQuota, account.quota, account.id, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
+
+  // Debounce search-as-you-type (barre principale uniquement)
+  useEffect(() => {
+    if (!hasSearched) return // pas de debounce avant la 1ère recherche manuelle
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+        .map(s => s.trim()).filter(Boolean).join(' ')
+      doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    }, 420)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [inputValue]) // eslint-disable-line
+
+  const handleSearch = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setQuery(inputValue)
+    setShowRecent(false)
+    doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+  }
+
+  const handleRecentSearch = (q: string) => {
+    setInputValue(q); setQuery(q); setShowRecent(false)
+    // Pour une recherche récente on efface les champs avancés texte et relance sur q seul
+    doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+  }
+
+  // Recherche auto au montage (pas de recherche vide — attendre la saisie)
+  useEffect(() => {
+    doSearch({ query: '', department: '', activityCode: '', activeOnly: true })
+  }, []) // eslint-disable-line
+
+  const handlePageChange = (pg: number) => {
+    doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const toggleFavorite = async (prospect: ProspectResult) => {
+    const newFavs = new Set(favorites)
+    if (newFavs.has(prospect.id)) {
+      newFavs.delete(prospect.id)
+      removeStoredFav(prospect.id)
+    } else {
+      newFavs.add(prospect.id)
+      saveStoredFav(prospect)
+      saveFavorite(account, { targetSiren: prospect.companySiren ?? undefined, targetName: prospect.fullName, targetCity: prospect.city ?? undefined }).catch(() => {})
+    }
+    setFavorites(newFavs)
+  }
+
+  const handleToggleFavFromDrawer = (siren: string) => {
+    const newFavs = new Set(favorites)
+    newFavs.delete(siren)
+    setFavorites(newFavs)
+  }
+
+  // ─── Rendu ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
+
+      {/* ── Sidebar gauche (fixe, dark) ──────────────────────────────────── */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d]">
+
+        {/* Logo */}
+        <div className="flex h-16 items-center px-6">
+          <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/10 text-primary font-medium text-sm transition-all">
-            <Search className="w-4 h-4" />
-            Analyseur
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-muted-foreground hover:bg-secondary/50 font-medium text-sm transition-all">
-            <History className="w-4 h-4" />
-            Historique
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-muted-foreground hover:bg-secondary/50 font-medium text-sm transition-all">
-            <Shield className="w-4 h-4" />
-            Protection
-          </button>
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 px-3 pt-2">
+          {([
+            { key: 'search',    label: 'Recherche',  icon: Search },
+            { key: 'history',   label: 'Historique', icon: History },
+            { key: 'favorites', label: `Favoris${favorites.size > 0 ? ` (${favorites.size})` : ''}`, icon: Star },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setAppView(key)}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                appView === key
+                  ? 'bg-white/12 text-white'
+                  : 'text-white/50 hover:bg-white/6 hover:text-white/80'
+              }`}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
         </nav>
 
-        <div className="p-4 border-t border-border/40">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-secondary/50 mb-4">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-              <User className="w-4 h-4" />
+        {/* Quota bar sidebar (mode full uniquement) */}
+        {accessLevel === 'full' && account.quota > 0 && (
+          <div className="border-t border-white/8 px-4 py-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Quota mensuel</span>
+              <span className={`text-[10px] font-bold tabular-nums ${
+                usedQuota / account.quota >= 0.9 ? 'text-red-400' :
+                usedQuota / account.quota >= 0.7 ? 'text-amber-400' : 'text-white/50'
+              }`}>
+                {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{user.displayName || user.email}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Premium</p>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  usedQuota / account.quota >= 0.9 ? 'bg-red-400' :
+                  usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#1B54FF]'
+                }`}
+                style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
+              />
             </div>
           </div>
-          <button 
-            onClick={() => logout()}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-destructive hover:bg-destructive/10 font-medium text-sm transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </button>
-        </div>
+        )}
+
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border/40 flex items-center justify-between px-6 bg-background/50 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate({ to: '/' })}
-              className="md:hidden p-2 hover:bg-secondary rounded-lg"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-lg font-bold">Analyseur de Données</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-secondary rounded-lg text-muted-foreground">
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
+      {/* ── Zone principale ──────────────────────────────────────────────── */}
+      <div className="ml-60 flex flex-1 flex-col">
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-10">
-          <div className="max-w-4xl mx-auto">
-            {/* Search Bar */}
-            <form onSubmit={handleSearch} className="mb-12">
-              <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Entrez un email, un nom, une adresse IP..."
-                  className="w-full h-14 pl-12 pr-4 bg-card border border-border/50 rounded-2xl focus:ring-2 focus:ring-primary/20 transition-all outline-none text-lg"
-                />
-                <button 
-                  type="submit"
-                  disabled={isSearching}
-                  className="absolute right-2 top-2 bottom-2 bg-primary text-primary-foreground px-6 rounded-xl font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
-                >
-                  {isSearching ? 'Analyse...' : 'Analyser'}
-                </button>
-              </div>
-            </form>
+        {/* Vue Historique */}
+        {appView === 'history' && (
+          <HistoryPage
+            account={account}
+            embedded
+            onReplay={(q, dept, code) => {
+              setAppView('search')
+              setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
+              doSearch({ query: q, department: dept, activityCode: code, activeOnly })
+            }}
+          />
+        )}
 
-            {/* Results */}
-            {isSearching ? (
-              <div className="space-y-4 animate-pulse">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-24 bg-card border border-border/50 rounded-2xl" />
-                ))}
+        {/* Vue Favoris */}
+        {appView === 'favorites' && (
+          <FavoritesView
+            favorites={favorites}
+            onToggleFav={handleToggleFavFromDrawer}
+            onGoSearch={() => setAppView('search')}
+          />
+        )}
+
+        {/* Vue Recherche */}
+        {appView === 'search' && (
+          <div className="flex flex-1 flex-col px-8 py-8">
+
+            {/* En-tête */}
+            <div className="mb-7 flex items-start justify-between">
+              <div>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
+                  Recherche professionnelle
+                </p>
+                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
+                  {hasSearched && query ? `"${query}"` : 'Nouveau ciblage'}
+                </h1>
               </div>
-            ) : results.length > 0 ? (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    Résultats de l'analyse
-                    <span className="text-xs font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                      {results.length} trouvés
+              <div className="flex items-center gap-2">
+                {/* Quota visuel (mode full uniquement) */}
+                {accessLevel === 'full' && account.quota > 0 && (
+                  <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 sm:flex dark:border-slate-700 dark:bg-slate-800">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          usedQuota / account.quota >= 0.9 ? 'bg-red-500' :
+                          usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#124bd2]'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium tabular-nums ${
+                      usedQuota / account.quota >= 0.9 ? 'text-red-500' :
+                      usedQuota / account.quota >= 0.7 ? 'text-amber-600' : 'text-slate-500'
+                    }`}>
+                      {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
                     </span>
-                  </h2>
-                  <div className="flex gap-2">
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-secondary transition-colors">
-                      <Filter className="w-3.5 h-3.5" /> Filtrer
-                    </button>
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
-                      <Download className="w-3.5 h-3.5" /> Exporter
+                  </div>
+                )}
+                {/* Dark mode toggle */}
+                <button
+                  type="button"
+                  aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                  onClick={() => setDarkMode(d => !d)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700"
+                >
+                  {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+                </button>
+                {account.status === 'approved' && (
+                  <div className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 lg:flex">
+                    <ShieldCheck size={12} />
+                    Accès validé
+                  </div>
+                )}
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
+              </div>
+            </div>
+
+            {/* Bandeau accès restreint */}
+            {accessLevel !== 'full' && maxSearches !== undefined && (
+              <DemoBanner
+                accessLevel={accessLevel}
+                used={demoSearchCount}
+                max={maxSearches}
+                onCta={() => window.location.replace('/?pricing=1')}
+              />
+            )}
+
+            {/* Barre de recherche principale */}
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onFocus={() => setShowRecent(true)}
+                  onBlur={() => setTimeout(() => setShowRecent(false), 150)}
+                  placeholder="Nom, prénom, entreprise, téléphone, adresse..."
+                  autoComplete="off"
+                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
+                />
+                {showRecent && recentSearches.length > 0 && (
+                  <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-800">
+                    <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Récents</p>
+                    {recentSearches.map(r => (
+                      <button key={r} type="button" onMouseDown={() => handleRecentSearch(r)}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        <Clock size={13} className="shrink-0 text-slate-300" /> {r}
+                      </button>
+                    ))}
+                    <button type="button" onMouseDown={() => { localStorage.removeItem(RECENT_SEARCHES_KEY); setRecentSearches([]) }}
+                      className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600 dark:border-slate-800 dark:text-slate-500 dark:hover:text-slate-300">
+                      <X size={11} /> Effacer l'historique
                     </button>
                   </div>
-                </div>
+                )}
+              </div>
+              <button type="submit"
+                disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
+                className="flex h-14 items-center gap-2 rounded-2xl bg-[#124bd2] px-8 text-base font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                {isLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Rechercher'}
+              </button>
+            </form>
 
-                <div className="grid gap-4">
-                  {results.map((res) => (
-                    <div key={res.id} className="p-6 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all group">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex gap-4">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                            res.status === 'High Risk' ? 'bg-destructive/10 text-destructive' : 
-                            res.status === 'Mitigated' ? 'bg-green-500/10 text-green-500' : 
-                            'bg-blue-500/10 text-blue-500'
-                          }`}>
-                            {res.status === 'High Risk' ? <AlertTriangle /> : <Shield />}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-bold">{res.type}</h3>
-                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-0.5 rounded-md bg-secondary">
-                                {res.source}
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">Une occurrence a été détectée dans une base de données publique.</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-xs font-bold mb-1 ${
-                            res.status === 'High Risk' ? 'text-destructive' : 
-                            res.status === 'Mitigated' ? 'text-green-500' : 
-                            'text-blue-500'
-                          }`}>
-                            {res.status}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
-                            <Clock className="w-3 h-3" />
-                            {res.date}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* Barre secondaire : Recherches avancées + export */}
+            <div className="mt-3 flex items-center gap-2">
+              {/* Bouton Recherches avancées */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(v => !v)}
+                className={`flex h-9 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition ${
+                  showFilters || activeFiltersCount > 0
+                    ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                <SlidersHorizontal size={14} />
+                Recherches avancées
+                {activeFiltersCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#124bd2] text-[9px] font-bold text-white">
+                    {activeFiltersCount}
+                  </span>
+                )}
+                {showFilters
+                  ? <ChevronUp size={12} />
+                  : <ChevronDown size={12} />
+                }
+              </button>
+
+              {results.length > 0 && (
+                <button onClick={() => exportProspectsCSV(results, query)}
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  <Download size={12} /> CSV
+                </button>
+              )}
+            </div>
+
+            {/* Panneau de recherche avancée */}
+            {showFilters && (
+              <AdvancedFilters
+                // État civil
+                firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
+                lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
+                jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}
+                // Adresse
+                city={advCity}                 setCity={v => { setAdvCity(v); setPage(1) }}
+                address={advAddress}           setAddress={v => { setAdvAddress(v); setPage(1) }}
+                zipCode={zipCode}              setZipCode={v => { setZipCode(v); setPage(1) }}
+                department={department}        setDepartment={v => { setDepartment(v); setPage(1) }}
+                // Coordonnées
+                phone={advPhone}               setPhone={v => { setAdvPhone(v); setPage(1) }}
+                email={advEmail}               setEmail={v => { setAdvEmail(v); setPage(1) }}
+                // Entreprise
+                companyName={advCompanyName}   setCompanyName={v => { setAdvCompanyName(v); setPage(1) }}
+                activityCode={activityCode}    setActivityCode={v => { setActivityCode(v); setPage(1) }}
+                employeeRange={employeeRange}  setEmployeeRange={v => { setEmployeeRange(v); setPage(1) }}
+                legalForm={legalForm}          setLegalForm={v => { setLegalForm(v); setPage(1) }}
+                // Réseaux sociaux
+                linkedin={advLinkedin}         setLinkedin={v => { setAdvLinkedin(v); setPage(1) }}
+                onSearch={() => {
+                  const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+                    .map(s => s.trim()).filter(Boolean).join(' ')
+                  setQuery(inputValue)
+                  doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                }}
+                onReset={() => {
+                  setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                  setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
+                  setAdvCompanyName(''); setAdvLinkedin('')
+                  setDepartment(''); setActivityCode(''); setActiveOnly(true)
+                  setZipCode(''); setEmployeeRange(''); setLegalForm('')
+                  setPage(1)
+                  doSearch({ query: inputValue, department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+                }}
+              />
+            )}
+
+            {/* Toolbar résultats */}
+            <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
+              <div>
+                {hasSearched && !isLoading && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{total.toLocaleString('fr-FR')}</span>
+                    {' '}résultat{total > 1 ? 's' : ''}
+                    {query && <span> pour <em className="text-slate-700 dark:text-slate-200">"{query}"</em></span>}
+                    {department && <span> · {departmentLabel(department)}</span>}
+                  </p>
+                )}
               </div>
-            ) : searchQuery && !isSearching ? (
-              <div className="text-center py-20">
-                <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-8 h-8" />
+              {hasSearched && !isLoading && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Consultation journalisée</span>
+                  <select value={perPage} onChange={e => { const pp = Number(e.target.value); setPerPage(pp); doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm, perPage: pp }, 1) }}
+                    className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
+                  <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-800">
+                    <button onClick={() => setViewMode('grid')} className={`rounded-md p-1.5 transition ${viewMode === 'grid' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}><LayoutGrid size={13} /></button>
+                    <button onClick={() => setViewMode('list')} className={`rounded-md p-1.5 transition ${viewMode === 'list' ? 'bg-[#124bd2] text-white' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}><List size={13} /></button>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold mb-2">Aucune menace détectée</h3>
-                <p className="text-muted-foreground">Vos données semblent être en sécurité pour cette recherche.</p>
-              </div>
-            ) : (
-              <div className="text-center py-20 border-2 border-dashed border-border/40 rounded-[2rem]">
-                <Search className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-muted-foreground/60">En attente d'analyse</h3>
-                <p className="text-sm text-muted-foreground/40">Utilisez la barre de recherche ci-dessus pour commencer.</p>
+              )}
+            </div>
+
+            {/* Erreur */}
+            {error && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <AlertCircle size={16} className="shrink-0 text-amber-500" />
+                <p className="text-sm text-amber-800">{error}</p>
+                <button onClick={() => setError(null)} className="ml-auto text-amber-400 hover:text-amber-600"><X size={14} /></button>
               </div>
             )}
+
+            {/* Skeleton */}
+            {isLoading && (
+              <div className={viewMode === 'grid' ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-2'}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
+                        <div className="h-2.5 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="h-2.5 w-full rounded bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-2.5 w-2/3 rounded bg-slate-100 dark:bg-slate-800" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state — recherche non lancée */}
+            {!isLoading && !hasSearched && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2] dark:bg-blue-950/30">
+                  <Search size={28} />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Commencez votre prospection</h3>
+                <p className="mt-2 max-w-sm text-sm text-slate-400">
+                  Recherchez par nom, poste, entreprise, téléphone ou ville.
+                </p>
+              </div>
+            )}
+
+            {/* Aucun résultat / base non encore importée */}
+            {!isLoading && hasSearched && results.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-500">
+                  <Database size={28} />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">Aucun prospect trouvé</h3>
+                <p className="mt-2 max-w-sm text-sm text-slate-400">
+                  La base de données est en cours d'importation.<br />
+                  Elle sera disponible très prochainement.
+                </p>
+                <button
+                  onClick={() => {
+                    setInputValue(''); setQuery('')
+                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                    setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
+                    setAdvCompanyName(''); setAdvLinkedin('')
+                    setDepartment(''); setActivityCode(''); setActiveOnly(true)
+                    setZipCode(''); setEmployeeRange(''); setLegalForm('')
+                    doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+                  }}
+                  className="mt-6 rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:text-slate-400"
+                >
+                  Réinitialiser les filtres
+                </button>
+              </div>
+            )}
+
+            {/* Résultats */}
+            {!isLoading && results.length > 0 && (
+              <>
+                {viewMode === 'grid' ? (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {results.map(p => (
+                      <ProspectCard key={p.id} prospect={p}
+                        isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
+                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {results.map(p => (
+                      <ProspectCard key={p.id} prospect={p}
+                        isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
+                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Export bas de page */}
+                <div className="mt-4 flex justify-end">
+                  <button onClick={() => exportProspectsCSV(results, query)}
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <Download size={13} />
+                    Exporter ces {results.length} prospects en CSV
+                  </button>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    <button onClick={() => handlePageChange(page - 1)} disabled={page <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                      <ChevronLeft size={16} />
+                    </button>
+                    {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                      const pg = i + Math.max(1, Math.min(page - 3, totalPages - 6))
+                      return (
+                        <button key={pg} onClick={() => handlePageChange(pg)}
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                          {pg}
+                        </button>
+                      )
+                    })}
+                    <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                      <ChevronRight size={16} />
+                    </button>
+                    <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
+                      Page {page}/{totalPages} · {total.toLocaleString('fr-FR')} résultats
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        </div>
-      </main>
+        )}
+      </div>
+
+      {/* Slide-over détail prospect */}
+      {selectedCompany && accessLevel !== 'limited' && (
+        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} accessLevel={accessLevel} />
+      )}
+
+      {/* Modal de conversion (fin de quota démo/limité) */}
+      {showConversionModal && (
+        <ConversionModal
+          accessLevel={accessLevel}
+          account={{ email: account.email, companyName: account.companyName ?? null }}
+          onClose={() => setShowConversionModal(false)}
+          onLogout={onLogout}
+        />
+      )}
     </div>
   )
 }
