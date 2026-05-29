@@ -7,7 +7,7 @@ import {
   ArrowRight, Globe, TrendingUp, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
-  Phone, Mail, Database,
+  Phone, Mail, Database, Calendar, Briefcase, Plus,
 } from 'lucide-react'
 
 type AppView = 'search' | 'history' | 'favorites'
@@ -194,17 +194,6 @@ function FavoritesDrawer({
     </div>
   )
 }
-
-// ─── Quick filters ─────────────────────────────────────────────────────────────
-const QUICK_FILTERS = [
-  { label: 'Paris',          query: '', dept: '75', code: '' },
-  { label: 'Île-de-France',  query: '', dept: '92', code: '' },
-  { label: 'Agences',        query: '', dept: '', code: '6831Z' },
-  { label: 'Bailleurs',      query: '', dept: '', code: '6820A' },
-  { label: 'Marchands biens',query: '', dept: '', code: '6810Z' },
-  { label: 'PACA',           query: '', dept: '13', code: '' },
-  { label: 'Lyon',           query: 'lyon', dept: '69', code: '' },
-]
 
 // ─── Composant QuotaBar ────────────────────────────────────────────────────────
 function QuotaBar({ used, total }: { used: number; total: number }) {
@@ -843,7 +832,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
     onSearch, onReset,
   } = props
 
-  const [open, setOpen] = useState<string[]>(['civil', 'address', 'contact', 'company'])
+  const [open, setOpen] = useState<string[]>(['civil', 'origin', 'contact', 'address', 'networks', 'other'])
   const tog = (k: string) => setOpen(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
 
   return (
@@ -859,7 +848,38 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 2 — Adresse */}
+      {/* 2 — Origine (entreprise) */}
+      <AdvSection id="origin" icon={<Calendar size={15} />} title="Origine"
+        color="bg-violet-50 text-violet-600" open={open.includes('origin')} onToggle={() => tog('origin')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
+          <AdvSelect label="Secteur d'activité (NAF)" value={activityCode} onChange={v => { setActivityCode(v); onSearch() }}>
+            <option value="">Tous les secteurs</option>
+            {Object.entries(TYPE_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </AdvSelect>
+          <AdvSelect label="Taille de l'entreprise" value={employeeRange} onChange={v => { setEmployeeRange(v); onSearch() }}>
+            <option value="">Toutes tailles</option>
+            {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
+          </AdvSelect>
+          <AdvSelect label="Forme juridique" value={legalForm} onChange={v => { setLegalForm(v); onSearch() }}>
+            <option value="">Toutes formes</option>
+            {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
+          </AdvSelect>
+        </div>
+      </AdvSection>
+
+      {/* 3 — Coordonnées */}
+      <AdvSection id="contact" icon={<Mail size={15} />} title="Coordonnées"
+        color="bg-purple-50 text-purple-600" open={open.includes('contact')} onToggle={() => tog('contact')}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AdvInput label="Téléphone" value={phone} onChange={setPhone} onEnter={onSearch} placeholder="06 12 34 56 78" type="tel" />
+          <AdvInput label="Email" value={email} onChange={setEmail} onEnter={onSearch} placeholder="jean.dupont@agence.fr" type="email" />
+        </div>
+      </AdvSection>
+
+      {/* 4 — Adresse */}
       <AdvSection id="address" icon={<MapPin size={15} />} title="Adresse"
         color="bg-emerald-50 text-emerald-600" open={open.includes('address')} onToggle={() => tog('address')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -875,47 +895,16 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 3 — Coordonnées */}
-      <AdvSection id="contact" icon={<Phone size={15} />} title="Coordonnées"
-        color="bg-purple-50 text-purple-600" open={open.includes('contact')} onToggle={() => tog('contact')}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="Téléphone" value={phone} onChange={setPhone} onEnter={onSearch} placeholder="06 12 34 56 78" type="tel" />
-          <AdvInput label="Email" value={email} onChange={setEmail} onEnter={onSearch} placeholder="jean.dupont@agence.fr" type="email" />
-        </div>
-      </AdvSection>
-
-      {/* 4 — Entreprise */}
-      <AdvSection id="company" icon={<Building2 size={15} />} title="Entreprise"
-        color="bg-amber-50 text-amber-600" open={open.includes('company')} onToggle={() => tog('company')}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
-          <AdvSelect label="Secteur d'activité" value={activityCode} onChange={v => { setActivityCode(v); onSearch() }}>
-            <option value="">Tous les secteurs</option>
-            {Object.entries(TYPE_LABELS).map(([code, label]) => (
-              <option key={code} value={code}>{label}</option>
-            ))}
-          </AdvSelect>
-          <AdvSelect label="Taille (effectif)" value={employeeRange} onChange={v => { setEmployeeRange(v); onSearch() }}>
-            <option value="">Toutes tailles</option>
-            {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
-          </AdvSelect>
-          <AdvSelect label="Forme juridique" value={legalForm} onChange={v => { setLegalForm(v); onSearch() }}>
-            <option value="">Toutes formes</option>
-            {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
-          </AdvSelect>
-        </div>
-      </AdvSection>
-
-      {/* 5 — Réseaux sociaux */}
-      <AdvSection id="social" icon={<Globe size={15} />} title="Réseaux sociaux"
-        color="bg-sky-50 text-sky-600" open={open.includes('social')} onToggle={() => tog('social')}>
+      {/* 5 — Jeux & Réseaux */}
+      <AdvSection id="networks" icon={<Briefcase size={15} />} title="Jeux & Réseaux"
+        color="bg-indigo-50 text-indigo-600" open={open.includes('networks')} onToggle={() => tog('networks')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <AdvInput label="LinkedIn (URL ou nom)" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
         </div>
       </AdvSection>
 
-      {/* 6 — Autres informations */}
-      <AdvSection id="other" icon={<Info size={15} />} title="Autres informations"
+      {/* 6 — Autres données */}
+      <AdvSection id="other" icon={<Plus size={15} />} title="Autres données"
         color="bg-slate-100 text-slate-500" open={open.includes('other')} onToggle={() => tog('other')}>
         <p className="text-xs text-slate-400">D'autres critères seront disponibles après l'import de votre base de données.</p>
       </AdvSection>
@@ -1062,14 +1051,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
     setQuery(inputValue)
     setShowRecent(false)
     doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
-  }
-
-  const handleQuickFilter = (f: typeof QUICK_FILTERS[0]) => {
-    setInputValue(f.query)
-    setQuery(f.query)
-    setDepartment(f.dept)
-    setActivityCode(f.code)
-    doSearch({ query: f.query, department: f.dept, activityCode: f.code, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -1230,48 +1211,34 @@ export default function SearchPage({ account, onLogout, onOpenAccount }: SearchP
               </button>
             </form>
 
-            {/* Filtres inline + raccourcis */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {/* Raccourcis géographiques et thématiques */}
-              {QUICK_FILTERS.map(f => (
-                <button key={f.label} onClick={() => handleQuickFilter(f)}
-                  className={`h-8 rounded-full border px-3 text-xs font-medium transition ${
-                    (department === f.dept && activityCode === f.code && (inputValue === f.query || f.query === ''))
-                      ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2]'
-                  }`}>
-                  {f.label}
-                </button>
-              ))}
-
-              <div className="mx-1 h-4 w-px bg-slate-200" />
-
-              {/* Bouton Filtres avancés */}
+            {/* Barre secondaire : Recherches avancées + export */}
+            <div className="mt-3 flex items-center gap-2">
+              {/* Bouton Recherches avancées */}
               <button
                 type="button"
                 onClick={() => setShowFilters(v => !v)}
-                className={`flex h-8 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition ${
+                className={`flex h-9 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition ${
                   showFilters || activeFiltersCount > 0
                     ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
-                    : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-[#124bd2]'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2]'
                 }`}
               >
-                <SlidersHorizontal size={12} />
-                Filtres avancés
+                <SlidersHorizontal size={14} />
+                Recherches avancées
                 {activeFiltersCount > 0 && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#124bd2] text-[9px] font-bold text-white">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#124bd2] text-[9px] font-bold text-white">
                     {activeFiltersCount}
                   </span>
                 )}
                 {showFilters
-                  ? <ChevronUp size={11} />
-                  : <ChevronDown size={11} />
+                  ? <ChevronUp size={12} />
+                  : <ChevronDown size={12} />
                 }
               </button>
 
               {results.length > 0 && (
                 <button onClick={() => exportProspectsCSV(results, query)}
-                  className="ml-auto flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]">
                   <Download size={12} /> CSV
                 </button>
               )}
