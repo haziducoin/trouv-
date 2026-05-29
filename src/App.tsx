@@ -66,9 +66,12 @@ export default function App() {
     // INITIAL_SESSION fire avec la session résultante (ou null si pas de code).
     // C'est le seul moyen fiable de capter le retour OAuth sans race condition.
 
-    // Timeout de sécurité : si INITIAL_SESSION ne fire jamais (réseau lent,
-    // token corrompu, etc.), on débloque la page après 6 secondes.
-    const safetyTimeout = setTimeout(() => setSessionLoading(false), 6000)
+    // Timeout de sécurité : si INITIAL_SESSION ne fire jamais (token corrompu,
+    // réseau lent, etc.), on force un sign-out + débloque après 6 secondes.
+    const safetyTimeout = setTimeout(async () => {
+      try { await getSupabaseClient().auth.signOut() } catch { /* ignore */ }
+      setSessionLoading(false)
+    }, 6000)
 
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
