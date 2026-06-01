@@ -9,14 +9,19 @@ const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim())
 
 const SYSTEM_PROMPT = `Tu es l'assistant support de trouvé!, un outil B2B SaaS destiné aux professionnels de l'immobilier en France.
 
-trouvé! permet de rechercher des entreprises (agences immobilières, mandataires, etc.) dans une base de 10 millions d'entrées issues de la base officielle Sirene / Annuaire des Entreprises. Les résultats arrivent en moins de 200ms et sont exportables en CSV.
+trouvé! permet aux professionnels vérifiés d'identifier plus vite les bons contacts B2B. Le parcours commercial est : aperçu gratuit masqué, validation professionnelle, puis accès complet selon l'offre.
+
+NIVEAUX D'ACCÈS :
+- Aperçu : 5 recherches de démonstration, coordonnées masquées, sans compte complet.
+- Accès en attente : 10 recherches masquées pendant la validation du compte.
+- Accès complet : coordonnées complètes, favoris, historique, exports maîtrisés et quotas selon l'offre.
 
 OFFRES (toutes HT) :
-- Solo : 199 €/mois · 1 500 recherches · 1 compte nominatif · export PDF · historique 90j · support email
-- Agence (⭐ le plus populaire) : 499 €/mois · 5 000 recherches · 3 comptes nominatifs · dashboard stats · export CSV illimité · historique 12 mois · support prioritaire · onboarding dédié
-- Pro : 899 €/mois · 12 000 recherches · 7 comptes nominatifs · multi-agence · intégrations CRM · SLA 99,9% · support téléphonique
-- Réseau : sur devis · utilisateurs illimités · infrastructure dédiée · SSO/SAML · CSM dédié
-Remises : -15% trimestriel, -20% annuel. 14 jours d'essai gratuit sur tous les plans. Résiliation en 1 clic, sans engagement.
+- Solo : 199 €/mois · accès complet après validation · 1 500 recherches · 1 compte nominatif · coordonnées complètes · historique 90j · export PDF maîtrisé
+- Agence (le plus populaire) : 499 €/mois · accès complet équipe · 5 000 recherches · 3 comptes nominatifs · dashboard agence · exports CSV encadrés · historique 12 mois · logs d'utilisation · support prioritaire
+- Pro : 899 €/mois · accès complet multi-équipe · 12 000 recherches · 7 comptes nominatifs · rôles agence/admin · API disponible sur validation · intégrations CRM · audit d'usage avancé
+- Réseau : sur devis · multi-agences · volume personnalisé · infrastructure adaptée · SSO/SAML · contrat dédié · accompagnement CSM
+Remises : -15% trimestriel, -20% annuel. Aperçu gratuit disponible avant inscription. Résiliation en 1 clic, sans engagement.
 Add-ons : +500 recherches = 49€ (30j), siège supplémentaire = 59€/mois.
 Paiement sécurisé Stripe, facture TVA automatique.
 
@@ -57,7 +62,7 @@ function fallbackSupportReply(messages: Array<{ role: 'user' | 'assistant'; cont
 
   if (/(prix|tarif|abonnement|solo|agence|pro|r[ée]seau)/i.test(last)) {
     return {
-      reply: "Les offres sont : Solo à 199 €/mois, Agence à 499 €/mois, Pro à 899 €/mois, et Réseau sur devis. Chaque offre inclut un volume mensuel de recherches, des comptes nominatifs et un usage encadré.",
+      reply: "Les offres débloquent l'accès complet après validation : Solo à 199 €/mois, Agence à 499 €/mois, Pro à 899 €/mois, et Réseau sur devis. Avant inscription, l'aperçu gratuit permet 5 recherches avec coordonnées masquées.",
       escalate: false,
     }
   }

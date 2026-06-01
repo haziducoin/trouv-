@@ -61,12 +61,30 @@ const STEPS = [
   },
 ]
 
+const DEMO_FLOW = [
+  {
+    label: 'Aperçu',
+    title: '5 recherches de démonstration',
+    desc: 'Explorez le moteur avec des données de démo. Les emails et téléphones restent masqués.',
+  },
+  {
+    label: 'Validation',
+    title: 'Compte pro vérifié',
+    desc: 'Inscription avec email professionnel. L’accès complet est activé après validation.',
+  },
+  {
+    label: 'Complet',
+    title: 'Coordonnées déverrouillées',
+    desc: 'Recherches, favoris, historique, exports maîtrisés et quotas selon votre offre.',
+  },
+]
+
 // ─── Catalogue de plans ───────────────────────────────────────────────────────
 const PLANS = [
   {
     code: 'solo',
     name: 'Solo',
-    description: 'Pour les agents indépendants',
+    description: 'Accès complet indépendant',
     users: 1,
     searches: 1500,
     recommended: false,
@@ -76,17 +94,18 @@ const PLANS = [
       annual:    { amount: 159, label: '159 €', saving: '2 mois offerts' },
     },
     features: [
+      'Accès complet après validation',
       '1 500 recherches / mois',
       '1 compte nominatif',
-      'Export PDF',
+      'Coordonnées complètes',
       'Historique 90 jours',
-      'Support email',
+      'Export PDF maîtrisé',
     ],
   },
   {
     code: 'agence',
     name: 'Agence',
-    description: 'Pour les agences immobilières',
+    description: 'Offre équipe principale',
     users: 3,
     searches: 5000,
     recommended: true,
@@ -96,19 +115,20 @@ const PLANS = [
       annual:    { amount: 399, label: '399 €', saving: '2 mois offerts' },
     },
     features: [
+      'Accès complet équipe',
       '5 000 recherches / mois',
       '3 comptes nominatifs',
-      'Dashboard + statistiques',
-      'Export CSV illimité',
+      'Dashboard agence',
+      'Exports CSV encadrés',
       'Historique 12 mois',
+      "Logs d'utilisation",
       'Support prioritaire',
-      'Onboarding dédié',
     ],
   },
   {
     code: 'pro',
     name: 'Pro',
-    description: 'Pour les structures multi-équipes',
+    description: 'Pour structures avancées',
     users: 7,
     searches: 12000,
     recommended: false,
@@ -118,12 +138,13 @@ const PLANS = [
       annual:    { amount: 719, label: '719 €', saving: '2 mois offerts' },
     },
     features: [
+      'Accès complet multi-équipe',
       '12 000 recherches / mois',
       '7 comptes nominatifs',
-      'Multi-agence (1 réseau)',
-      'API REST incluse',
+      'Rôles agence / admin',
+      'API disponible sur validation',
       'Intégrations CRM',
-      'SLA 99,9 %',
+      "Audit d'usage avancé",
       'Support téléphonique',
     ],
   },
@@ -140,12 +161,12 @@ const PLANS = [
       annual:    { amount: 0, label: 'Sur devis' },
     },
     features: [
-      'Utilisateurs illimités',
-      'Volume adapté',
-      'Infrastructure dédiée',
+      'Multi-agences',
+      'Volume personnalisé',
+      'Infrastructure adaptée',
       'SSO / SAML',
-      'Contrat personnalisé',
-      'CSM dédié',
+      'Contrat dédié',
+      'Accompagnement CSM',
     ],
   },
 ]
@@ -293,14 +314,21 @@ export default function LandingPage({
             <p className="mx-auto mt-7 max-w-4xl text-xl leading-relaxed text-slate-800 md:text-2xl">
               Le moteur de recherche pour identifier et contacter vos cibles qualifiées.
             </p>
-            <div className="mt-10 flex items-center justify-center">
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/?demo=1' }}
+                className="btn-glow inline-flex h-16 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-10 text-lg font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
+              >
+                Voir la démo
+                <ArrowRight size={22} />
+              </button>
               <button
                 type="button"
                 onClick={() => setAccountPanel('register')}
-                className="btn-glow inline-flex h-16 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-10 text-lg font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
+                className="inline-flex h-16 cursor-pointer items-center gap-3 rounded-full border border-slate-200 bg-white px-8 text-lg font-bold text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#124bd2]"
               >
-                Lancer ma première recherche
-                <ArrowRight size={22} />
+                Créer un accès complet
               </button>
             </div>
           </div>
@@ -529,6 +557,62 @@ export default function LandingPage({
           </div>
         </section>
 
+        <section id="apercu" className="px-5 py-12 md:py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="overflow-hidden rounded-[2rem] border border-blue-100 bg-white shadow-[0_30px_90px_-45px_rgba(18,75,210,0.55)]">
+              <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+                <div className="bg-gradient-to-br from-[#124bd2] to-[#071a56] p-7 text-white md:p-9">
+                  <p className="text-sm font-semibold text-blue-100">Vision démo</p>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                    Essayez avant de débloquer.
+                  </h2>
+                  <p className="mt-4 text-sm leading-relaxed text-blue-50/80">
+                    La démo montre le moteur sans exposer les coordonnées. L’accès complet arrive après inscription professionnelle et validation.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = '/?demo=1' }}
+                    className="mt-7 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[#124bd2] transition hover:bg-blue-50"
+                  >
+                    Lancer l’aperçu gratuit
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+
+                <div className="p-6 md:p-8">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {DEMO_FLOW.map((item, index) => (
+                      <div key={item.label} className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white text-xs font-bold text-[#124bd2] shadow-sm">
+                          {index + 1}
+                        </span>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                        <h3 className="mt-2 text-base font-bold text-slate-900">{item.title}</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-500">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Démo visible : 5 recherches masquées</p>
+                        <p className="mt-1 text-xs text-slate-500">Compte en attente : 10 recherches masquées. Offre active : accès complet selon quota.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAccountPanel('register')}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#124bd2] px-4 text-sm font-bold text-white transition hover:bg-[#0b3fbc]"
+                      >
+                        Demander l’accès complet
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="tarifs" className="px-5 pb-24 pt-10 md:pb-32 md:pt-16">
           <div className="mx-auto max-w-6xl">
 
@@ -536,8 +620,11 @@ export default function LandingPage({
             <div className="text-center">
               <p className="text-sm font-semibold text-[#124bd2]">Offres</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-                Un abonnement, pas des fichiers.
+                Débloquez l’accès complet.
               </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
+                Testez en aperçu, inscrivez votre société, puis accédez aux coordonnées complètes après validation professionnelle.
+              </p>
             </div>
 
             {/* Toggle période */}
@@ -571,12 +658,12 @@ export default function LandingPage({
 
             {billingPeriod === 'annual' && (
               <p className="mt-3 text-center text-xs text-emerald-600 font-medium">
-                🎉 Économisez jusqu'à <strong>2 160 €</strong> par an sur le plan Pro
+                Économisez jusqu'à <strong>2 160 €</strong> par an sur le plan Pro
               </p>
             )}
             {billingPeriod === 'quarterly' && (
               <p className="mt-3 text-center text-xs text-emerald-600 font-medium">
-                💡 Idéal pour tester sans engagement annuel · 1 mois offert par trimestre
+                Idéal pour tester sans engagement annuel · 1 mois offert par trimestre
               </p>
             )}
 
@@ -646,7 +733,13 @@ export default function LandingPage({
                       )}
                     </div>
 
-                    <div className="my-5 h-px bg-slate-100" />
+	                    {!isDevis && (
+	                      <p className="mt-4 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-semibold text-[#124bd2]">
+	                        Accès complet après validation professionnelle
+	                      </p>
+	                    )}
+
+	                    <div className="my-5 h-px bg-slate-100" />
 
                     {/* Features */}
                     <ul className="flex-1 space-y-2.5">
@@ -678,15 +771,15 @@ export default function LandingPage({
                       ) : (
                         <>
                           {plan.recommended ? <Zap size={14} /> : null}
-                          Commencer — 14 jours offerts
-                          <ArrowRight size={14} />
+	                          {plan.recommended ? 'Choisir Agence' : `Choisir ${plan.name}`}
+	                          <ArrowRight size={14} />
                         </>
                       )}
                     </button>
 
                     {!isDevis && (
                       <p className="mt-2 text-center text-[10px] text-slate-400">
-                        Sans engagement · Résiliation en 1 clic
+	                        Aperçu gratuit disponible avant inscription
                       </p>
                     )}
                   </div>
@@ -698,9 +791,9 @@ export default function LandingPage({
             <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 md:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="font-semibold">Besoin de plus ?</p>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    Ajoutez des recherches ou des sièges à la carte, sans changer de plan.
+	                  <p className="font-semibold">Besoin de plus après validation ?</p>
+	                  <p className="mt-0.5 text-sm text-slate-500">
+	                    Ajoutez des recherches ou des sièges à la carte, avec le même contrôle d’usage.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -726,8 +819,8 @@ export default function LandingPage({
             <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-2 text-xs text-slate-400">
               <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Paiement sécurisé par Stripe</span>
               <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Facture TVA automatique</span>
-              <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> 14 jours d'essai gratuit</span>
-              <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Résiliation sans frais</span>
+	              <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Aperçu gratuit : 5 recherches masquées</span>
+	              <span className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Validation pro avant accès complet</span>
             </div>
 
           </div>

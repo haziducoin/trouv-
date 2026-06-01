@@ -3,15 +3,15 @@ import { CheckCircle2, ArrowRight, Sparkles, Building2, Search, Clock } from 'lu
 import trouveLogo from '@/assets/trouve-logo.png'
 
 const PLAN_LABELS: Record<string, { name: string; searches: string; trial: string }> = {
-  solo:   { name: 'Solo',   searches: '1 500',  trial: '14 jours gratuits' },
-  agence: { name: 'Agence', searches: '5 000',  trial: '14 jours gratuits' },
-  pro:    { name: 'Pro',    searches: '12 000', trial: '14 jours gratuits' },
+  solo:   { name: 'Solo',   searches: '1 500',  trial: 'Accès complet validé' },
+  agence: { name: 'Agence', searches: '5 000',  trial: 'Accès complet validé' },
+  pro:    { name: 'Pro',    searches: '12 000', trial: 'Accès complet validé' },
 }
 
 const STEPS = [
   { icon: Building2, title: 'Compte activé',   desc: 'Votre accès professionnel est confirmé.' },
   { icon: Search,    title: 'Lancez une recherche', desc: 'Cherchez par nom, ville ou SIREN.' },
-  { icon: Sparkles,  title: 'Exportez en CSV', desc: 'Téléchargez vos résultats en un clic.' },
+  { icon: Sparkles,  title: 'Exploitez vos résultats', desc: 'Favoris, historique et exports maîtrisés.' },
 ]
 
 interface SuccessPageProps {

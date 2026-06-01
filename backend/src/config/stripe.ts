@@ -43,15 +43,16 @@ export const PLANS: Record<string, PlanConfig> = {
   solo: {
     code:        'solo',
     name:        'Solo',
-    description: 'Pour les agents indépendants',
+    description: 'Accès complet indépendant',
     users:       1,
     searches:    1500,
     features: [
+      'Accès complet après validation',
       '1 500 recherches / mois',
       '1 utilisateur nominatif',
-      'Export PDF des résultats',
+      'Coordonnées complètes',
       'Historique 90 jours',
-      'Support email',
+      'Export PDF maîtrisé',
     ],
     pricing: {
       monthly:   { amount: 19900 },   // 199 €
@@ -63,17 +64,18 @@ export const PLANS: Record<string, PlanConfig> = {
   agence: {
     code:        'agence',
     name:        'Agence',
-    description: 'Pour les agences immobilières',
+    description: 'Offre équipe principale',
     users:       3,
     searches:    5000,
     features: [
+      'Accès complet équipe',
       '5 000 recherches / mois',
       '3 comptes nominatifs',
-      'Dashboard agence + statistiques',
-      'Export illimité en CSV',
+      'Dashboard agence',
+      'Exports CSV encadrés',
       'Historique 12 mois',
+      "Logs d'utilisation",
       'Support prioritaire',
-      'Onboarding dédié',
     ],
     pricing: {
       monthly:   { amount: 49900 },   // 499 €
@@ -85,17 +87,17 @@ export const PLANS: Record<string, PlanConfig> = {
   pro: {
     code:        'pro',
     name:        'Pro',
-    description: 'Pour les structures multi-équipes',
+    description: 'Pour structures avancées',
     users:       7,
     searches:    12000,
     features: [
+      'Accès complet multi-équipe',
       '12 000 recherches / mois',
       '7 comptes nominatifs',
-      'Multi-agence (1 réseau)',
-      'API REST incluse',
-      'Intégrations CRM (Salesforce, HubSpot)',
-      'Rapports avancés',
-      'SLA 99,9 %',
+      'Rôles agence / admin',
+      'API disponible sur validation',
+      'Intégrations CRM',
+      "Audit d'usage avancé",
       'Support téléphonique',
     ],
     pricing: {
@@ -108,17 +110,16 @@ export const PLANS: Record<string, PlanConfig> = {
   reseau: {
     code:        'reseau',
     name:        'Réseau',
-    description: 'Tarification sur mesure pour les grands réseaux',
+    description: 'Sur mesure pour grands réseaux',
     users:       null,
     searches:    null,
     features: [
-      'Utilisateurs illimités',
-      'Volume de recherches adapté',
-      'Infrastructure dédiée',
+      'Multi-agences',
+      'Volume personnalisé',
+      'Infrastructure adaptée',
       'SSO / SAML',
-      'Contrat personnalisé & facturation annuelle',
-      'CSM dédié',
-      'SLA enterprise garanti',
+      'Contrat dédié',
+      'Accompagnement CSM',
     ],
     pricing: {
       monthly:   { amount: 0 },    // Sur devis
