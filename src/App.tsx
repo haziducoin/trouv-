@@ -17,6 +17,24 @@ const isDemoMode    = _params.has('demo')
 const isSuccessPage = _params.has('success')
 const successPlan   = _params.get('plan') ?? 'agence'
 
+function formatOAuthError(rawError: string) {
+  const decoded = decodeURIComponent(rawError)
+
+  if (/unable to exchange external code/i.test(decoded)) {
+    return [
+      "Connexion Google impossible : l'échange OAuth n'a pas pu être finalisé.",
+      "Réessayez depuis le bouton Google sans revenir avec le bouton précédent.",
+      "Si l'erreur persiste, vérifiez l'URL de redirection Google/Supabase.",
+    ].join(' ')
+  }
+
+  if (/redirect/i.test(decoded)) {
+    return "Connexion Google impossible : l'URL de redirection n'est pas autorisée dans Supabase."
+  }
+
+  return `Connexion Google impossible : ${decoded}`
+}
+
 // ─── Compte démo (dev only) ───────────────────────────────────────────────────
 const DEMO_ACCOUNT: Account = {
   id:             'demo-preview',
@@ -100,7 +118,7 @@ export default function App() {
             const hp = new URLSearchParams(window.location.hash.replace('#', '?'))
             const oauthErr = sp.get('error_description') || hp.get('error_description') || sp.get('error')
             if (oauthErr) {
-              setAuthError(`Connexion Google impossible : ${decodeURIComponent(oauthErr)}. Vérifiez la config Supabase (URL de redirection).`)
+              setAuthError(formatOAuthError(oauthErr))
               window.history.replaceState({}, '', '/')
             }
             setSessionLoading(false)
