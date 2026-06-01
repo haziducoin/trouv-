@@ -595,7 +595,7 @@ function AuthShowcase() {
 
         <div className="mx-auto mt-6 flex max-w-3xl items-center gap-4 rounded-2xl border border-white/80 bg-white p-2.5 shadow-[0_24px_80px_-50px_rgba(7,39,115,0.8)]">
           <Search className="ml-3 text-slate-400" size={22} />
-          <span className="flex-1 text-left text-lg text-slate-400">Ex : Camille Moreau, Paris 16, 06 42...</span>
+          <span className="flex-1 text-left text-lg text-slate-400">Ex : Camille Moreau, Paris 16, 06 42 18 74 93</span>
           <button className="rounded-xl bg-[#0757f8] px-6 py-3.5 text-base font-bold text-white shadow-[0_14px_35px_-18px_rgba(7,87,248,0.85)]">
             Rechercher
           </button>
@@ -622,12 +622,12 @@ function AuthShowcase() {
                     <p className="mt-2 text-sm leading-6 text-slate-500">Paris 16<br />Profil public cohérent</p>
                   </div>
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-[0_12px_28px_-16px_rgba(16,185,129,0.9)]">
-                    Contact probable <BadgeCheck size={14} />
+                    Contact trouvé <BadgeCheck size={14} />
                   </span>
                 </div>
                 <div className="mt-5 space-y-2.5 text-[15px] font-medium text-[#07113d]">
-                  <InfoLine icon={Phone} label="06 42 ** ** 93" />
-                  <InfoLine icon={Mail} label="camille.m***@gmail.com" />
+                  <InfoLine icon={Phone} label="06 42 18 74 93" />
+                  <InfoLine icon={Mail} label="camille.moreau@gmail.com" />
                   <InfoLine icon={MapPin} label="Paris 16 · adresse cohérente" />
                   <InfoLine icon={BriefcaseBusiness} label="Entreprise associée détectée" />
                   <InfoLine icon={UsersRound} label="Homonymes filtrés" />

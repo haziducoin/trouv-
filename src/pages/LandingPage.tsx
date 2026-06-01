@@ -30,23 +30,23 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 const resultRows = [
   {
     name: 'Camille Moreau',
-    context: 'Paris 16 · Adresse retrouvée · LinkedIn public',
-    phone: '06 42 ** ** 93',
-    email: 'camille.m***@gmail.com',
-    status: 'Correspondance forte',
+    context: 'Camille Moreau · Paris 16',
+    phone: '06 42 18 74 93',
+    email: 'camille.moreau@gmail.com',
+    status: 'Contact trouvé',
   },
   {
     name: 'Camille M.',
     context: 'Boulogne · même nom, ville proche',
-    phone: '07 58 ** ** 21',
-    email: 'c.moreau***@gmail.com',
+    phone: '07 58 29 64 21',
+    email: 'c.moreau.pro@gmail.com',
     status: 'Homonyme possible',
   },
   {
     name: 'C. Moreau',
     context: 'Lyon · écarté par localisation',
-    phone: 'Non affiché',
-    email: 'Non affiché',
+    phone: '06 11 90 35 48',
+    email: 'contact.moreau@gmail.com',
     status: 'Écarté',
   },
 ]
@@ -393,7 +393,7 @@ export default function LandingPage({
                   <div className="mt-7 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row">
                     <div className="flex flex-1 items-center gap-3 rounded-xl bg-white px-4 py-3 text-slate-500 shadow-sm">
                       <Search size={17} />
-                      <span className="text-sm">Camille Moreau · Paris 16 · 06 ou email perso</span>
+                      <span className="text-sm font-bold text-slate-900">Camille Moreau · Paris 16</span>
                     </div>
                     <button className="rounded-xl bg-[#124bd2] px-6 py-3 text-sm font-semibold text-white">Rechercher</button>
                   </div>
@@ -510,7 +510,7 @@ export default function LandingPage({
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Téléphone</p>
-                      <p className="mt-0.5 text-sm text-slate-700">06 42 **</p>
+                      <p className="mt-0.5 text-sm text-slate-700">06 42 18</p>
                     </div>
                     <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50/50 p-2.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ville</p>
@@ -535,11 +535,11 @@ export default function LandingPage({
                             <p className="text-base font-bold">Camille Moreau</p>
                             <p className="mt-1 text-sm text-slate-500">Paris 16 · Adresse cohérente · profil public trouvé</p>
                           </div>
-                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Contact probable</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Contact trouvé</span>
                         </div>
                         <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06 42 ** ** 93 <span className="font-semibold text-[#124bd2]">(débloqué en accès complet)</span></p>
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 camille.m***@gmail.com <span className="font-semibold text-[#124bd2]">(email direct)</span></p>
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06 42 18 74 93 <span className="font-semibold text-[#124bd2]">(mobile)</span></p>
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 camille.moreau@gmail.com <span className="font-semibold text-[#124bd2]">(email direct)</span></p>
                         </div>
                       </div>
                     </div>
