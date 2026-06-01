@@ -28,9 +28,27 @@ type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 const resultRows = [
-  { name: 'Marc Dupont', city: 'Lyon', type: 'Directeur Commercial · TechSolutions', status: 'Vérifié' },
-  { name: 'Marie Dupont', city: 'Lyon', type: 'Directrice RH · ScaleUp Partners', status: 'Homonyme' },
-  { name: 'Jean Dupont', city: 'Paris', type: 'Dirigeant · Conseil B2B', status: 'Écarté' },
+  {
+    name: 'Camille Moreau',
+    context: 'Paris 16 · Adresse retrouvée · LinkedIn public',
+    phone: '06 42 ** ** 93',
+    email: 'camille.m***@gmail.com',
+    status: 'Correspondance forte',
+  },
+  {
+    name: 'Camille M.',
+    context: 'Boulogne · même nom, ville proche',
+    phone: '07 58 ** ** 21',
+    email: 'c.moreau***@gmail.com',
+    status: 'Homonyme possible',
+  },
+  {
+    name: 'C. Moreau',
+    context: 'Lyon · écarté par localisation',
+    phone: 'Non affiché',
+    email: 'Non affiché',
+    status: 'Écarté',
+  },
 ]
 
 const safeguards = [
@@ -43,20 +61,20 @@ const safeguards = [
 const STEPS = [
   {
     num: '01',
-    title: 'Accédez en 2 minutes',
-    desc: 'Vérification SIREN + email pro. Votre compte sécurisé est actif immédiatement.',
+    title: 'Essayez en aperçu',
+    desc: '5 recherches de démonstration. Les numéros 06/07 et emails restent masqués.',
     color: 'bg-blue-50 text-[#124bd2]',
   },
   {
     num: '02',
-    title: 'Recherchez. Filtrez.',
-    desc: 'Nom, ville, entreprise ou mot-clé. Croisez les données et obtenez vos résultats en moins de 200 ms.',
+    title: 'Croisez les indices',
+    desc: 'Nom, prénom, ville, téléphone, email, adresse, entreprise ou réseau public.',
     color: 'bg-indigo-50 text-indigo-600',
   },
   {
     num: '03',
-    title: 'Exportez. Développez.',
-    desc: 'CSV en un clic. Des données de contact vérifiées, toujours exploitables pour vos campagnes.',
+    title: 'Débloquez le contact',
+    desc: 'Accès complet : mobiles 06/07, emails directs, favoris, historique et exports maîtrisés.',
     color: 'bg-emerald-50 text-emerald-600',
   },
 ]
@@ -338,10 +356,10 @@ export default function LandingPage({
           <div className="mx-auto max-w-6xl">
             <div className="mb-10 text-center">
               <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
-                Simple. Rapide. Redoutable.
+                Retrouvez un 06, un 07 ou un email.
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-base text-slate-500">
-                Opérationnel en 5 minutes chrono pour vos équipes métier.
+                Entrez les indices que vous avez. trouvé! recoupe et vous montre les coordonnées utiles en aperçu.
               </p>
             </div>
 
@@ -365,32 +383,42 @@ export default function LandingPage({
                 <div className="p-5 sm:p-7 md:p-8">
                   <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Recherche professionnelle</p>
-                      <h2 className="mt-2 text-2xl font-semibold tracking-tight">Nouveau ciblage</h2>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Recherche par indices</p>
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight">Coordonnées à retrouver</h2>
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-                      <ShieldCheck size={15} /> Compte nominatif validé
+                      <ShieldCheck size={15} /> Aperçu sécurisé
                     </div>
                   </div>
                   <div className="mt-7 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row">
                     <div className="flex flex-1 items-center gap-3 rounded-xl bg-white px-4 py-3 text-slate-500 shadow-sm">
                       <Search size={17} />
-                      <span className="text-sm">Dupont · Directeur · Lyon</span>
+                      <span className="text-sm">Camille Moreau · Paris 16 · 06 ou email perso</span>
                     </div>
                     <button className="rounded-xl bg-[#124bd2] px-6 py-3 text-sm font-semibold text-white">Rechercher</button>
                   </div>
                   <div className="mt-7 flex items-center justify-between">
-                    <p className="font-semibold">3 résultats utiles</p>
-                    <p className="text-xs text-slate-500">187 ms</p>
+                    <p className="font-semibold">Contacts probables</p>
+                    <p className="text-xs text-slate-500">Aperçu masqué</p>
                   </div>
                   <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
                     {resultRows.map((row, index) => (
-                      <div key={row.name} className={`flex items-center justify-between gap-4 bg-white px-4 py-4 ${index !== resultRows.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                        <div className="min-w-0">
+                      <div key={`${row.name}-${row.context}`} className={`flex flex-col gap-3 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${index !== resultRows.length - 1 ? 'border-b border-slate-100' : ''}`}>
+                        <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{row.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{row.type} · {row.city}</p>
+                          <p className="mt-1 text-xs text-slate-500">{row.context}</p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                            <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-[#124bd2]">📱 {row.phone}</span>
+                            <span className="rounded-full bg-slate-50 px-2.5 py-1 font-semibold text-slate-600">✉️ {row.email}</span>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{row.status}</span>
+                        <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                          index === 0
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : index === 1
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-slate-100 text-slate-500'
+                        }`}>{row.status}</span>
                       </div>
                     ))}
                   </div>
@@ -425,8 +453,8 @@ export default function LandingPage({
               Ciblez avec une précision chirurgicale.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-500">
-              Combinez librement identité, localisation, entreprise et réseaux publics.
-              Le filtre anti-homonymes élimine le bruit pour vous donner le contact exact.
+              Cherchez avec un nom, un prénom, une ville, un bout de téléphone, un email, une adresse, une entreprise ou un profil public.
+              L’outil isole les homonymes et indique les coordonnées à débloquer.
             </p>
           </div>
 
@@ -466,10 +494,11 @@ export default function LandingPage({
 
                   {/* Category pills */}
                   <div className="flex flex-wrap gap-1.5 border-b border-slate-200 bg-white px-5 py-3">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#124bd2]">Identité pro</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#124bd2]">Nom / prénom</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold text-purple-600">06 / 07</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600">Email direct</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Ville / adresse</span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">Entreprise</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Localisation</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600">Adresse</span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500">Réseaux publics</span>
                   </div>
 
@@ -477,40 +506,40 @@ export default function LandingPage({
                   <div className="grid grid-cols-2 gap-2 border-b border-slate-200 p-4 md:grid-cols-4">
                     <div className="rounded-lg border-2 border-blue-200 bg-white p-2.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Nom</p>
-                      <p className="mt-0.5 text-sm font-semibold text-[#124bd2]">Dupont</p>
+                      <p className="mt-0.5 text-sm font-semibold text-[#124bd2]">Camille Moreau</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Poste</p>
-                      <p className="mt-0.5 text-sm text-slate-700">Directeur</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Téléphone</p>
+                      <p className="mt-0.5 text-sm text-slate-700">06 42 **</p>
                     </div>
                     <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50/50 p-2.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ville</p>
-                      <p className="mt-0.5 text-sm font-semibold text-indigo-600">Lyon</p>
+                      <p className="mt-0.5 text-sm font-semibold text-indigo-600">Paris 16</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Score</p>
-                      <p className="mt-0.5 text-sm text-emerald-600">98%</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Email</p>
+                      <p className="mt-0.5 text-sm text-emerald-600">gmail.com</p>
                     </div>
                   </div>
 
                   {/* Results */}
                   <div className="p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-700">Contact exact</span>
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">187 ms</span>
+                      <span className="text-xs font-semibold text-slate-700">Meilleure correspondance</span>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">06/07 détecté</span>
                     </div>
                     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                       <div className="px-5 py-5">
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <p className="text-base font-bold">Marc Dupont · Directeur Commercial</p>
-                            <p className="mt-1 text-sm text-slate-500">🏢 TechSolutions Lyon</p>
+                            <p className="text-base font-bold">Camille Moreau</p>
+                            <p className="mt-1 text-sm text-slate-500">Paris 16 · Adresse cohérente · profil public trouvé</p>
                           </div>
-                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Vérifié</span>
+                          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Contact probable</span>
                         </div>
                         <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06.XX.XX.XX.XX <span className="font-semibold text-emerald-600">(Vérifié)</span></p>
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 m.dupont@techsolutions.com <span className="font-semibold text-emerald-600">(Vérifié)</span></p>
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06 42 ** ** 93 <span className="font-semibold text-[#124bd2]">(débloqué en accès complet)</span></p>
+                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 camille.m***@gmail.com <span className="font-semibold text-[#124bd2]">(email direct)</span></p>
                         </div>
                       </div>
                     </div>
@@ -531,7 +560,7 @@ export default function LandingPage({
                     Un usage maîtrisé et responsable.
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/60">
-                    Infrastructure sécurisée. Inscription par vérification de SIREN.
+                    Infrastructure sécurisée. Comptes nominatifs, email professionnel et validation avant accès complet.
                   </p>
                 </div>
                 <button
@@ -567,7 +596,7 @@ export default function LandingPage({
                     Essayez avant de débloquer.
                   </h2>
                   <p className="mt-4 text-sm leading-relaxed text-blue-50/80">
-                    La démo montre le moteur sans exposer les coordonnées. L’accès complet arrive après inscription professionnelle et validation.
+                    La démo montre le moteur sans exposer les coordonnées complètes. L’accès complet arrive après inscription professionnelle et validation.
                   </p>
                   <button
                     type="button"

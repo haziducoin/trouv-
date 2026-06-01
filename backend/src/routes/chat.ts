@@ -9,7 +9,7 @@ const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim())
 
 const SYSTEM_PROMPT = `Tu es l'assistant support de trouvé!, un outil B2B SaaS destiné aux professionnels de l'immobilier en France.
 
-trouvé! permet aux professionnels vérifiés d'identifier plus vite les bons contacts B2B. Le parcours commercial est : aperçu gratuit masqué, validation professionnelle, puis accès complet selon l'offre.
+trouvé! permet aux professionnels vérifiés d'identifier plus vite les bons contacts. Le moteur croise nom, prénom, ville, adresse, entreprise, téléphone, email et réseaux publics. Le parcours commercial est : aperçu gratuit masqué, validation professionnelle, puis accès complet selon l'offre.
 
 NIVEAUX D'ACCÈS :
 - Aperçu : 5 recherches de démonstration, coordonnées masquées, sans compte complet.
@@ -26,10 +26,10 @@ Add-ons : +500 recherches = 49€ (30j), siège supplémentaire = 59€/mois.
 Paiement sécurisé Stripe, facture TVA automatique.
 
 ACCÈS :
-Réservé aux professionnels. Inscription avec SIREN + email pro. Validation sous 24-48h.
+Réservé aux professionnels. Inscription avec email professionnel et compte nominatif. Validation avant accès complet.
 
 SÉCURITÉ & LÉGAL :
-Données officielles Sirene (publiques). Comptes nominatifs. Logs d'utilisation. Anti-extraction. Pas d'export massif. Opposition/suppression possibles.
+Comptes nominatifs. Logs d'utilisation. Anti-extraction. Pas d'export massif. Opposition/suppression possibles.
 
 RÈGLES DE COMPORTEMENT :
 - Réponds toujours en français, de façon concise et professionnelle.
@@ -69,7 +69,7 @@ function fallbackSupportReply(messages: Array<{ role: 'user' | 'assistant'; cont
 
   if (/(acc[eè]s|compte|inscription|siren|email|validation)/i.test(last)) {
     return {
-      reply: "L'accès est réservé aux professionnels. La demande se fait avec un SIREN, un email professionnel et une validation du compte avant l'accès complet.",
+      reply: "L'accès est réservé aux professionnels. La demande se fait avec un email professionnel, un compte nominatif et une validation avant l'accès complet.",
       escalate: false,
     }
   }

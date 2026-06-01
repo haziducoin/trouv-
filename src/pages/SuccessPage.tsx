@@ -10,7 +10,7 @@ const PLAN_LABELS: Record<string, { name: string; searches: string; trial: strin
 
 const STEPS = [
   { icon: Building2, title: 'Compte activé',   desc: 'Votre accès professionnel est confirmé.' },
-  { icon: Search,    title: 'Lancez une recherche', desc: 'Cherchez par nom, ville ou SIREN.' },
+  { icon: Search,    title: 'Lancez une recherche', desc: 'Cherchez par nom, ville, 06/07, email ou adresse.' },
   { icon: Sparkles,  title: 'Exploitez vos résultats', desc: 'Favoris, historique et exports maîtrisés.' },
 ]
 

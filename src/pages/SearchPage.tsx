@@ -1293,7 +1293,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   Recherche professionnelle
                 </p>
                 <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
-                  {hasSearched && query ? `"${query}"` : 'Nouveau ciblage'}
+                  {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
                 </h1>
               </div>
               <div className="flex items-center gap-2">
