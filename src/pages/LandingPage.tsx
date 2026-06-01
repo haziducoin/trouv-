@@ -910,7 +910,7 @@ export default function LandingPage({
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-5 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:gap-5 sm:text-left">
           <img src={trouveLogo} alt="trouvé!" className="h-auto w-36 max-w-[48vw] object-contain sm:h-7 sm:w-auto sm:max-w-none" />
           <p className="text-xs text-slate-500">Outil privé B2B · Accès vérifié · © 2026 trouvé!</p>
         </div>
