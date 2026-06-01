@@ -55,9 +55,9 @@ export const PLANS: Record<string, PlanConfig> = {
       'Export PDF maîtrisé',
     ],
     pricing: {
-      monthly:   { amount: 19900 },   // 199 €
-      quarterly: { amount: 16915, saving: '–15 %  · 1 mois offert' },   // 169,15 € × 3 = 507,45 €
-      annual:    { amount: 15920, saving: '–20 %  · 2 mois offerts' },  // 159,20 € × 12 = 1 910,40 €
+      monthly:   { amount: 19900, priceId: 'price_1TdbAYQ1xoNYTIlA2mVk56fx' },   // 199 €
+      quarterly: { amount: 16915, priceId: 'price_1TdbAYQ1xoNYTIlAFsUV6Mr5', saving: '–15 %  · 1 mois offert' },   // 169,15 € × 3 = 507,45 €
+      annual:    { amount: 15920, priceId: 'price_1TdbAZQ1xoNYTIlAp36t2Hml', saving: '–20 %  · 2 mois offerts' },  // 159,20 € × 12 = 1 910,40 €
     },
   },
 
@@ -78,9 +78,9 @@ export const PLANS: Record<string, PlanConfig> = {
       'Support prioritaire',
     ],
     pricing: {
-      monthly:   { amount: 49900 },   // 499 €
-      quarterly: { amount: 42415, saving: '–15 %  · 1 mois offert' },   // 424,15 € × 3 = 1 272,45 €
-      annual:    { amount: 39920, saving: '–20 %  · 2 mois offerts' },  // 399,20 € × 12 = 4 790,40 €
+      monthly:   { amount: 49900, priceId: 'price_1TdbAaQ1xoNYTIlAgI5gfyFw' },   // 499 €
+      quarterly: { amount: 42415, priceId: 'price_1TdbAaQ1xoNYTIlAQMudC0vC', saving: '–15 %  · 1 mois offert' },   // 424,15 € × 3 = 1 272,45 €
+      annual:    { amount: 39920, priceId: 'price_1TdbAbQ1xoNYTIlAU4Ykp1mp', saving: '–20 %  · 2 mois offerts' },  // 399,20 € × 12 = 4 790,40 €
     },
   },
 
@@ -101,9 +101,9 @@ export const PLANS: Record<string, PlanConfig> = {
       'Support téléphonique',
     ],
     pricing: {
-      monthly:   { amount: 89900 },   // 899 €
-      quarterly: { amount: 76415, saving: '–15 %  · 1 mois offert' },   // 764,15 € × 3 = 2 292,45 €
-      annual:    { amount: 71920, saving: '–20 %  · 2 mois offerts' },  // 719,20 € × 12 = 8 630,40 €
+      monthly:   { amount: 89900, priceId: 'price_1TdbAcQ1xoNYTIlAo0UtvKRI' },   // 899 €
+      quarterly: { amount: 76415, priceId: 'price_1TdbAcQ1xoNYTIlA8NZQHuyQ', saving: '–15 %  · 1 mois offert' },   // 764,15 € × 3 = 2 292,45 €
+      annual:    { amount: 71920, priceId: 'price_1TdbAdQ1xoNYTIlAqbJf5lBD', saving: '–20 %  · 2 mois offerts' },  // 719,20 € × 12 = 8 630,40 €
     },
   },
 
@@ -135,13 +135,13 @@ export const ADDONS = {
     name:        '+500 recherches',
     description: 'Pack de 500 recherches supplémentaires (valable 30 jours)',
     amount:      4900,  // 49 €
-    priceId:     undefined as string | undefined,
+    priceId:     'price_1TdbAeQ1xoNYTIlAh872t8lb' as string | undefined,
   },
   extra_user: {
     name:        'Siège supplémentaire',
     description: 'Ajouter 1 utilisateur nominatif à ton plan',
     amount:      5900,  // 59 €/mois
-    priceId:     undefined as string | undefined,
+    priceId:     'price_1TdbAfQ1xoNYTIlAp90XuKDR' as string | undefined,
   },
 }
 

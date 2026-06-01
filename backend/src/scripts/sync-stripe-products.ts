@@ -123,12 +123,14 @@ async function main() {
   console.log(`Mode : ${process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? '🔴 PRODUCTION' : '🟡 TEST'}\n`)
 
   const priceIds: Record<string, Record<string, string>> = {}
+  const productIds: Record<string, string> = {}
 
   for (const [planCode, plan] of Object.entries(PLANS)) {
     if (planCode === 'reseau') continue  // Sur devis, pas de produit Stripe
 
     console.log(`\n─── Plan ${plan.name} ─────────────────────────────────────`)
     const productId = await findOrCreateProduct(planCode, plan.name, plan.description)
+    productIds[planCode] = productId
 
     priceIds[planCode] = {}
 
@@ -176,9 +178,9 @@ async function main() {
           proration_behavior: 'always_invoice',
           default_allowed_updates: ['price', 'quantity'],
           products: Object.entries(priceIds).map(([planCode, periods]) => ({
-            product: '', // sera rempli dynamiquement
+            product: productIds[planCode],
             prices: Object.values(periods),
-          })).filter(p => p.prices.length > 0),
+          })).filter(p => p.product && p.prices.length > 0),
         },
         invoice_history:          { enabled: true },
       },
