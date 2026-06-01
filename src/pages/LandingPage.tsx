@@ -9,6 +9,9 @@ import {
   Heart,
   History,
   LockKeyhole,
+  Mail,
+  MapPin,
+  Phone,
   Search,
   ShieldCheck,
   Sparkles,
@@ -34,6 +37,8 @@ const resultRows = [
     phone: '06 42 18 74 93',
     email: 'camille.moreau@gmail.com',
     status: 'Contact trouvé',
+    confidenceLabel: 'Confiance élevée',
+    confidenceScore: '98%',
   },
   {
     name: 'Camille M.',
@@ -41,6 +46,8 @@ const resultRows = [
     phone: '07 58 29 64 21',
     email: 'c.moreau.pro@gmail.com',
     status: 'Homonyme possible',
+    confidenceLabel: 'Confiance moyenne',
+    confidenceScore: '62%',
   },
   {
     name: 'C. Moreau',
@@ -48,6 +55,8 @@ const resultRows = [
     phone: '06 11 90 35 48',
     email: 'contact.moreau@gmail.com',
     status: 'Écarté',
+    confidenceLabel: 'Confiance faible',
+    confidenceScore: '24%',
   },
 ]
 
@@ -199,6 +208,31 @@ const PERIOD_SUBLABELS: Record<BillingPeriod, string | null> = {
   monthly:   null,
   quarterly: '-15 %',
   annual:    '-20 %',
+}
+
+function initialsFromName(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function ContactPill({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-[#124bd2] ring-1 ring-blue-100/80">
+      <span className="text-[#124bd2]">{icon}</span>
+      <span>{children}</span>
+    </span>
+  )
+}
+
+function statusClasses(status: string) {
+  if (status === 'Contact trouvé') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'Homonyme possible') return 'bg-amber-50 text-amber-700'
+  return 'bg-slate-100 text-slate-500'
 }
 
 interface LandingPageProps {
@@ -401,24 +435,43 @@ export default function LandingPage({
                     <p className="font-semibold">Contacts probables</p>
                     <p className="text-xs text-slate-500">Aperçu masqué</p>
                   </div>
-                  <div className="mt-4 overflow-hidden rounded-2xl border border-slate-100">
+                  <div className="mt-4 space-y-3">
                     {resultRows.map((row, index) => (
-                      <div key={`${row.name}-${row.context}`} className={`flex flex-col gap-3 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${index !== resultRows.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{row.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{row.context}</p>
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                            <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-[#124bd2]">📱 {row.phone}</span>
-                            <span className="rounded-full bg-slate-50 px-2.5 py-1 font-semibold text-slate-600">✉️ {row.email}</span>
+                      <div key={`${row.name}-${row.context}`} className="grid gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-[0_18px_45px_-35px_rgba(15,23,42,0.5)] md:grid-cols-[1fr_190px] md:items-center">
+                        <div className="flex min-w-0 gap-4">
+                          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-extrabold ${
+                            index === 1 ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-[#124bd2]'
+                          }`}>
+                            {initialsFromName(row.name)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-lg font-extrabold text-[#081228]">{row.name}</p>
+                              {index === 0 && <BadgeCheck size={18} className="fill-[#124bd2] text-white" />}
+                            </div>
+                            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-500">
+                              <MapPin size={15} className="text-slate-400" />
+                              {row.context}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <ContactPill icon={<Phone size={17} />}>{row.phone}</ContactPill>
+                              <ContactPill icon={<Mail size={17} />}>{row.email}</ContactPill>
+                            </div>
                           </div>
                         </div>
-                        <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
-                          index === 0
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : index === 1
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-slate-100 text-slate-500'
-                        }`}>{row.status}</span>
+                        <div className="border-slate-100 md:border-l md:pl-6">
+                          <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${statusClasses(row.status)}`}>
+                            {index === 0 ? <Check size={16} /> : index === 1 ? <AlertCircle size={16} /> : <X size={15} />}
+                            {row.status}
+                          </span>
+                          <div className="mt-5 flex items-center justify-between gap-3 text-sm font-bold text-slate-600">
+                            <span className="inline-flex items-center gap-2">
+                              <ShieldCheck size={18} className="text-[#124bd2]" />
+                              {row.confidenceLabel}
+                            </span>
+                            <span className="text-[#124bd2]">{row.confidenceScore}</span>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -537,9 +590,9 @@ export default function LandingPage({
                           </div>
                           <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">Contact trouvé</span>
                         </div>
-                        <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📱 06 42 18 74 93 <span className="font-semibold text-[#124bd2]">(mobile)</span></p>
-                          <p className="rounded-xl bg-slate-50 px-3 py-2">📧 camille.moreau@gmail.com <span className="font-semibold text-[#124bd2]">(email direct)</span></p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <ContactPill icon={<Phone size={17} />}>06 42 18 74 93</ContactPill>
+                          <ContactPill icon={<Mail size={17} />}>camille.moreau@gmail.com</ContactPill>
                         </div>
                       </div>
                     </div>

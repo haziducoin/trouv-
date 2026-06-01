@@ -276,33 +276,21 @@ function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospe
           {/* Coordonnées */}
           <section>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
               {prospect.phone && (
-                <div className="flex items-center gap-2.5">
-                  <Phone size={13} className="shrink-0 text-slate-300" />
-                  {accessLevel === 'demo'
-                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phone)} <Lock size={9} className="text-slate-300" /></span>
-                    : <a href={`tel:${prospect.phone}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phone}</a>
-                  }
-                </div>
+                accessLevel === 'demo'
+                  ? <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone)} locked muted />
+                  : <ContactChip icon={<Phone size={14} />} value={prospect.phone} href={`tel:${prospect.phone}`} />
               )}
               {prospect.phoneMobile && (
-                <div className="flex items-center gap-2.5">
-                  <Phone size={13} className="shrink-0 text-slate-300" />
-                  {accessLevel === 'demo'
-                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskPhone(prospect.phoneMobile)} <Lock size={9} className="text-slate-300" /> <span className="text-slate-300">(mobile)</span></span>
-                    : <a href={`tel:${prospect.phoneMobile}`} className="text-xs text-[#124bd2] hover:underline">{prospect.phoneMobile} <span className="text-slate-400">(mobile)</span></a>
-                  }
-                </div>
+                accessLevel === 'demo'
+                  ? <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phoneMobile)} locked muted />
+                  : <ContactChip icon={<Phone size={14} />} value={prospect.phoneMobile} href={`tel:${prospect.phoneMobile}`} />
               )}
               {prospect.email && (
-                <div className="flex items-center gap-2.5">
-                  <Mail size={13} className="shrink-0 text-slate-300" />
-                  {accessLevel === 'demo'
-                    ? <span className="flex items-center gap-1 text-xs text-slate-400">{maskEmail(prospect.email)} <Lock size={9} className="text-slate-300" /></span>
-                    : <a href={`mailto:${prospect.email}`} className="truncate text-xs text-[#124bd2] hover:underline">{prospect.email}</a>
-                  }
-                </div>
+                accessLevel === 'demo'
+                  ? <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
+                  : <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} />
               )}
               {prospect.linkedinUrl && (
                 <div className="flex items-center gap-2.5">
@@ -376,6 +364,47 @@ function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: strin
   )
 }
 
+function ContactChip({
+  icon,
+  value,
+  href,
+  locked = false,
+  muted = false,
+  onClick,
+}: {
+  icon: React.ReactNode
+  value: string
+  href?: string
+  locked?: boolean
+  muted?: boolean
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>
+}) {
+  const className = `inline-flex max-w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ring-1 transition ${
+    muted
+      ? 'bg-slate-50 text-slate-400 ring-slate-100 dark:bg-slate-800 dark:text-slate-500 dark:ring-slate-700'
+      : 'bg-blue-50 text-[#124bd2] ring-blue-100/80 hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60'
+  }`
+  const content = (
+    <>
+      <span className={muted ? 'text-slate-300 dark:text-slate-600' : 'text-[#124bd2] dark:text-blue-300'}>
+        {icon}
+      </span>
+      <span className="truncate">{value}</span>
+      {locked && <Lock size={10} className="shrink-0 text-slate-300 dark:text-slate-600" />}
+    </>
+  )
+
+  if (href && !locked) {
+    return (
+      <a href={href} onClick={onClick} className={className}>
+        {content}
+      </a>
+    )
+  }
+
+  return <span className={className}>{content}</span>
+}
+
 // ─── Composant ProspectCard ────────────────────────────────────────────────────
 function ProspectCard({
   prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full',
@@ -426,29 +455,19 @@ function ProspectCard({
           ) : isDemo ? (
             <>
               {prospect.phone && (
-                <span className="flex items-center gap-1 text-xs text-slate-400">
-                  <Phone size={11} className="text-slate-300" />{maskPhone(prospect.phone)}<Lock size={9} className="text-slate-300" />
-                </span>
+                <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone)} locked muted />
               )}
               {prospect.email && (
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  {maskEmail(prospect.email)}<Lock size={9} className="text-slate-300" />
-                </span>
+                <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
               )}
             </>
           ) : (
             <>
               {prospect.phone && (
-                <a href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()}
-                  className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#124bd2] dark:text-slate-400">
-                  <Phone size={11} /> {prospect.phone}
-                </a>
+                <ContactChip icon={<Phone size={14} />} value={prospect.phone} href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()} />
               )}
               {prospect.email && (
-                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-                  className="text-xs text-slate-400 transition hover:text-[#124bd2] truncate max-w-[140px] dark:text-slate-500">
-                  {prospect.email}
-                </a>
+                <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()} />
               )}
             </>
           )}
@@ -527,45 +546,36 @@ function ProspectCard({
           <div className="flex items-center gap-2"><MapPin size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-20" /></div>
         </div>
       ) : (
-        <div className="flex-1 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
           {/* Phone */}
           {(prospect.phone || prospect.phoneMobile) ? (
-            <p className="flex items-center gap-2">
-              <Phone size={11} className="shrink-0 text-slate-300" />
+            <div>
               {isDemo ? (
-                <span className="flex items-center gap-1 text-slate-400">
-                  {maskPhone(prospect.phone ?? prospect.phoneMobile ?? '')}
-                  <Lock size={9} className="text-slate-300" />
-                </span>
+                <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone ?? prospect.phoneMobile ?? '')} locked muted />
               ) : (
-                <a href={`tel:${prospect.phone ?? prospect.phoneMobile}`} onClick={e => e.stopPropagation()}
-                  className="hover:text-[#124bd2] transition">{prospect.phone ?? prospect.phoneMobile}</a>
+                <ContactChip
+                  icon={<Phone size={14} />}
+                  value={prospect.phone ?? prospect.phoneMobile ?? ''}
+                  href={`tel:${prospect.phone ?? prospect.phoneMobile}`}
+                  onClick={e => e.stopPropagation()}
+                />
               )}
-            </p>
+            </div>
           ) : (
-            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
-              <Phone size={11} className="shrink-0" /> —
-            </p>
+            <ContactChip icon={<Phone size={14} />} value="—" muted />
           )}
 
           {/* Email */}
           {prospect.email ? (
-            <p className="flex items-center gap-2">
-              <Mail size={11} className="shrink-0 text-slate-300" />
+            <div>
               {isDemo ? (
-                <span className="flex items-center gap-1 text-slate-400">
-                  {maskEmail(prospect.email)}
-                  <Lock size={9} className="text-slate-300" />
-                </span>
+                <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
               ) : (
-                <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-                  className="truncate hover:text-[#124bd2] transition">{prospect.email}</a>
+                <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()} />
               )}
-            </p>
+            </div>
           ) : (
-            <p className="flex items-center gap-2 text-slate-300 dark:text-slate-600">
-              <Mail size={11} className="shrink-0" /> —
-            </p>
+            <ContactChip icon={<Mail size={14} />} value="—" muted />
           )}
 
           {/* City */}
