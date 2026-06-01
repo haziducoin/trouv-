@@ -19,9 +19,11 @@ export function getSupabaseClient() {
   if (!supabaseClient) {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
+        storageKey: 'trouve_supabase_auth',
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        flowType: 'pkce',
       },
     })
   }

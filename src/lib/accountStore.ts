@@ -84,6 +84,8 @@ const AUDIT_KEY = 'trouve_audit_v1'
 const FAVORITES_KEY = 'trouve_favorites_v1'
 const SEARCHES_KEY = 'trouve_searches_v1'
 const OAUTH_PREVIEW_SESSION_KEY = 'trouve_oauth_preview_provider_v1'
+const REMEMBER_ME_KEY = 'trouve_remember_me_v1'
+const SESSION_ONLY_KEY = 'trouve_session_only_v1'
 
 export const DEMO_ADMIN = {
   email: 'admin@trouve.local',
@@ -423,6 +425,16 @@ export async function authenticateWithOAuth(provider: OAuthProvider) {
 }
 
 export async function restoreSession() {
+  if (localStorage.getItem(REMEMBER_ME_KEY) === '0' && sessionStorage.getItem(SESSION_ONLY_KEY) !== '1') {
+    if (usesRemoteDatabase) {
+      await getSupabaseClient().auth.signOut()
+    } else {
+      localStorage.removeItem(SESSION_KEY)
+    }
+    localStorage.removeItem(OAUTH_PREVIEW_SESSION_KEY)
+    return null
+  }
+
   const previewAccount = getActiveOAuthPreviewAccount()
   if (previewAccount) {
     return previewAccount
@@ -493,6 +505,7 @@ export async function restoreSession() {
 
 export async function clearSession() {
   localStorage.removeItem(OAUTH_PREVIEW_SESSION_KEY)
+  sessionStorage.removeItem(SESSION_ONLY_KEY)
   if (usesRemoteDatabase) {
     await getSupabaseClient().auth.signOut()
     return

@@ -62,17 +62,33 @@ export default function App() {
       return
     }
 
-    // ── Mode Supabase — on enregistre le listener EN PREMIER ─────────────
-    // Supabase traite le ?code= PKCE dès la création du client.
-    // INITIAL_SESSION fire avec la session résultante (ou null si pas de code).
-    // C'est le seul moyen fiable de capter le retour OAuth sans race condition.
+    let mounted = true
 
-    // Timeout de sécurité : si INITIAL_SESSION ne fire jamais (token corrompu,
-    // réseau lent, etc.), on force un sign-out + débloque après 6 secondes.
-    const safetyTimeout = setTimeout(async () => {
-      try { await getSupabaseClient().auth.signOut() } catch { /* ignore */ }
-      setSessionLoading(false)
-    }, 6000)
+    // Timeout de sécurité : si Supabase tarde, on débloque l'UI sans déconnecter.
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) {
+        setSessionLoading(false)
+        setLoadingTooLong(true)
+      }
+    }, 8000)
+
+    const hydrateSession = async () => {
+      try {
+        const a = await restoreSession()
+        if (mounted) setAccount(a)
+      } catch (err) {
+        if (err instanceof PersonalEmailError) {
+          if (mounted) setBlockedEmail((err as PersonalEmailError).email)
+        } else if (mounted) {
+          setAuthError(err instanceof Error ? err.message : 'Erreur de connexion inattendue.')
+        }
+      } finally {
+        clearTimeout(safetyTimeout)
+        if (mounted) setSessionLoading(false)
+      }
+    }
+
+    void hydrateSession()
 
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
@@ -90,27 +106,22 @@ export default function App() {
             setSessionLoading(false)
             return
           }
-          try {
-            const a = await restoreSession()
-            setAccount(a)
-          } catch (err) {
-            if (err instanceof PersonalEmailError) {
-              setBlockedEmail((err as PersonalEmailError).email)
-            } else {
-              setAuthError(err instanceof Error ? err.message : 'Erreur de connexion inattendue.')
-            }
-          } finally {
-            setSessionLoading(false)
-          }
+          await hydrateSession()
         } else if (event === 'SIGNED_OUT') {
           clearTimeout(safetyTimeout)
-          setAccount(null)
-          setSessionLoading(false)
+          if (mounted) {
+            setAccount(null)
+            setSessionLoading(false)
+          }
         }
       }
     )
 
-    return () => { clearTimeout(safetyTimeout); subscription.unsubscribe() }
+    return () => {
+      mounted = false
+      clearTimeout(safetyTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleAuthenticated = (a: Account) => {

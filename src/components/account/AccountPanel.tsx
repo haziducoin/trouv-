@@ -77,6 +77,7 @@ export default function AccountPanel({
   const [view, setView] = useState<AccountPanelView>(currentAccount ? 'workspace' : initialView)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('trouve_remember_me_v1') !== '0')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)
@@ -157,6 +158,12 @@ export default function AccountPanel({
     setLoginLoading(true)
     setLoginError('')
     try {
+      localStorage.setItem('trouve_remember_me_v1', rememberMe ? '1' : '0')
+      if (rememberMe) {
+        sessionStorage.removeItem('trouve_session_only_v1')
+      } else {
+        sessionStorage.setItem('trouve_session_only_v1', '1')
+      }
       const account = await authenticate(email, password)
       onAuthenticated(account)
       setView('workspace')
@@ -337,7 +344,16 @@ export default function AccountPanel({
                 <form onSubmit={handleLogin} className="space-y-4">
                   <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />
                   <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} />
-                  <div className="flex items-center justify-end text-sm">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(event) => setRememberMe(event.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-[#0757f8] focus:ring-[#0757f8]"
+                      />
+                      <span>Rester connecté</span>
+                    </label>
                     <button
                       type="button"
                       onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${encodeURIComponent(email || '(à renseigner)')}`, '_blank')}
