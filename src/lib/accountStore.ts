@@ -359,8 +359,10 @@ export async function authenticate(email: string, password: string) {
       throw new Error("Votre accès professionnel n'est pas actif.")
     }
 
-    // Non-bloquant : si la RPC n'existe pas encore, la connexion reste valide
-    supabase.rpc('record_login').catch(() => {})
+    // Non-bloquant : si la RPC n'existe pas encore, la connexion reste valide.
+    void (async () => {
+      await supabase.rpc('record_login')
+    })().catch(() => {})
     return account
   }
 
