@@ -18,6 +18,8 @@ app.use(helmet())
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    'https://www.xn--trouv-fsa.fr',
+    'https://xn--trouv-fsa.fr',
     'https://app.trouve.fr',
     'https://trouve.fr',
   ],

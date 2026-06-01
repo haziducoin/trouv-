@@ -368,7 +368,7 @@ export default function LandingPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">app.trouve.fr/recherche</div>
+                <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">www.xn--trouv-fsa.fr/recherche</div>
               </div>
               <div className="grid md:grid-cols-[230px_1fr]">
                 <aside className="hidden border-r border-slate-100 bg-[#0a1630] p-5 text-white md:block">
@@ -466,7 +466,7 @@ export default function LandingPage({
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">app.trouve.fr/recherche-avancee</div>
+                <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">www.xn--trouv-fsa.fr/recherche-avancee</div>
               </div>
 
               <div className="grid md:grid-cols-[230px_1fr]">
