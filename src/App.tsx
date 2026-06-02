@@ -259,16 +259,42 @@ export default function App() {
     )
   }
 
-  // ── En attente — accès limité, résultats masqués ──────────────────────────
+  // ── En attente — 5 recherches partiellement floues ───────────────────────
   if (account && account.status === 'pending') {
     return (
       <SearchPage
         account={account}
-        accessLevel="limited"
-        maxSearches={10}
+        accessLevel="demo"
+        maxSearches={5}
         onLogout={handleLogout}
         onOpenAccount={() => {}}
       />
+    )
+  }
+
+  // ── Démo validée — 10 vraies recherches non floues ───────────────────────
+  if (account && account.status === 'trial') {
+    return (
+      <>
+        <SearchPage
+          account={account}
+          accessLevel="trial"
+          maxSearches={10}
+          onLogout={handleLogout}
+          onOpenAccount={() => setAccountPanel('workspace')}
+        />
+        {accountPanel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <AccountPanel
+              initialView={accountPanel}
+              currentAccount={account}
+              onAuthenticated={handleAuthenticated}
+              onClose={() => setAccountPanel(null)}
+              onLogout={handleLogout}
+            />
+          </div>
+        )}
+      </>
     )
   }
 

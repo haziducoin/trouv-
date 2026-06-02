@@ -13,6 +13,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
   Search,
   ShieldCheck,
@@ -32,13 +33,16 @@ import {
   getAccounts,
   getAuditEvents,
   getDataMetrics,
+  getDemoRequests,
   isOAuthPreviewEnabled,
   PersonalEmailError,
   reviewAccessRequest,
+  reviewDemoRequest,
   usesRemoteDatabase,
   type Account,
   type AuditEvent,
   type DataMetric,
+  type DemoRequest,
   type OAuthProvider,
   type UserRole,
 } from '@/lib/accountStore'
@@ -61,9 +65,10 @@ const roleLabels: Record<UserRole, string> = {
 }
 
 const statusLabels = {
-  pending: 'En validation',
-  approved: 'Validé',
-  rejected: 'Refusé',
+  pending:   'En validation',
+  trial:     'Démo en cours',
+  approved:  'Validé',
+  rejected:  'Refusé',
   suspended: 'Suspendu',
 }
 
@@ -90,9 +95,10 @@ export default function AccountPanel({
   })
   const [registerError, setRegisterError] = useState('')
   const [requestCreated, setRequestCreated] = useState<Account | null>(null)
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([])
-  const [dataMetrics, setDataMetrics] = useState<DataMetric[]>([])
+  const [accounts, setAccounts]           = useState<Account[]>([])
+  const [auditEvents, setAuditEvents]     = useState<AuditEvent[]>([])
+  const [dataMetrics, setDataMetrics]     = useState<DataMetric[]>([])
+  const [demoRequests, setDemoRequests]   = useState<DemoRequest[]>([])
   const [workspaceError, setWorkspaceError] = useState('')
 
   useEffect(() => {
@@ -110,9 +116,10 @@ export default function AccountPanel({
     try {
       setAccounts(await getAccounts())
       if (currentAccount?.role === 'admin') {
-        const [events, metrics] = await Promise.all([getAuditEvents(), getDataMetrics()])
+        const [events, metrics, demos] = await Promise.all([getAuditEvents(), getDataMetrics(), getDemoRequests()])
         setAuditEvents(events)
         setDataMetrics(metrics)
+        setDemoRequests(demos)
       }
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : 'Données indisponibles.')
@@ -194,12 +201,15 @@ export default function AccountPanel({
     }
   }
 
-  const handleReview = async (
-    accountId: string,
-    status: 'approved' | 'rejected',
-  ) => {
+  const handleReview = async (accountId: string, status: 'approved' | 'rejected') => {
     if (!currentAccount) return
     await reviewAccessRequest(accountId, status, currentAccount.email)
+    await refreshWorkspaceData()
+  }
+
+  const handleDemoReview = async (requestId: string, decision: 'approved' | 'rejected') => {
+    if (!currentAccount) return
+    await reviewDemoRequest(requestId, decision, currentAccount.email)
     await refreshWorkspaceData()
   }
 
@@ -566,10 +576,12 @@ export default function AccountPanel({
             accounts={accounts}
             auditEvents={auditEvents}
             dataMetrics={dataMetrics}
+            demoRequests={demoRequests}
             pendingRequests={pendingRequests}
             verifiedMembers={verifiedMembers}
             workspaceError={workspaceError}
             onReview={handleReview}
+            onDemoReview={handleDemoReview}
             onLogout={onLogout}
           />
         )}
@@ -757,20 +769,24 @@ function Workspace({
   account,
   auditEvents,
   dataMetrics,
+  demoRequests,
   pendingRequests,
   verifiedMembers,
   workspaceError,
   onReview,
+  onDemoReview,
   onLogout,
 }: {
   account: Account
   accounts: Account[]
   auditEvents: AuditEvent[]
   dataMetrics: DataMetric[]
+  demoRequests: DemoRequest[]
   pendingRequests: Account[]
   verifiedMembers: Account[]
   workspaceError: string
   onReview: (accountId: string, status: 'approved' | 'rejected') => void
+  onDemoReview: (requestId: string, decision: 'approved' | 'rejected') => void
   onLogout: () => void | Promise<void>
 }) {
   return (
@@ -915,6 +931,68 @@ function Workspace({
               ))}
             </div>
           </div>
+          <div className="mt-6">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2 font-medium text-slate-950">
+                <MessageSquare size={17} className="text-emerald-600" />
+                Demandes de démo
+              </p>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                {demoRequests.filter(r => r.status === 'pending').length} en attente
+              </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {demoRequests.length === 0 && (
+                <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                  Aucune demande de démo pour le moment.
+                </p>
+              )}
+              {demoRequests.map((req) => (
+                <div key={req.id} className="rounded-2xl border border-slate-200 p-4">
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-950">
+                        {req.firstName} {req.lastName}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">{req.email}</p>
+                      {req.message && (
+                        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs italic text-slate-600">
+                          « {req.message} »
+                        </p>
+                      )}
+                    </div>
+                    <span className={`h-fit rounded-full px-3 py-1 text-xs ${
+                      req.status === 'pending'  ? 'bg-amber-50 text-amber-700' :
+                      req.status === 'approved' ? 'bg-emerald-50 text-emerald-700' :
+                      'bg-red-50 text-red-700'
+                    }`}>
+                      {req.status === 'pending' ? 'En attente' : req.status === 'approved' ? 'Validée' : 'Refusée'}
+                    </span>
+                  </div>
+                  {req.status === 'pending' && (
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onDemoReview(req.id, 'approved')}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white"
+                      >
+                        <Check size={14} />
+                        Accorder démo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDemoReview(req.id, 'rejected')}
+                        className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-700"
+                      >
+                        Refuser
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-7">
             <p className="mb-4 flex items-center gap-2 font-medium text-slate-950">
               <Clock3 size={17} className="text-blue-700" />

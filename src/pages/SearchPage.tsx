@@ -19,11 +19,11 @@ import {
   type ProspectResult, type ProspectSearchParams,
 } from '@/lib/prospectApi'
 import { formatBirthContext } from '@/lib/privacy'
-import { recordSearch, saveFavorite, type Account } from '@/lib/accountStore'
+import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-export type AccessLevel = 'full' | 'demo' | 'limited'
+export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
 
 interface SearchPageProps {
   account:       Account
@@ -164,7 +164,33 @@ function DemoBanner({
       </div>
     )
   }
-  // limited
+  // trial = démo validée, vraies données
+  if (accessLevel === 'trial') {
+    return (
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-xs">
+          <Zap size={13} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Démo validée — données réelles</p>
+          <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70">
+            {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte — abonnez-vous pour continuer'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-emerald-200 dark:bg-emerald-900">
+            <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, (used / max) * 100)}%` }} />
+          </div>
+          <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{used}/{max}</span>
+          <button onClick={onCta}
+            className="ml-1 flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            S'abonner <ArrowRight size={11} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+  // limited (fallback)
   return (
     <div className="mb-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-xs">
@@ -173,7 +199,7 @@ function DemoBanner({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Accès en attente de validation</p>
         <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
-          Résultats masqués · {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+          {remaining > 0 ? `${remaining} recherche${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -186,50 +212,181 @@ function DemoBanner({
   )
 }
 
+// ─── DemoRequestModal — formulaire de demande de démo ────────────────────────
+function DemoRequestModal({
+  account, onClose,
+}: {
+  account: Account
+  onClose: () => void
+}) {
+  const [message, setMessage]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [done, setDone]         = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    try {
+      await createDemoRequest(account, message.trim() || undefined)
+      setDone(true)
+    } catch (err: any) {
+      setError(err.message ?? 'Erreur lors de la soumission.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        {done ? (
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <ShieldCheck size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Demande envoyée !</h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              Notre équipe examine votre demande et vous répondra sous <strong className="text-slate-700 dark:text-slate-300">24–48h</strong> à <strong className="text-slate-700 dark:text-slate-300">{account.email}</strong>.
+            </p>
+            <button onClick={onClose}
+              className="mt-6 w-full rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+              Fermer
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Demander une démo</h2>
+                <p className="mt-1 text-sm text-slate-500">10 vraies recherches non floues</p>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            <div className="mb-5 rounded-2xl bg-blue-50 dark:bg-blue-950 p-4 text-sm text-blue-800 dark:text-blue-200">
+              <p className="font-semibold">Ce que vous obtenez :</p>
+              <ul className="mt-2 space-y-1 text-xs">
+                <li>✓ 10 recherches avec coordonnées <strong>complètes et réelles</strong></li>
+                <li>✓ Téléphone, email, adresse en clair</li>
+                <li>✓ Accès validé par notre équipe sous 24–48h</li>
+              </ul>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Message (optionnel) — dites-nous votre cas d'usage
+                </label>
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  rows={3}
+                  placeholder="Ex : Je suis agent immobilier et je cherche à contacter des propriétaires dans le 75..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 resize-none"
+                />
+              </div>
+              {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                {loading ? 'Envoi...' : <><Zap size={15} /> Envoyer ma demande</>}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── ConversionModal — appel à l'action après épuisement ─────────────────────
 function ConversionModal({
-  accessLevel, account, onClose, onLogout,
+  accessLevel, account, onClose, onLogout, onRequestDemo,
 }: {
-  accessLevel: AccessLevel
-  account: { email: string; companyName: string | null }
-  onClose: () => void
-  onLogout: () => void
+  accessLevel:    AccessLevel
+  account:        Account
+  onClose:        () => void
+  onLogout:       () => void
+  onRequestDemo?: () => void
 }) {
-  const isDemoMode = accessLevel === 'demo'
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
-        <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${isDemoMode ? 'bg-blue-50 text-[#124bd2]' : 'bg-amber-50 text-amber-500'}`}>
-          {isDemoMode ? <Zap size={28} /> : <Lock size={28} />}
+  // demo = 5 floues épuisées → proposer démo ou pricing
+  if (accessLevel === 'demo') {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+            <Zap size={28} />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 5 aperçus sont terminés</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            Vous avez vu des résultats partiels. Pour accéder aux coordonnées complètes, choisissez une option :
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={onRequestDemo}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <Zap size={15} /> Demander une démo gratuite <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">10 vraies recherches</span>
+            </button>
+            <button
+              onClick={() => window.location.replace('/?pricing=1')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#124bd2] px-4 py-3 text-sm font-semibold text-[#124bd2] transition hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400">
+              <ArrowRight size={15} /> Voir les offres
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs text-slate-400 hover:text-slate-600 py-1">
+              Continuer à explorer (résultats floutés)
+            </button>
+          </div>
         </div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-          {isDemoMode ? 'Votre aperçu est terminé !' : 'Limite d\'essai atteinte'}
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-          {isDemoMode
-            ? 'Vous avez utilisé toutes vos recherches gratuites. Créez un compte pour accéder aux coordonnées complètes et à la base de données entière.'
-            : `Vous avez utilisé toutes vos recherches d'essai. Notre équipe valide votre accès sous 24–48h. Vous recevrez un email à ${account.email} dès que votre compte est activé.`
-          }
-        </p>
-        <div className="mt-6 flex flex-col gap-2">
-          {isDemoMode ? (
-            <>
-              <button onClick={() => window.location.replace('/?pricing=1')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
-                <Zap size={15} /> Créer mon compte
-              </button>
-              <button onClick={onClose}
-                className="rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
-                Continuer à explorer
-              </button>
-            </>
-          ) : (
-            <button onClick={onLogout}
+      </div>
+    )
+  }
+
+  // trial = 10 vraies recherches épuisées → pricing obligatoire
+  if (accessLevel === 'trial') {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+            <Lock size={28} />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 10 recherches de démo sont terminées</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            Vous avez utilisé toutes vos recherches de démo. Passez à un abonnement pour continuer à accéder aux contacts professionnels.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={() => window.location.replace('/?pricing=1')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <Zap size={15} /> Voir les offres et s'abonner
+            </button>
+            <button
+              onClick={onLogout}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
               <LogOut size={14} /> Se déconnecter
             </button>
-          )}
+          </div>
         </div>
+      </div>
+    )
+  }
+
+  // limited (fallback)
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+          <Lock size={28} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Limite atteinte</h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          Votre accès d'essai est épuisé. Contactez-nous pour continuer.
+        </p>
+        <button onClick={onLogout}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+          <LogOut size={14} /> Se déconnecter
+        </button>
       </div>
     </div>
   )
@@ -1052,7 +1209,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     if (accessLevel === 'full') return 0
     return parseInt(localStorage.getItem(`trouve_demo_count_${account.id}`) ?? '0', 10)
   })
-  const [showConversionModal, setShowConversionModal] = useState(false)
+  const [showConversionModal, setShowConversionModal]     = useState(false)
+  const [showDemoRequestModal, setShowDemoRequestModal]   = useState(false)
 
   // Sync dark mode with <html> class
   useEffect(() => {
@@ -1095,8 +1253,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
     setLoading(true); setError(null)
 
-    // ── Modes démo / limité → données locales ───────────────────────────────
-    if (accessLevel !== 'full') {
+    // ── Mode démo / limité → données fictives locales ───────────────────────
+    if (accessLevel === 'demo' || accessLevel === 'limited') {
       await new Promise(r => setTimeout(r, 300 + Math.random() * 200))
       const res = searchDemoProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
       setResults(res.results)
@@ -1106,7 +1264,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setHasSearched(true)
       setLoading(false)
 
-      // Compter uniquement les vraies recherches (pas le chargement initial vide)
       const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
                       !params.zipCode && !params.employeeRange && !params.legalForm
       if (!isEmpty && maxSearches !== undefined) {
@@ -1116,6 +1273,33 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
           return next
         })
+      }
+      return
+    }
+
+    // ── Mode trial → vraies données Supabase, compteur limité ───────────────
+    if (accessLevel === 'trial') {
+      const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
+                      !params.zipCode && !params.employeeRange && !params.legalForm
+      try {
+        const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
+        setResults(res.results)
+        setTotal(res.total)
+        setTotalPages(res.totalPages)
+        setPage(pg)
+        setHasSearched(true)
+        if (!isEmpty && maxSearches !== undefined) {
+          setDemoSearchCount(prev => {
+            const next = prev + 1
+            localStorage.setItem(DEMO_COUNT_KEY, String(next))
+            if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+            return next
+          })
+        }
+      } catch (err: any) {
+        setError(err.message ?? 'Erreur lors de la recherche')
+      } finally {
+        setLoading(false)
       }
       return
     }
@@ -1635,9 +1819,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       {showConversionModal && (
         <ConversionModal
           accessLevel={accessLevel}
-          account={{ email: account.email, companyName: account.companyName ?? null }}
+          account={account}
           onClose={() => setShowConversionModal(false)}
           onLogout={onLogout}
+          onRequestDemo={() => { setShowConversionModal(false); setShowDemoRequestModal(true) }}
+        />
+      )}
+
+      {showDemoRequestModal && (
+        <DemoRequestModal
+          account={account}
+          onClose={() => setShowDemoRequestModal(false)}
         />
       )}
     </div>

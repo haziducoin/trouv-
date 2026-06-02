@@ -2,7 +2,7 @@ import type { VerifiedCompany } from '@/lib/companyApi'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from '@/lib/supabase'
 
 export type UserRole = 'agent' | 'agence' | 'admin'
-export type AccessStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
+export type AccessStatus = 'pending' | 'trial' | 'approved' | 'rejected' | 'suspended'
 export type OAuthProvider = 'google' | 'azure'
 
 // ─── Domaines email personnels bloqués ───────────────────────────────────────
@@ -71,6 +71,18 @@ export interface RegistrationInput {
   role: Exclude<UserRole, 'admin'>
 }
 
+export interface DemoRequest {
+  id: string
+  userId: string
+  email: string
+  firstName: string
+  lastName: string
+  message?: string
+  ipAddress: string
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: string
+}
+
 export interface FavoriteInput {
   targetSiren?: string
   targetName: string
@@ -78,12 +90,14 @@ export interface FavoriteInput {
   note?: string
 }
 
-const ACCOUNTS_KEY = 'trouve_accounts_v1'
-const SESSION_KEY = 'trouve_session_v1'
-const AUDIT_KEY = 'trouve_audit_v1'
-const FAVORITES_KEY = 'trouve_favorites_v1'
-const SEARCHES_KEY = 'trouve_searches_v1'
+const ACCOUNTS_KEY          = 'trouve_accounts_v1'
+const SESSION_KEY           = 'trouve_session_v1'
+const AUDIT_KEY             = 'trouve_audit_v1'
+const FAVORITES_KEY         = 'trouve_favorites_v1'
+const SEARCHES_KEY          = 'trouve_searches_v1'
 const OAUTH_PREVIEW_SESSION_KEY = 'trouve_oauth_preview_provider_v1'
+const DEMO_REQUESTS_KEY     = 'trouve_demo_requests_v1'
+const IP_REGS_KEY           = 'trouve_ip_regs_v1'
 const REMEMBER_ME_KEY = 'trouve_remember_me_v1'
 const SESSION_ONLY_KEY = 'trouve_session_only_v1'
 
@@ -266,6 +280,12 @@ export async function createAccessRequest(input: RegistrationInput, company?: Ve
   if (isPersonalEmail(email)) {
     throw new PersonalEmailError(email)
   }
+
+  // ── Protection anti-abus par IP (soft, côté client) ──────────────────────
+  if (await checkIPRegistrationLimit()) {
+    throw new Error('Trop de comptes créés depuis cet accès réseau. Contactez-nous à contact@trouve.fr.')
+  }
+  await recordRegistrationIP()
 
   const companyName = company?.name ?? ''
   const sirenValue  = company?.siren ?? ''
@@ -490,7 +510,7 @@ export async function restoreSession() {
     }
 
     // ── Compte rejeté / suspendu → déconnecter ────────────────────────────
-    if (account.status !== 'approved') {
+    if (account.status !== 'approved' && account.status !== 'trial') {
       await supabase.auth.signOut()
       return null
     }
@@ -577,6 +597,166 @@ export async function getDataMetrics(): Promise<DataMetric[]> {
     { entity: 'favoris', total: readValue<any[]>(FAVORITES_KEY, []).length },
     { entity: 'logs', total: readValue<AuditEvent[]>(AUDIT_KEY, []).length },
   ]
+}
+
+// ─── IP helpers ──────────────────────────────────────────────────────────────
+
+async function getClientIP(): Promise<string> {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) })
+    const { ip } = await r.json()
+    return ip as string
+  } catch {
+    return 'unknown'
+  }
+}
+
+/** Enregistre l'IP lors d'une inscription (protection anti-abus) */
+export async function recordRegistrationIP(): Promise<void> {
+  const ip = await getClientIP()
+  if (ip === 'unknown') return
+  const regs: { ip: string; ts: number }[] = readValue(IP_REGS_KEY, [])
+  regs.push({ ip, ts: Date.now() })
+  localStorage.setItem(IP_REGS_KEY, JSON.stringify(regs.slice(-100)))
+}
+
+/** Vérifie si l'IP a déjà trop de comptes (max 3 dans les 30 derniers jours) */
+export async function checkIPRegistrationLimit(): Promise<boolean> {
+  const ip = await getClientIP()
+  if (ip === 'unknown') return false // bénéfice du doute si fetch IP échoue
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+  const regs: { ip: string; ts: number }[] = readValue(IP_REGS_KEY, [])
+  const count = regs.filter(r => r.ip === ip && r.ts > cutoff).length
+  return count >= 3
+}
+
+// ─── Demo requests ───────────────────────────────────────────────────────────
+
+export async function createDemoRequest(account: Account, message?: string): Promise<void> {
+  const ip = await getClientIP()
+
+  if (usesRemoteDatabase) {
+    const supabase = getSupabaseClient()
+    // Vérifier si cet utilisateur a déjà une demande
+    const { data: existing } = await supabase
+      .from('demo_requests')
+      .select('id, status')
+      .eq('user_id', account.id)
+      .limit(1)
+    if (existing?.length) {
+      throw new Error('Vous avez déjà soumis une demande de démo. Notre équipe vous contactera sous 24–48h.')
+    }
+    // Vérifier si cette IP a déjà une demande approuvée/en attente
+    if (ip !== 'unknown') {
+      const { data: ipExisting } = await supabase
+        .from('demo_requests')
+        .select('id')
+        .eq('ip_address', ip)
+        .in('status', ['pending', 'approved'])
+        .limit(1)
+      if (ipExisting?.length) {
+        throw new Error('Une demande de démo est déjà en cours depuis cet accès réseau.')
+      }
+    }
+    const { error } = await supabase.from('demo_requests').insert({
+      user_id:    account.id,
+      email:      account.email,
+      first_name: account.firstName,
+      last_name:  account.lastName,
+      message:    message ?? null,
+      ip_address: ip,
+      status:     'pending',
+    })
+    if (error) throw new Error(`Impossible de soumettre la demande : ${error.message}`)
+    return
+  }
+
+  // ── Mode local ──────────────────────────────────────────────────────────────
+  const requests = readValue<DemoRequest[]>(DEMO_REQUESTS_KEY, [])
+  if (requests.some(r => r.userId === account.id)) {
+    throw new Error('Vous avez déjà soumis une demande de démo.')
+  }
+  if (ip !== 'unknown' && requests.some(r => r.ipAddress === ip && r.status !== 'rejected')) {
+    throw new Error('Une demande de démo est déjà en cours depuis cet accès réseau.')
+  }
+  requests.push({
+    id:         crypto.randomUUID(),
+    userId:     account.id,
+    email:      account.email,
+    firstName:  account.firstName,
+    lastName:   account.lastName,
+    message,
+    ipAddress:  ip,
+    status:     'pending',
+    createdAt:  new Date().toISOString(),
+  })
+  localStorage.setItem(DEMO_REQUESTS_KEY, JSON.stringify(requests))
+}
+
+export async function getDemoRequests(): Promise<DemoRequest[]> {
+  if (usesRemoteDatabase) {
+    const supabase = getSupabaseClient()
+    const { data, error } = await supabase
+      .from('demo_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    return (data ?? []).map((r: Record<string, any>) => ({
+      id:        r.id,
+      userId:    r.user_id,
+      email:     r.email,
+      firstName: r.first_name,
+      lastName:  r.last_name,
+      message:   r.message ?? undefined,
+      ipAddress: r.ip_address,
+      status:    r.status,
+      createdAt: r.created_at,
+    }))
+  }
+  return readValue<DemoRequest[]>(DEMO_REQUESTS_KEY, [])
+}
+
+export async function reviewDemoRequest(
+  requestId: string,
+  decision:  'approved' | 'rejected',
+  actorEmail: string,
+): Promise<void> {
+  if (usesRemoteDatabase) {
+    const supabase = getSupabaseClient()
+    const { data: req, error: fetchErr } = await supabase
+      .from('demo_requests')
+      .select('user_id, email')
+      .eq('id', requestId)
+      .single()
+    if (fetchErr || !req) throw new Error('Demande introuvable.')
+    await supabase.from('demo_requests').update({
+      status:      decision,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: actorEmail,
+    }).eq('id', requestId)
+    if (decision === 'approved') {
+      await supabase.from('profiles').update({ access_status: 'trial' }).eq('id', req.user_id)
+    }
+    appendLocalAudit({
+      action:      decision === 'approved' ? 'demo_approved' : 'demo_rejected',
+      actorEmail,
+      targetEmail: req.email,
+    })
+    return
+  }
+
+  // ── Mode local ──────────────────────────────────────────────────────────────
+  const requests = readValue<DemoRequest[]>(DEMO_REQUESTS_KEY, [])
+  const req      = requests.find(r => r.id === requestId)
+  if (!req) throw new Error('Demande introuvable.')
+  req.status = decision
+  localStorage.setItem(DEMO_REQUESTS_KEY, JSON.stringify(requests))
+  if (decision === 'approved') {
+    const accounts = await initializeLocalAccounts()
+    const updated  = accounts.map(a => a.id === req.userId ? { ...a, status: 'trial' as AccessStatus } : a)
+    saveLocalAccounts(updated)
+  }
+  appendLocalAudit({ action: decision === 'approved' ? 'demo_approved' : 'demo_rejected', actorEmail, targetEmail: req.email })
 }
 
 export async function reviewAccessRequest(
