@@ -416,10 +416,15 @@ export default function AccountPanel({
 
   const drawerView = view as AccountPanelView
 
+  const [entered, setEntered] = useState(false)
+  useEffect(() => { const t = requestAnimationFrame(() => setEntered(true)); return () => cancelAnimationFrame(t) }, [])
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
       <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
-      <section className="relative h-full w-full max-w-[620px] overflow-y-auto bg-white p-6 shadow-2xl sm:p-8">
+      <section
+        className={`relative h-full w-full max-w-[620px] overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 ease-out sm:p-8 ${entered ? 'translate-x-0' : 'translate-x-full'}`}
+      >
         <header className="mb-8 flex items-start justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-blue-600">
@@ -587,6 +592,7 @@ export default function AccountPanel({
             onReview={handleReview}
             onDemoReview={handleDemoReview}
             onLogout={onLogout}
+            onRequestAuth={() => setView('register')}
           />
         )}
 
@@ -780,6 +786,7 @@ function Workspace({
   onReview,
   onDemoReview,
   onLogout,
+  onRequestAuth,
 }: {
   account: Account
   accounts: Account[]
@@ -792,6 +799,7 @@ function Workspace({
   onReview: (accountId: string, status: 'approved' | 'rejected') => void
   onDemoReview: (requestId: string, decision: 'approved' | 'rejected') => void
   onLogout: () => void | Promise<void>
+  onRequestAuth: () => void
 }) {
   return (
     <div>
@@ -1020,7 +1028,7 @@ function Workspace({
 
       {/* ── Mon abonnement ───────────────────────────────────────────── */}
       {account.role !== 'admin' && (
-        <SubscriptionPanel quota={account.quota} monthlyUsage={account.monthlyUsage} />
+        <SubscriptionPanel quota={account.quota} monthlyUsage={account.monthlyUsage} isDemo={account.id === 'demo-preview'} onRequestAuth={onRequestAuth} />
       )}
 
       <button
@@ -1062,14 +1070,16 @@ const PLANS_INFO = [
   },
 ]
 
-function SubscriptionPanel({ quota, monthlyUsage }: { quota: number; monthlyUsage: number }) {
+function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth }: { quota: number; monthlyUsage: number; isDemo?: boolean; onRequestAuth?: () => void }) {
   const currentPlan = quota >= 10000 ? PLANS_INFO[2] : quota >= 4000 ? PLANS_INFO[1] : PLANS_INFO[0]
   const usagePct = Math.min(100, Math.round((monthlyUsage / quota) * 100))
 
   const contactUpgrade = (planName: string) => {
+    if (isDemo) { onRequestAuth?.(); return }
     window.open(`mailto:contact@trouve.fr?subject=Upgrade vers ${planName}&body=Bonjour, je souhaite passer au plan ${planName}.`, '_blank')
   }
   const contactAddon = (addon: string) => {
+    if (isDemo) { onRequestAuth?.(); return }
     window.open(`mailto:contact@trouve.fr?subject=Add-on : ${addon}&body=Bonjour, je souhaite ajouter : ${addon}.`, '_blank')
   }
 
