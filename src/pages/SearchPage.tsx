@@ -429,6 +429,222 @@ function ConversionModal({
   )
 }
 
+// ─── Aide à la prospection — données ─────────────────────────────────────────
+interface ProspectionRecipe { label: string; query: string; department?: string; activityCode?: string }
+interface ProspectionSector { id: string; emoji: string; label: string; description: string; recipes: ProspectionRecipe[] }
+
+const PROSPECTION_SECTORS: ProspectionSector[] = [
+  {
+    id: 'immobilier', emoji: '🏠', label: 'Immobilier', description: 'Agents, négociateurs, directeurs d\'agence',
+    recipes: [
+      { label: 'Agents immo – Paris', query: 'agent immobilier', department: '75' },
+      { label: 'Directeurs d\'agence', query: 'directeur agence immobilière' },
+      { label: 'Négociateurs immo', query: 'négociateur immobilier' },
+      { label: 'Promoteurs immobiliers', query: 'promoteur immobilier', activityCode: '6810Z' },
+    ],
+  },
+  {
+    id: 'btp', emoji: '🏗', label: 'BTP / Construction', description: 'Conducteurs de travaux, chefs de chantier, architectes',
+    recipes: [
+      { label: 'Conducteurs de travaux', query: 'conducteur de travaux' },
+      { label: 'Chefs de chantier', query: 'chef de chantier' },
+      { label: 'Architectes', query: 'architecte', activityCode: '7111Z' },
+      { label: 'Maîtres d\'œuvre', query: 'maître d\'oeuvre' },
+    ],
+  },
+  {
+    id: 'finance', emoji: '💼', label: 'Finance / Assurance', description: 'Conseillers, courtiers, directeurs financiers',
+    recipes: [
+      { label: 'Courtiers assurance', query: 'courtier assurance' },
+      { label: 'Conseillers financiers', query: 'conseiller financier' },
+      { label: 'Directeurs financiers', query: 'directeur financier' },
+      { label: 'Gestionnaires de patrimoine', query: 'gestionnaire de patrimoine' },
+    ],
+  },
+  {
+    id: 'sante', emoji: '🏥', label: 'Santé / Médical', description: 'Directeurs de clinique, médecins, cadres de santé',
+    recipes: [
+      { label: 'Directeurs de clinique', query: 'directeur clinique' },
+      { label: 'Médecins généralistes', query: 'médecin généraliste', activityCode: '8621Z' },
+      { label: 'Directeurs EHPAD', query: 'directeur EHPAD' },
+      { label: 'Cadres de santé', query: 'cadre de santé' },
+    ],
+  },
+  {
+    id: 'commerce', emoji: '🛒', label: 'Commerce / Vente', description: 'Directeurs commerciaux, responsables ventes, KAM',
+    recipes: [
+      { label: 'Directeurs commerciaux', query: 'directeur commercial' },
+      { label: 'Responsables vente', query: 'responsable vente' },
+      { label: 'Key Account Managers', query: 'key account manager' },
+      { label: 'Responsables grands comptes', query: 'responsable grands comptes' },
+    ],
+  },
+  {
+    id: 'industrie', emoji: '🏭', label: 'Industrie / Manufacture', description: 'Directeurs d\'usine, responsables achats, ingénieurs',
+    recipes: [
+      { label: 'Directeurs d\'usine', query: 'directeur usine' },
+      { label: 'Responsables achats', query: 'responsable achats' },
+      { label: 'Ingénieurs de production', query: 'ingénieur production' },
+      { label: 'Directeurs Supply Chain', query: 'directeur supply chain' },
+    ],
+  },
+]
+
+const PROSPECTION_TIPS = [
+  {
+    title: 'Trop de résultats ?',
+    color: 'border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20',
+    dot: 'bg-amber-400',
+    tips: [
+      'Ajoutez un département dans les filtres avancés (ex : 75 pour Paris)',
+      'Précisez la taille d\'entreprise : 10–50 salariés cible les PME',
+      'Ajoutez un code NAF pour rester dans un secteur précis',
+    ],
+  },
+  {
+    title: 'Pas assez de résultats ?',
+    color: 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20',
+    dot: 'bg-[#124bd2]',
+    tips: [
+      'Essayez des synonymes : "agent" → "négociateur" → "conseiller"',
+      'Retirez le filtre département pour couvrir toute la France',
+      'Supprimez le code NAF pour voir tous les secteurs proches',
+    ],
+  },
+  {
+    title: 'Améliorer la qualité des leads',
+    color: 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/20',
+    dot: 'bg-emerald-500',
+    tips: [
+      'Combinez poste + code NAF + département pour des listes ultra-ciblées',
+      'Le filtre "actifs uniquement" exclut les sociétés fermées',
+      'Enregistrez vos meilleures recherches dans une liste pour y revenir',
+    ],
+  },
+]
+
+// ─── ProspectionPanel — slide-over aide à la prospection ─────────────────────
+function ProspectionPanel({
+  onClose, onApply,
+}: {
+  onClose: () => void
+  onApply: (recipe: ProspectionRecipe) => void
+}) {
+  const [activeSector, setActiveSector] = useState<string | null>(null)
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const sector = PROSPECTION_SECTORS.find(s => s.id === activeSector)
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl dark:bg-slate-900" style={{ animation: 'slideInRight 0.2s ease' }}>
+
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
+          <div>
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">Aide à la prospection</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Critères suggérés · Conseils pour affiner vos résultats</p>
+          </div>
+          <button onClick={onClose}
+            className="rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-6 overflow-y-auto p-6">
+
+          {/* ── Secteurs ── */}
+          <section>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Recherches par secteur</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PROSPECTION_SECTORS.map(s => (
+                <button key={s.id}
+                  onClick={() => setActiveSector(activeSector === s.id ? null : s.id)}
+                  className={`flex flex-col items-start gap-1 rounded-2xl border p-3 text-left transition ${
+                    activeSector === s.id
+                      ? 'border-[#124bd2] bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30'
+                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="text-xl leading-none">{s.emoji}</span>
+                  <span className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200">{s.label}</span>
+                  <span className="text-[10px] leading-relaxed text-slate-400">{s.description}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Recettes du secteur sélectionné */}
+            {sector && (
+              <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-blue-500 dark:text-blue-400">
+                  {sector.emoji} Recherches suggérées — {sector.label}
+                </p>
+                <div className="space-y-2">
+                  {sector.recipes.map((recipe, i) => (
+                    <div key={i}
+                      className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-sm dark:bg-slate-800">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{recipe.label}</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                            <Search size={9} /> {recipe.query}
+                          </span>
+                          {recipe.department && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                              <MapPin size={9} /> Dép. {recipe.department}
+                            </span>
+                          )}
+                          {recipe.activityCode && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                              <Hash size={9} /> {recipe.activityCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => onApply(recipe)}
+                        className="flex shrink-0 items-center gap-1 rounded-xl bg-[#124bd2] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#0b3fbc]">
+                        Lancer <ArrowRight size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+          {/* ── Conseils ── */}
+          <section>
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Conseils pour affiner vos résultats</p>
+            <div className="space-y-3">
+              {PROSPECTION_TIPS.map((group, i) => (
+                <div key={i} className={`rounded-2xl border p-4 ${group.color}`}>
+                  <p className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-200">{group.title}</p>
+                  <ul className="space-y-1.5">
+                    {group.tips.map((tip, j) => (
+                      <li key={j} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${group.dot}`} />
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
 function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospect: ProspectResult; onClose: () => void; accessLevel?: AccessLevel }) {
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
@@ -1077,7 +1293,7 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
 }
 
 // ─── User Menu dropdown ────────────────────────────────────────────────────────
-function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void }) {
+function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void; onOpenProspection: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -1104,7 +1320,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
     { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount('abonnement') } },
     ...(account.role !== 'agent' ? [{ icon: LayoutDashboard, label: 'Dashboard', action: () => { setOpen(false); onOpenAccount('dashboard') } }] : []),
     { icon: UserPlus,        label: 'Parrainage',             action: () => { setOpen(false); onOpenAccount('parrainage') } },
-    { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
+    { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => { setOpen(false); onOpenProspection() } },
     { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
   ]
 
@@ -1402,7 +1618,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
-  const [showFilters, setShowFilters]   = useState(false)
+  const [showFilters, setShowFilters]         = useState(false)
+  const [showProspectionPanel, setShowProspectionPanel] = useState(false)
 
   // Résultats
   const [results, setResults]       = useState<ProspectResult[]>([])
@@ -1798,7 +2015,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     Accès validé
                   </div>
                 )}
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} />
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>
             </div>
 
@@ -2145,6 +2362,30 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           lists={lists}
           onConfirm={handleAddToListConfirm}
           onClose={() => setAddPopupProspect(null)}
+        />
+      )}
+
+      {/* Aide à la prospection */}
+      {showProspectionPanel && (
+        <ProspectionPanel
+          onClose={() => setShowProspectionPanel(false)}
+          onApply={(recipe) => {
+            setInputValue(recipe.query)
+            setQuery(recipe.query)
+            if (recipe.department) setDepartment(recipe.department)
+            if (recipe.activityCode) setActivityCode(recipe.activityCode)
+            setShowProspectionPanel(false)
+            setAppView('search')
+            doSearch({
+              query: recipe.query,
+              department: recipe.department ?? department,
+              activityCode: recipe.activityCode ?? activityCode,
+              activeOnly,
+              zipCode,
+              employeeRange,
+              legalForm,
+            })
+          }}
         />
       )}
     </div>
