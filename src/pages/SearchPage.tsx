@@ -1642,7 +1642,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
       {/* ── Sidebar gauche (fixe, dark) ──────────────────────────────────── */}
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d] dark:bg-[#040c1c] dark:border-r dark:border-white/[0.06]">
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06]">
 
         {/* Logo */}
         <div className="flex h-16 flex-col items-start justify-center border-b border-white/[0.06] px-6">
