@@ -251,7 +251,7 @@ export default function App() {
               demoView === 'admin' ? 'bg-[#1B54FF] text-white shadow-lg' : 'text-white/50 hover:text-white/80'
             }`}
           >
-            👑 Dirigeant
+            Dirigeant
           </button>
           <button
             onClick={() => setDemoView('employee')}
@@ -259,7 +259,7 @@ export default function App() {
               demoView === 'employee' ? 'bg-emerald-600 text-white shadow-lg' : 'text-white/50 hover:text-white/80'
             }`}
           >
-            👤 Salarié
+            Salarié
           </button>
         </div>
         <SearchPage
