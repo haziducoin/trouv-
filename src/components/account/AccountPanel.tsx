@@ -627,16 +627,6 @@ export default function AccountPanel({
           />
         )}
 
-        <div className={`mt-8 flex gap-3 rounded-2xl border p-4 text-xs leading-5 ${
-          usesRemoteDatabase
-            ? 'border-emerald-100 bg-emerald-50 text-emerald-900'
-            : 'border-amber-100 bg-amber-50 text-amber-900'
-        }`}>
-          <ShieldCheck className="mt-0.5 shrink-0" size={16} />
-          {usesRemoteDatabase
-            ? 'Base Supabase active : comptes, demandes et journaux sont stockés dans votre espace externe.'
-            : 'Démonstration locale : configurez Supabase pour stocker durablement comptes, recherches et journaux.'}
-        </div>
       </section>
     </div>
   )
