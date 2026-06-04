@@ -28,7 +28,7 @@ export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
 interface SearchPageProps {
   account:       Account
   onLogout:      () => void
-  onOpenAccount: () => void
+  onOpenAccount: (tab?: string) => void
   accessLevel?:  AccessLevel
   maxSearches?:  number
 }
@@ -860,7 +860,7 @@ function FavoritesView({
 }
 
 // ─── User Menu dropdown ────────────────────────────────────────────────────────
-function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: () => void }) {
+function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -883,9 +883,9 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
   ).toUpperCase()
 
   const items = [
-    { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
-    { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount() } },
-    { icon: LayoutDashboard, label: 'Dashboard',              action: () => setOpen(false) },
+    { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount('profil') } },
+    { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount('abonnement') } },
+    { icon: LayoutDashboard, label: 'Dashboard',              action: () => { setOpen(false); onOpenAccount('workspace') } },
     { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },

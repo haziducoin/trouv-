@@ -230,7 +230,7 @@ export default function App() {
           accessLevel="demo"
           maxSearches={5}
           onLogout={() => window.location.replace('/')}
-          onOpenAccount={() => setAccountPanel('workspace')}
+          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -255,7 +255,7 @@ export default function App() {
           account={account}
           accessLevel="full"
           onLogout={handleLogout}
-          onOpenAccount={() => setAccountPanel('workspace')}
+          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -294,7 +294,7 @@ export default function App() {
           accessLevel="trial"
           maxSearches={10}
           onLogout={handleLogout}
-          onOpenAccount={() => setAccountPanel('workspace')}
+          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
