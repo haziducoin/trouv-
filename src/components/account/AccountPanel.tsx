@@ -11,6 +11,7 @@ import {
   Database,
   Eye,
   EyeOff,
+  History,
   KeyRound,
   LogOut,
   Mail,
