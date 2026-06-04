@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   Check,
   Clock3,
+  CreditCard,
   Database,
   Eye,
   EyeOff,
@@ -15,9 +16,12 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  Plus,
   Search,
   ShieldCheck,
+  Sparkles,
   Target,
+  TrendingUp,
   UserRound,
   UsersRound,
   X,
@@ -1014,6 +1018,11 @@ function Workspace({
         </>
       )}
 
+      {/* ── Mon abonnement ───────────────────────────────────────────── */}
+      {account.role !== 'admin' && (
+        <SubscriptionPanel quota={account.quota} monthlyUsage={account.monthlyUsage} />
+      )}
+
       <button
         type="button"
         onClick={onLogout}
@@ -1022,6 +1031,152 @@ function Workspace({
         <LogOut size={15} />
         Se déconnecter
       </button>
+    </div>
+  )
+}
+
+const PLANS_INFO = [
+  {
+    code: 'solo',
+    name: 'Solo',
+    price: 199,
+    searches: 1500,
+    seats: 1,
+    recommended: false,
+  },
+  {
+    code: 'agence',
+    name: 'Agence',
+    price: 499,
+    searches: 5000,
+    seats: 3,
+    recommended: true,
+  },
+  {
+    code: 'pro',
+    name: 'Pro',
+    price: 899,
+    searches: 12000,
+    seats: 7,
+    recommended: false,
+  },
+]
+
+function SubscriptionPanel({ quota, monthlyUsage }: { quota: number; monthlyUsage: number }) {
+  const currentPlan = quota >= 10000 ? PLANS_INFO[2] : quota >= 4000 ? PLANS_INFO[1] : PLANS_INFO[0]
+  const usagePct = Math.min(100, Math.round((monthlyUsage / quota) * 100))
+
+  const contactUpgrade = (planName: string) => {
+    window.open(`mailto:contact@trouve.fr?subject=Upgrade vers ${planName}&body=Bonjour, je souhaite passer au plan ${planName}.`, '_blank')
+  }
+  const contactAddon = (addon: string) => {
+    window.open(`mailto:contact@trouve.fr?subject=Add-on : ${addon}&body=Bonjour, je souhaite ajouter : ${addon}.`, '_blank')
+  }
+
+  return (
+    <div className="mt-6 space-y-4">
+      {/* Header */}
+      <p className="flex items-center gap-2 font-medium text-slate-950">
+        <TrendingUp size={17} className="text-blue-700" />
+        Mon abonnement
+      </p>
+
+      {/* Current plan card */}
+      <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">Plan actuel</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-950">{currentPlan.name}</p>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 shadow-sm">
+            {currentPlan.price} €<span className="text-xs font-normal text-slate-400"> /mois</span>
+          </span>
+        </div>
+        {/* Usage bar */}
+        <div className="mt-3">
+          <div className="mb-1 flex justify-between text-xs text-slate-500">
+            <span>{monthlyUsage} recherches utilisées</span>
+            <span>{quota} incluses</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-blue-200">
+            <div
+              className={`h-2 rounded-full transition-all ${usagePct > 80 ? 'bg-amber-500' : 'bg-blue-600'}`}
+              style={{ width: `${usagePct}%` }}
+            />
+          </div>
+          <p className="mt-1 text-right text-[10px] text-slate-400">{usagePct}% utilisé</p>
+        </div>
+      </div>
+
+      {/* Upgrade options */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Passer à</p>
+        {PLANS_INFO.filter(p => p.searches > currentPlan.searches).map(plan => (
+          <div key={plan.code} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="flex items-center gap-2">
+              {plan.recommended && <Sparkles size={13} className="text-amber-500" />}
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{plan.name} · {plan.price} €/mois</p>
+                <p className="text-xs text-slate-400">{plan.searches.toLocaleString('fr-FR')} recherches · {plan.seats} compte{plan.seats > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => contactUpgrade(plan.name)}
+              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
+            >
+              <TrendingUp size={11} />
+              Upgrade
+            </button>
+          </div>
+        ))}
+        {PLANS_INFO.filter(p => p.searches > currentPlan.searches).length === 0 && (
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Réseau · Sur devis</p>
+              <p className="text-xs text-slate-400">Utilisateurs illimités · Infrastructure dédiée</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => contactUpgrade('Réseau')}
+              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
+            >
+              Contacter
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Add-ons */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Acheter en plus</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => contactAddon('+500 recherches — 49 €')}
+            className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50"
+          >
+            <div className="flex items-center gap-1.5">
+              <Plus size={13} className="text-blue-600" />
+              <span className="text-xs font-bold text-slate-900">+500 recherches</span>
+            </div>
+            <span className="mt-1 text-lg font-bold text-[#124bd2]">49 €</span>
+            <span className="text-[10px] text-slate-400">Valable 30 jours</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => contactAddon('Siège supplémentaire — 59 €/mois')}
+            className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50"
+          >
+            <div className="flex items-center gap-1.5">
+              <CreditCard size={13} className="text-blue-600" />
+              <span className="text-xs font-bold text-slate-900">Siège supp.</span>
+            </div>
+            <span className="mt-1 text-lg font-bold text-[#124bd2]">59 €</span>
+            <span className="text-[10px] text-slate-400">Par mois</span>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
