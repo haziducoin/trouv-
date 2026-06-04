@@ -109,7 +109,11 @@ export default function AccountPanel({
   const [workspaceError, setWorkspaceError] = useState('')
 
   useEffect(() => {
-    setView(currentAccount ? 'workspace' : initialView)
+    if (initialView === 'login' || initialView === 'register') {
+      setView(currentAccount ? 'workspace' : initialView)
+    } else {
+      setView(initialView)
+    }
   }, [currentAccount, initialView])
 
   useEffect(() => {
