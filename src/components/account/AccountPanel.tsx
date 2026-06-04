@@ -1401,15 +1401,18 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
   return (
     <div className="flex flex-col gap-4">
       {/* Bannière récompense */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B54FF] to-indigo-500 p-5 text-white">
-        <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full bg-white/5" />
-        <div className="absolute bottom-[-30px] right-8 h-20 w-20 rounded-full bg-white/5" />
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-75">Programme de parrainage</p>
-        <h3 className="mt-1.5 text-xl font-extrabold leading-tight tracking-tight">1 mois offert<br />par filleul converti</h3>
-        <p className="mt-2 text-xs leading-relaxed opacity-80">
-          Partagez votre lien unique. Quand un professionnel souscrit via votre lien, vous recevez <strong>1 mois gratuit</strong> sur votre plan.
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B54FF] to-indigo-500 p-6 text-center text-white">
+        <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/5" />
+        <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/5" />
+        <p className="relative text-[10px] font-bold uppercase tracking-widest opacity-70">Programme de parrainage</p>
+        <h3 className="relative mt-3 text-3xl font-extrabold leading-tight tracking-tight">
+          1 mois offert
+          <span className="block text-lg font-semibold opacity-85">par filleul converti</span>
+        </h3>
+        <p className="relative mx-auto mt-3 max-w-xs text-xs leading-relaxed opacity-80">
+          Partagez votre lien. Dès qu'un professionnel souscrit, vous recevez <strong>1 mois gratuit</strong> sur votre plan actuel.
         </p>
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold">
+        <div className="relative mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-4 py-1.5 text-xs font-semibold">
           <Gift size={12} /> Pas de limite de parrainages
         </div>
       </div>
