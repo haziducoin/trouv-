@@ -1102,7 +1102,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
   const items = [
     { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount('profil') } },
     { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount('abonnement') } },
-    { icon: LayoutDashboard, label: 'Dashboard',              action: () => { setOpen(false); onOpenAccount('dashboard') } },
+    ...(account.role !== 'agent' ? [{ icon: LayoutDashboard, label: 'Dashboard', action: () => { setOpen(false); onOpenAccount('dashboard') } }] : []),
     { icon: UserPlus,        label: 'Parrainage',             action: () => { setOpen(false); onOpenAccount('parrainage') } },
     { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
@@ -1645,8 +1645,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d]">
 
         {/* Logo */}
-        <div className="flex h-16 items-center px-6">
+        <div className="flex h-16 flex-col items-start justify-center px-6">
           <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
+          {account.role === 'agent' && (
+            <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">Accès Salarié</p>
+          )}
         </div>
 
         {/* Navigation */}
@@ -1683,16 +1686,21 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           </button>
         </nav>
 
-        {/* Quota bar sidebar (mode full uniquement) */}
-        {accessLevel === 'full' && account.quota > 0 && (
+        {/* Quota bar sidebar */}
+        {(accessLevel === 'full' || account.role === 'agent') && account.quota > 0 && (
           <div className="border-t border-white/8 px-4 py-4">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Quota mensuel</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                {account.role === 'agent' ? 'Recherches restantes' : 'Quota mensuel'}
+              </span>
               <span className={`text-[10px] font-bold tabular-nums ${
                 usedQuota / account.quota >= 0.9 ? 'text-red-400' :
                 usedQuota / account.quota >= 0.7 ? 'text-amber-400' : 'text-white/50'
               }`}>
-                {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
+                {account.role === 'agent'
+                  ? `${Math.max(0, account.quota - usedQuota)} / ${account.quota}`
+                  : `${usedQuota.toLocaleString('fr-FR')} / ${account.quota.toLocaleString('fr-FR')}`
+                }
               </span>
             </div>
             <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
@@ -1755,8 +1763,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 </h1>
               </div>
               <div className="flex items-center gap-2">
-                {/* Quota visuel (mode full uniquement) */}
-                {accessLevel === 'full' && account.quota > 0 && (
+                {/* Quota visuel (dirigeant uniquement — le salarié a son bandeau) */}
+                {accessLevel === 'full' && account.quota > 0 && account.role !== 'agent' && (
                   <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 sm:flex dark:border-slate-700 dark:bg-slate-800">
                     <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
                       <div
@@ -1803,6 +1811,39 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 onCta={() => window.location.replace('/?pricing=1')}
               />
             )}
+
+            {/* Bandeau salarié */}
+            {account.role === 'agent' && account.quota > 0 && (() => {
+              const remaining = Math.max(0, account.quota - usedQuota)
+              const pct = usedQuota / account.quota
+              return (
+                <div className="mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700">
+                    <Users size={13} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Salarié · {account.companyName}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      {remaining} recherche{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''} sur {account.quota} · quota fixé par votre admin
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                      <div className={`h-full rounded-full transition-all ${
+                        pct >= 0.9 ? 'bg-red-500' : pct >= 0.7 ? 'bg-amber-400' : 'bg-[#124bd2]'
+                      }`} style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }} />
+                    </div>
+                    <span className={`text-xs font-bold tabular-nums ${
+                      pct >= 0.9 ? 'text-red-500' : pct >= 0.7 ? 'text-amber-600' : 'text-slate-500'
+                    }`}>
+                      {usedQuota}/{account.quota}
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Barre de recherche principale */}
             <form onSubmit={handleSearch} className="flex gap-3">

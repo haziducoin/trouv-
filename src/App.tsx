@@ -35,7 +35,7 @@ function formatOAuthError(rawError: string) {
   return `Connexion Google impossible : ${decoded}`
 }
 
-// ─── Compte démo (dev only) ───────────────────────────────────────────────────
+// ─── Comptes démo (dev only) ──────────────────────────────────────────────────
 const DEMO_ACCOUNT: Account = {
   id:             'demo-preview',
   organizationId: 'org-preview',
@@ -51,6 +51,21 @@ const DEMO_ACCOUNT: Account = {
   createdAt:      new Date().toISOString(),
 }
 
+const DEMO_EMPLOYEE_ACCOUNT: Account = {
+  id:             'demo-employee',
+  organizationId: 'org-preview',
+  firstName:      'Thomas',
+  lastName:       'Moreau',
+  email:          't.moreau@cabinet-rivoli.fr',
+  companyName:    'Cabinet Rivoli',
+  siren:          '123456789',
+  role:           'agent',
+  status:         'approved',
+  quota:          50,
+  monthlyUsage:   23,
+  createdAt:      new Date().toISOString(),
+}
+
 export default function App() {
   const [account, setAccount]               = useState<Account | null>(isDemoMode ? DEMO_ACCOUNT : null)
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
@@ -58,6 +73,7 @@ export default function App() {
   const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
   const [authError, setAuthError]           = useState<string | null>(null)
   const [loadingTooLong, setLoadingTooLong] = useState(false)
+  const [demoView, setDemoView]             = useState<'admin' | 'employee'>('admin')
 
   // Après 4 s de chargement, on propose un bouton de secours
   useEffect(() => {
@@ -223,12 +239,34 @@ export default function App() {
 
   // ── Mode démo (?demo=1) — lien de prospection sans compte ───────────────
   if (isDemoMode) {
+    const demoAccount = demoView === 'admin' ? DEMO_ACCOUNT : DEMO_EMPLOYEE_ACCOUNT
     return (
       <>
+        {/* Toggle flottant dirigeant ↔ salarié */}
+        <div className="fixed bottom-6 left-1/2 z-[999] -translate-x-1/2 flex items-center gap-1 rounded-2xl border border-white/20 bg-[#07113d]/95 p-1 shadow-2xl backdrop-blur-md">
+          <span className="px-3 text-[10px] font-bold uppercase tracking-widest text-white/30">Démo</span>
+          <button
+            onClick={() => setDemoView('admin')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
+              demoView === 'admin' ? 'bg-[#1B54FF] text-white shadow-lg' : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            👑 Dirigeant
+          </button>
+          <button
+            onClick={() => setDemoView('employee')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
+              demoView === 'employee' ? 'bg-emerald-600 text-white shadow-lg' : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            👤 Salarié
+          </button>
+        </div>
         <SearchPage
-          account={DEMO_ACCOUNT}
+          key={demoView}
+          account={demoAccount}
           accessLevel="demo"
-          maxSearches={5}
+          maxSearches={demoView === 'admin' ? 5 : undefined}
           onLogout={() => window.location.replace('/')}
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
@@ -236,7 +274,7 @@ export default function App() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
             <AccountPanel
               initialView={accountPanel}
-              currentAccount={DEMO_ACCOUNT}
+              currentAccount={demoAccount}
               onAuthenticated={() => {}}
               onClose={() => setAccountPanel(null)}
               onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
