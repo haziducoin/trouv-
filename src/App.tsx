@@ -224,13 +224,26 @@ export default function App() {
   // ── Mode démo (?demo=1) — lien de prospection sans compte ───────────────
   if (isDemoMode) {
     return (
-      <SearchPage
-        account={DEMO_ACCOUNT}
-        accessLevel="demo"
-        maxSearches={5}
-        onLogout={() => window.location.replace('/')}
-        onOpenAccount={() => {}}
-      />
+      <>
+        <SearchPage
+          account={DEMO_ACCOUNT}
+          accessLevel="demo"
+          maxSearches={5}
+          onLogout={() => window.location.replace('/')}
+          onOpenAccount={() => setAccountPanel('workspace')}
+        />
+        {accountPanel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <AccountPanel
+              initialView={accountPanel}
+              currentAccount={DEMO_ACCOUNT}
+              onAuthenticated={() => {}}
+              onClose={() => setAccountPanel(null)}
+              onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
+            />
+          </div>
+        )}
+      </>
     )
   }
 
