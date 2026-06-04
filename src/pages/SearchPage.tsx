@@ -6,7 +6,7 @@ import {
   ShieldCheck, AlertCircle, Download, Clock,
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
-  UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare,
+  UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock,
 } from 'lucide-react'
 import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
@@ -884,6 +884,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
 
   const items = [
     { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount() } },
+    { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount() } },
     { icon: LayoutDashboard, label: 'Dashboard',              action: () => setOpen(false) },
     { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
