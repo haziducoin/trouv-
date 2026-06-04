@@ -53,7 +53,7 @@ import {
 } from '@/lib/accountStore'
 import { databaseModeLabel } from '@/lib/supabase'
 
-export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement'
+export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement' | 'dashboard'
 
 interface AccountPanelProps {
   initialView: AccountPanelView
@@ -84,7 +84,9 @@ export default function AccountPanel({
   onClose,
   onLogout,
 }: AccountPanelProps) {
-  const [view, setView] = useState<AccountPanelView>(currentAccount ? 'workspace' : initialView)
+  const [view, setView] = useState<AccountPanelView>(
+    currentAccount && (initialView === 'login' || initialView === 'register') ? 'workspace' : initialView
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('trouve_remember_me_v1') !== '0')
@@ -218,7 +220,7 @@ export default function AccountPanel({
     await refreshWorkspaceData()
   }
 
-  const isDrawerView = view === 'workspace' || view === 'profil' || view === 'abonnement'
+  const isDrawerView = view === 'workspace' || view === 'profil' || view === 'abonnement' || view === 'dashboard'
 
   if (!isDrawerView) {
     const isRegister = view === 'register'
@@ -422,6 +424,7 @@ export default function AccountPanel({
   const sectionTitles: Partial<Record<AccountPanelView, string>> = {
     profil:      'Mon profil',
     abonnement:  'Mon abonnement',
+    dashboard:   'Dashboard',
     workspace:   'Compte professionnel',
   }
 
@@ -597,6 +600,10 @@ export default function AccountPanel({
               <LogOut size={15} /> Se déconnecter
             </button>
           </div>
+        )}
+
+        {drawerView === 'dashboard' && currentAccount && (
+          <DashboardSection account={currentAccount} onRequestAuth={() => setView('login')} onLogout={onLogout} />
         )}
 
         {drawerView === 'workspace' && currentAccount && (
@@ -1201,6 +1208,157 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      <button type="button" onClick={onLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+        <LogOut size={15} /> Se déconnecter
+      </button>
+    </div>
+  )
+}
+
+const DEMO_ACTIVITY = [
+  { initials: 'TM', color: 'bg-blue-100 text-blue-700',   name: 'Thomas Martin',  sub: 'Directeur commercial · Paris 08',  time: 'Il y a 2 h' },
+  { initials: 'MF', color: 'bg-emerald-100 text-emerald-700', name: 'Marie Fontaine', sub: 'Responsable marketing · Lyon 02', time: 'Il y a 5 h' },
+  { initials: 'LD', color: 'bg-purple-100 text-purple-700',name: 'Laurent Dupuis', sub: 'Chef de chantier · Marseille 13',  time: 'Hier' },
+]
+
+const DEMO_TEAM = [
+  { initial: 'S', color: 'bg-[#1B54FF] text-white', name: 'Sophie Martin', isSelf: true,  usage: 412, pct: 60 },
+  { initial: 'P', color: 'bg-indigo-500 text-white', name: 'Pierre Dumont', isSelf: false, usage: 198, pct: 29 },
+]
+
+function DashboardSection({ account, onRequestAuth, onLogout }: { account: Account; onRequestAuth: () => void; onLogout: () => void | Promise<void> }) {
+  const usagePct = Math.min(100, Math.round((account.monthlyUsage / account.quota) * 100))
+  const remaining = account.quota - account.monthlyUsage
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Grande stat mois en cours */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#1B54FF] to-indigo-500 p-5 text-white">
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-75">Mois en cours</p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-5xl font-extrabold leading-none tracking-tight">{account.monthlyUsage}</p>
+            <p className="mt-1 text-sm opacity-80">recherches sur {account.quota.toLocaleString('fr-FR')} incluses</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold">+12%</p>
+            <p className="text-xs opacity-75">vs mois précédent</p>
+          </div>
+        </div>
+        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+          <div className="h-1.5 rounded-full bg-white" style={{ width: `${usagePct}%` }} />
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] opacity-70">
+          <span>{usagePct}% utilisé</span>
+          <span>Renouvellement le 1er du mois</span>
+        </div>
+      </div>
+
+      {/* 3 mini stats */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          { value: '12',                                       label: 'Favoris sauvegardés' },
+          { value: '3',                                        label: 'Licences actives' },
+          { value: remaining.toLocaleString('fr-FR'),          label: 'Recherches restantes', green: true },
+        ].map(({ value, label, green }) => (
+          <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
+            <p className={`text-xl font-extrabold ${green ? 'text-emerald-600' : 'text-[#1B54FF]'}`}>{value}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Activité récente */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <History size={15} className="text-blue-700" /> Activité récente
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {DEMO_ACTIVITY.map(({ initials, color, name, sub, time }) => (
+            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initials}</div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{name}</p>
+                  <p className="text-[10px] text-slate-400">{sub}</p>
+                </div>
+              </div>
+              <span className="shrink-0 text-[10px] text-slate-400">{time}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Utilisation par licence */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <UsersRound size={15} className="text-blue-700" /> Utilisation par licence
+        </p>
+        <div className="flex flex-col gap-2">
+          {DEMO_TEAM.map(({ initial, color, name, isSelf, usage, pct }) => (
+            <div key={name} className="rounded-xl border border-slate-200 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initial}</div>
+                  <span className="text-sm font-semibold text-slate-800">{name}{isSelf && <span className="ml-1.5 text-[10px] text-slate-400">(vous)</span>}</span>
+                </div>
+                <span className="text-sm font-bold text-[#1B54FF]">{usage} rech.</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-1.5 rounded-full bg-[#1B54FF]" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          ))}
+          {/* Licence libre */}
+          <div className="rounded-xl border border-slate-200 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-400">+</div>
+                <span className="text-sm text-slate-400">Licence disponible</span>
+              </div>
+              <button type="button" onClick={onRequestAuth}
+                className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#1B54FF] transition hover:bg-blue-100">
+                Inviter →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ajouter une licence */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+            <UsersRound size={16} className="text-[#1B54FF]" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800">Ajouter une licence</p>
+            <p className="text-[10px] text-slate-500">Donnez accès à un collaborateur supplémentaire</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="text-base font-extrabold text-[#1B54FF]">99 €<span className="text-[10px] font-normal text-slate-400"> /mois</span></span>
+          <button type="button" onClick={onRequestAuth}
+            className="rounded-lg bg-[#1B54FF] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#0b3fbc]">
+            Ajouter →
+          </button>
+        </div>
+      </div>
+
+      {/* Alerte quota */}
+      <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${usagePct > 80 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+        <BadgeCheck size={16} className={`shrink-0 ${usagePct > 80 ? 'text-amber-600' : 'text-emerald-600'}`} />
+        <div>
+          <p className={`text-xs font-semibold ${usagePct > 80 ? 'text-amber-800' : 'text-emerald-800'}`}>
+            {usagePct > 80 ? 'Quota bientôt atteint' : 'Quota en bonne santé'}
+          </p>
+          <p className={`text-[10px] ${usagePct > 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {remaining.toLocaleString('fr-FR')} recherches disponibles jusqu'au 1er du mois
+          </p>
         </div>
       </div>
 
