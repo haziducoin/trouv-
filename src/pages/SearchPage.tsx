@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
 
-type AppView = 'search' | 'history' | 'favorites'
+type AppView = 'search' | 'history' | 'lists' | 'list-detail'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
@@ -71,38 +71,75 @@ function saveRecentSearch(q: string) {
 // ─── Résultats par page ───────────────────────────────────────────────────────
 const PER_PAGE_OPTIONS = [20, 50, 100]
 
-// Favoris persistés localement (indexed by SIREN)
-const FAV_STORE_KEY = 'trouve_fav_data_v2'
+// ─── Listes de prospects ─────────────────────────────────────────────────────
+const LISTS_STORE_KEY = 'trouve_lists_v1'
 
-interface FavStored {
+interface ListContact {
   id:          string
   name:        string
   jobTitle:    string
   companyName: string
   city:        string
+  phone:       string
+  email:       string
   savedAt:     string
 }
 
-function loadStoredFavs(): FavStored[] {
-  try { return JSON.parse(localStorage.getItem(FAV_STORE_KEY) ?? '[]') } catch { return [] }
+interface ProspectList {
+  id:        string
+  name:      string
+  emoji:     string
+  contacts:  ListContact[]
+  createdAt: string
+  updatedAt: string
 }
-function saveStoredFav(p: ProspectResult) {
-  const favs = loadStoredFavs().filter(f => f.id !== p.id)
-  localStorage.setItem(FAV_STORE_KEY, JSON.stringify([
-    {
-      id:          p.id,
-      name:        p.fullName,
-      jobTitle:    p.jobTitle    ?? '',
-      companyName: p.companyName ?? '',
-      city:        p.city        ?? '',
-      savedAt:     new Date().toISOString(),
-    },
-    ...favs,
-  ].slice(0, 200)))
+
+function loadLists(): ProspectList[] {
+  try { return JSON.parse(localStorage.getItem(LISTS_STORE_KEY) ?? '[]') } catch { return [] }
 }
-function removeStoredFav(id: string) {
-  localStorage.setItem(FAV_STORE_KEY, JSON.stringify(loadStoredFavs().filter(f => f.id !== id)))
+function saveLists(lists: ProspectList[]) {
+  localStorage.setItem(LISTS_STORE_KEY, JSON.stringify(lists))
 }
+function createList(name: string, emoji: string): ProspectList {
+  const list: ProspectList = { id: Date.now().toString(), name, emoji, contacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  saveLists([...loadLists(), list])
+  return list
+}
+function addToList(listId: string, p: ProspectResult) {
+  const lists = loadLists()
+  const idx = lists.findIndex(l => l.id === listId)
+  if (idx === -1) return
+  if (lists[idx].contacts.some(c => c.id === p.id)) return
+  lists[idx].contacts.push({ id: p.id, name: p.fullName, jobTitle: p.jobTitle ?? '', companyName: p.companyName ?? '', city: p.city ?? '', phone: p.phone ?? p.phoneMobile ?? '', email: p.email ?? '', savedAt: new Date().toISOString() })
+  lists[idx].updatedAt = new Date().toISOString()
+  saveLists(lists)
+}
+function removeFromList(listId: string, contactId: string) {
+  const lists = loadLists()
+  const idx = lists.findIndex(l => l.id === listId)
+  if (idx === -1) return
+  lists[idx].contacts = lists[idx].contacts.filter(c => c.id !== contactId)
+  lists[idx].updatedAt = new Date().toISOString()
+  saveLists(lists)
+}
+function deleteList(listId: string) {
+  saveLists(loadLists().filter(l => l.id !== listId))
+}
+function exportListCSV(list: ProspectList) {
+  const rows = ['Nom;Poste;Entreprise;Ville;Téléphone;Email;Ajouté le',
+    ...list.contacts.map(c => `"${c.name}";"${c.jobTitle}";"${c.companyName}";"${c.city}";"${c.phone}";"${c.email}";${new Date(c.savedAt).toLocaleDateString('fr-FR')}`)
+  ].join('\n')
+  const blob = new Blob(['﻿' + rows], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = `${list.name}.csv`; a.click(); URL.revokeObjectURL(url)
+}
+
+// Compat: ancienne clé favoris simple (non utilisée, gardée pour migration future)
+const FAV_STORE_KEY = 'trouve_fav_data_v2'
+interface FavStored { id: string; name: string; jobTitle: string; companyName: string; city: string; savedAt: string }
+function loadStoredFavs(): FavStored[] { try { return JSON.parse(localStorage.getItem(FAV_STORE_KEY) ?? '[]') } catch { return [] } }
+function saveStoredFav(_p: ProspectResult) { /* replaced by lists system */ }
+function removeStoredFav(_id: string) { /* replaced by lists system */ }
 
 // ─── Composant QuotaBar (inline, non utilisé seul mais gardé pour référence) ──
 function QuotaBar({ used, total }: { used: number; total: number }) {
@@ -859,6 +896,186 @@ function FavoritesView({
   )
 }
 
+// ─── ListsView ────────────────────────────────────────────────────────────────
+function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewList }: {
+  lists: ProspectList[]; onOpenList: (id: string) => void; onExport: (l: ProspectList) => void
+  onDelete: (id: string) => void; onGoSearch: () => void; onNewList: () => void
+}) {
+  return (
+    <div className="mx-auto max-w-4xl px-5 py-6 animate-fade-in">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Mes listes de prospects</h2>
+          <p className="mt-0.5 text-xs text-slate-400">{lists.length} liste{lists.length !== 1 ? 's' : ''} · {lists.reduce((n, l) => n + l.contacts.length, 0)} contacts au total</p>
+        </div>
+        <button onClick={onNewList} className="flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
+          <Plus size={13} /> Nouvelle liste
+        </button>
+      </div>
+
+      {lists.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 dark:bg-blue-950/30">
+            <Star size={26} className="text-blue-300" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Aucune liste</h2>
+          <p className="mt-2 text-sm text-slate-400">Cliquez sur ★ sur une fiche pour ajouter un prospect à une liste.</p>
+          <button onClick={onGoSearch} className="mt-6 flex items-center gap-2 rounded-xl bg-[#124bd2] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+            <Search size={14} /> Lancer une recherche
+          </button>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {lists.map(list => (
+          <div key={list.id} onClick={() => onOpenList(list.id)}
+            className="card-lift flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white p-5 transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-2xl">{list.emoji}</span>
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</span>
+            </div>
+            <p className="font-semibold text-slate-800 dark:text-slate-100">{list.name}</p>
+            <p className="mt-0.5 text-xs text-slate-400">Modifiée {new Date(list.updatedAt).toLocaleDateString('fr-FR')}</p>
+            <div className="mt-3 flex -space-x-1.5">
+              {list.contacts.slice(0, 4).map(c => (
+                <div key={c.id} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-100 text-[9px] font-bold text-blue-700 dark:border-slate-900">
+                  {prospectInitials(c.name)}
+                </div>
+              ))}
+              {list.contacts.length > 4 && <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[9px] font-bold text-slate-500">+{list.contacts.length - 4}</div>}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button onClick={e => { e.stopPropagation(); onExport(list) }}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <Download size={11} /> CSV
+              </button>
+              <button onClick={e => { e.stopPropagation(); if (confirm(`Supprimer "${list.name}" ?`)) onDelete(list.id) }}
+                className="flex items-center justify-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100">
+                <X size={11} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── SingleListView ───────────────────────────────────────────────────────────
+function SingleListView({ list, onBack, onExport, onRemove }: {
+  list: ProspectList; onBack: () => void; onExport: () => void; onRemove: (id: string) => void
+}) {
+  return (
+    <div className="mx-auto max-w-3xl px-5 py-6 animate-fade-in">
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
+        <button onClick={onBack} className="text-xs text-slate-400 hover:text-slate-600 transition">← Mes listes</button>
+        <span className="text-slate-300">|</span>
+        <span className="text-xl">{list.emoji}</span>
+        <div className="flex-1">
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{list.name}</h2>
+          <p className="text-xs text-slate-400">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button onClick={onExport} className="flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
+          <Download size={13} /> Exporter CSV
+        </button>
+      </div>
+
+      {list.contacts.length === 0 && (
+        <p className="py-12 text-center text-sm text-slate-400">Cette liste est vide.</p>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {list.contacts.map(c => (
+          <div key={c.id} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 flex-wrap">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+              {prospectInitials(c.name)}
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{c.name}</p>
+              <p className="text-xs text-slate-400">{c.jobTitle} · {c.companyName}</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {c.phone && <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">{c.phone}</span>}
+              {c.email && <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">{c.email}</span>}
+              {c.city && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">{c.city}</span>}
+            </div>
+            <button onClick={() => onRemove(c.id)} className="ml-auto rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400">
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── AddToListPopup ───────────────────────────────────────────────────────────
+function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
+  prospect: ProspectResult | null; lists: ProspectList[]
+  onConfirm: (listId: string, newName?: string, newEmoji?: string) => void; onClose: () => void
+}) {
+  const [newName, setNewName] = useState('')
+  const [newEmoji, setNewEmoji] = useState('📋')
+  const [selected, setSelected] = useState<string>('')
+  const isNewList = prospect?.id === '__new_list__'
+  const EMOJIS = ['📋','🏗','🏠','🏥','💼','🎯','🌍','⭐','🔑','📊']
+
+  if (!prospect) return null
+
+  const handleConfirm = () => {
+    if (newName.trim()) { onConfirm('', newName.trim(), newEmoji); return }
+    if (selected) { onConfirm(selected); return }
+    if (isNewList) return
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          {isNewList ? 'Créer une liste' : 'Ajouter à une liste'}
+        </p>
+        {!isNewList && <p className="mb-4 text-base font-bold text-slate-800 dark:text-slate-100">{prospect.fullName}</p>}
+
+        {!isNewList && lists.length > 0 && (
+          <div className="mb-4 flex flex-col gap-2">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Choisir une liste existante</p>
+            {lists.map(l => (
+              <label key={l.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-2.5 transition ${selected === l.id ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
+                <input type="radio" name="list-pick" value={l.id} checked={selected === l.id} onChange={() => setSelected(l.id)} className="accent-[#124bd2]" />
+                <span className="text-base">{l.emoji}</span>
+                <span className="flex-1 text-sm font-semibold">{l.name}</span>
+                <span className="text-xs text-slate-400">{l.contacts.length}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className={`${lists.length > 0 && !isNewList ? 'border-t border-slate-100 pt-4 dark:border-slate-800' : ''}`}>
+          <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {isNewList ? 'Nom de la liste' : 'Ou créer une nouvelle liste'}
+          </p>
+          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex : BTP Lyon, Médecins Paris…"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800" />
+          <div className="mt-2 flex gap-1.5 flex-wrap">
+            {EMOJIS.map(e => (
+              <button key={e} type="button" onClick={() => setNewEmoji(e)}
+                className={`rounded-lg p-1.5 text-base transition ${newEmoji === e ? 'bg-blue-100 ring-1 ring-blue-400' : 'hover:bg-slate-100'}`}>{e}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700">Annuler</button>
+          <button onClick={handleConfirm} disabled={!newName.trim() && !selected}
+            className="flex-[2] rounded-xl bg-[#124bd2] py-2.5 text-sm font-bold text-white transition hover:bg-[#0b3fbc] disabled:opacity-40">
+            {newName.trim() ? 'Créer et ajouter →' : selected ? 'Ajouter →' : 'Ajouter →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── User Menu dropdown ────────────────────────────────────────────────────────
 function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -1200,6 +1417,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [showRecent, setShowRecent]           = useState(false)
   const [recentSearches, setRecentSearches]   = useState<string[]>([])
   const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.id)))
+  const [lists, setLists]                     = useState<ProspectList[]>(loadLists)
+  const [activeListId, setActiveListId]       = useState<string | null>(null)
+  const [addPopupProspect, setAddPopupProspect] = useState<ProspectResult | null>(null)
   const [appView, setAppView]                 = useState<AppView>('search')
   const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
@@ -1373,17 +1593,42 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const toggleFavorite = async (prospect: ProspectResult) => {
-    const newFavs = new Set(favorites)
-    if (newFavs.has(prospect.id)) {
-      newFavs.delete(prospect.id)
-      removeStoredFav(prospect.id)
-    } else {
-      newFavs.add(prospect.id)
-      saveStoredFav(prospect)
-      saveFavorite(account, { targetName: prospect.fullName, targetCity: prospect.city ?? undefined }).catch(() => {})
+  const toggleFavorite = (prospect: ProspectResult) => {
+    setAddPopupProspect(prospect)
+  }
+
+  const handleAddToListConfirm = (listId: string, newListName?: string, newListEmoji?: string) => {
+    let targetId = listId
+    if (newListName) {
+      const created = createList(newListName, newListEmoji ?? '📋')
+      targetId = created.id
     }
-    setFavorites(newFavs)
+    if (addPopupProspect) {
+      addToList(targetId, addPopupProspect)
+      const updated = loadLists()
+      setLists(updated)
+      const allIds = new Set<string>()
+      updated.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+      setFavorites(allIds)
+      saveFavorite(account, { targetName: addPopupProspect.fullName, targetCity: addPopupProspect.city ?? undefined }).catch(() => {})
+    }
+    setAddPopupProspect(null)
+  }
+
+  const handleRemoveFromList = (listId: string, contactId: string) => {
+    removeFromList(listId, contactId)
+    const updated = loadLists()
+    setLists(updated)
+    const allIds = new Set<string>()
+    updated.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+    setFavorites(allIds)
+  }
+
+  const handleDeleteList = (listId: string) => {
+    deleteList(listId)
+    const updated = loadLists()
+    setLists(updated)
+    if (activeListId === listId) { setActiveListId(null); setAppView('lists') }
   }
 
   const handleToggleFavFromDrawer = (siren: string) => {
@@ -1405,25 +1650,37 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-0.5 px-3 pt-2">
+        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-2">
           {([
-            { key: 'search',    label: 'Recherche',  icon: Search },
-            { key: 'history',   label: 'Historique', icon: History },
-            { key: 'favorites', label: `Favoris${favorites.size > 0 ? ` (${favorites.size})` : ''}`, icon: Star },
+            { key: 'search',  label: 'Recherche',  icon: Search },
+            { key: 'history', label: 'Historique', icon: History },
           ] as const).map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setAppView(key)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                appView === key
-                  ? 'bg-white/12 text-white'
-                  : 'text-white/50 hover:bg-white/6 hover:text-white/80'
-              }`}
-            >
-              <Icon size={15} />
-              {label}
+            <button key={key} onClick={() => setAppView(key)}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === key ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
+              <Icon size={15} />{label}
             </button>
           ))}
+
+          {/* Section Mes listes */}
+          <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-white/25">Mes listes</div>
+          <button onClick={() => setAppView('lists')}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === 'lists' ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
+            <Plus size={15} />
+            <span className="flex-1 text-left">Toutes les listes</span>
+            {lists.length > 0 && <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
+          </button>
+          {lists.map(list => (
+            <button key={list.id} onClick={() => { setActiveListId(list.id); setAppView('list-detail') }}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${appView === 'list-detail' && activeListId === list.id ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
+              <span className="text-base leading-none">{list.emoji}</span>
+              <span className="flex-1 truncate text-left text-xs">{list.name}</span>
+              <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{list.contacts.length}</span>
+            </button>
+          ))}
+          <button onClick={() => setAddPopupProspect({ id: '__new_list__' } as ProspectResult)}
+            className="mt-1 flex w-full items-center gap-2 rounded-xl border border-dashed border-white/15 px-3 py-2 text-xs font-medium text-white/35 transition hover:border-white/30 hover:text-white/60">
+            <Plus size={13} /> Nouvelle liste
+          </button>
         </nav>
 
         {/* Quota bar sidebar (mode full uniquement) */}
@@ -1468,14 +1725,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           />
         )}
 
-        {/* Vue Favoris */}
-        {appView === 'favorites' && (
-          <FavoritesView
-            favorites={favorites}
-            onToggleFav={handleToggleFavFromDrawer}
-            onGoSearch={() => setAppView('search')}
-          />
+        {/* Vue Mes listes */}
+        {appView === 'lists' && (
+          <ListsView lists={lists} onOpenList={(id) => { setActiveListId(id); setAppView('list-detail') }}
+            onExport={exportListCSV} onDelete={handleDeleteList} onGoSearch={() => setAppView('search')}
+            onNewList={() => setAddPopupProspect({ id: '__new_list__' } as ProspectResult)} />
         )}
+
+        {/* Vue détail d'une liste */}
+        {appView === 'list-detail' && activeListId && (() => {
+          const list = lists.find(l => l.id === activeListId)
+          if (!list) return null
+          return <SingleListView list={list} onBack={() => setAppView('lists')}
+            onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
+        })()}
 
         {/* Vue Recherche */}
         {appView === 'search' && (
@@ -1831,6 +2094,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         <DemoRequestModal
           account={account}
           onClose={() => setShowDemoRequestModal(false)}
+        />
+      )}
+
+      {/* Popup ajout à une liste */}
+      {addPopupProspect && (
+        <AddToListPopup
+          prospect={addPopupProspect}
+          lists={lists}
+          onConfirm={handleAddToListConfirm}
+          onClose={() => setAddPopupProspect(null)}
         />
       )}
     </div>
