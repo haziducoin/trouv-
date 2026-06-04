@@ -1678,7 +1678,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             </button>
           ))}
           <button onClick={() => setAddPopupProspect({ id: '__new_list__' } as ProspectResult)}
-            className="mt-1 flex w-full items-center gap-2 rounded-xl border border-dashed border-white/15 px-3 py-2 text-xs font-medium text-white/35 transition hover:border-white/30 hover:text-white/60">
+            className="mt-2 flex w-full items-center gap-2 rounded-xl bg-[#124bd2]/20 border border-[#124bd2]/50 px-3 py-2.5 text-xs font-bold text-blue-300 transition hover:bg-[#124bd2]/30 hover:text-blue-200 hover:border-[#124bd2]">
             <Plus size={13} /> Nouvelle liste
           </button>
         </nav>
