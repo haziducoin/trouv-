@@ -4,6 +4,8 @@ import {
   BadgeCheck,
   BarChart3,
   Building2,
+  Gift,
+  Link,
   BriefcaseBusiness,
   Check,
   Clock3,
@@ -54,7 +56,7 @@ import {
 } from '@/lib/accountStore'
 import { databaseModeLabel } from '@/lib/supabase'
 
-export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement' | 'dashboard'
+export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement' | 'dashboard' | 'parrainage'
 
 interface AccountPanelProps {
   initialView: AccountPanelView
@@ -225,7 +227,7 @@ export default function AccountPanel({
     await refreshWorkspaceData()
   }
 
-  const isDrawerView = view === 'workspace' || view === 'profil' || view === 'abonnement' || view === 'dashboard'
+  const isDrawerView = view === 'workspace' || view === 'profil' || view === 'abonnement' || view === 'dashboard' || view === 'parrainage'
 
   if (!isDrawerView) {
     const isRegister = view === 'register'
@@ -430,6 +432,7 @@ export default function AccountPanel({
     profil:      'Mon profil',
     abonnement:  'Mon abonnement',
     dashboard:   'Dashboard',
+    parrainage:  'Parrainage',
     workspace:   'Compte professionnel',
   }
 
@@ -609,6 +612,10 @@ export default function AccountPanel({
 
         {drawerView === 'dashboard' && currentAccount && (
           <DashboardSection account={currentAccount} onRequestAuth={() => setView('login')} onLogout={onLogout} />
+        )}
+
+        {drawerView === 'parrainage' && currentAccount && (
+          <ParrainageSection account={currentAccount} onLogout={onLogout} />
         )}
 
         {drawerView === 'workspace' && currentAccount && (
@@ -1354,6 +1361,144 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
           <p className={`text-[10px] ${usagePct > 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
             {remaining.toLocaleString('fr-FR')} recherches disponibles jusqu'au 1er du mois
           </p>
+        </div>
+      </div>
+
+      <button type="button" onClick={onLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+        <LogOut size={15} /> Se déconnecter
+      </button>
+    </div>
+  )
+}
+
+const DEMO_REFERRALS = [
+  { initials: 'AB', color: 'bg-emerald-100 text-emerald-700', name: 'Agence Bernard',  sub: 'Inscrit le 12 mai 2026 · Plan Solo', status: 'Converti',   statusColor: 'bg-emerald-50 text-emerald-700' },
+  { initials: 'IM', color: 'bg-amber-100 text-amber-700',    name: 'Immo Marché',     sub: 'Inscrit le 28 mai 2026 · En évaluation', status: 'En attente', statusColor: 'bg-amber-50 text-amber-700' },
+  { initials: 'PL', color: 'bg-amber-100 text-amber-700',    name: 'Pierre Laurent',  sub: 'Inscrit le 2 juin 2026 · En évaluation', status: 'En attente', statusColor: 'bg-amber-50 text-amber-700' },
+]
+
+function ParrainageSection({ account, onLogout }: { account: Account; onLogout: () => void | Promise<void> }) {
+  const refLink = `trouve.fr/ref/${(account.companyName || account.firstName).toLowerCase().replace(/\s+/g, '-')}`
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(`https://${refLink}`).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const share = (channel: 'email' | 'whatsapp' | 'linkedin') => {
+    const msg = encodeURIComponent(`Bonjour, je t'invite à découvrir trouvé!, l'outil de prospection pour les pros de l'immo. Profite de 20 recherches gratuites : https://${refLink}`)
+    const urls: Record<string, string> = {
+      email:    `mailto:?subject=Découvrez trouvé!&body=${msg}`,
+      whatsapp: `https://wa.me/?text=${msg}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://${refLink}`)}`,
+    }
+    window.open(urls[channel], '_blank')
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Bannière récompense */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1B54FF] to-indigo-500 p-5 text-white">
+        <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full bg-white/5" />
+        <div className="absolute bottom-[-30px] right-8 h-20 w-20 rounded-full bg-white/5" />
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-75">Programme de parrainage</p>
+        <h3 className="mt-1.5 text-xl font-extrabold leading-tight tracking-tight">1 mois offert<br />par filleul converti</h3>
+        <p className="mt-2 text-xs leading-relaxed opacity-80">
+          Partagez votre lien unique. Quand un professionnel souscrit via votre lien, vous recevez <strong>1 mois gratuit</strong> sur votre plan.
+        </p>
+        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold">
+          <Gift size={12} /> Pas de limite de parrainages
+        </div>
+      </div>
+
+      {/* Lien de parrainage */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Link size={15} className="text-blue-700" /> Votre lien de parrainage
+        </p>
+        <div className="flex gap-2">
+          <div className="flex flex-1 items-center gap-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <Link size={13} className="shrink-0 text-slate-400" />
+            <span className="truncate text-sm text-slate-700">{refLink}</span>
+          </div>
+          <button type="button" onClick={copy}
+            className="shrink-0 rounded-xl bg-[#1B54FF] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0b3fbc]">
+            {copied ? '✓ Copié !' : 'Copier'}
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {([
+            { label: 'Email',    ch: 'email'    as const },
+            { label: 'WhatsApp', ch: 'whatsapp' as const },
+            { label: 'LinkedIn', ch: 'linkedin' as const },
+          ]).map(({ label, ch }) => (
+            <button key={ch} type="button" onClick={() => share(ch)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <BarChart3 size={15} className="text-blue-700" /> Mes statistiques
+        </p>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { value: '3',      label: 'Invitations',     color: 'text-[#1B54FF]' },
+            { value: '1',      label: 'Convertis',        color: 'text-emerald-600' },
+            { value: '1 mois', label: 'Gain accumulé',    color: 'text-amber-500' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
+              <p className={`text-xl font-extrabold ${color}`}>{value}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filleuls */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <UsersRound size={15} className="text-blue-700" /> Mes filleuls
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {DEMO_REFERRALS.map(({ initials, color, name, sub, status, statusColor }) => (
+            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initials}</div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{name}</p>
+                  <p className="text-[10px] text-slate-400">{sub}</p>
+                </div>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${statusColor}`}>{status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Comment ça marche */}
+      <div>
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <BadgeCheck size={15} className="text-blue-700" /> Comment ça marche
+        </p>
+        <div className="flex flex-col gap-2">
+          {[
+            'Copiez votre lien unique et partagez-le à des professionnels de l\'immobilier.',
+            'Ils s\'inscrivent et testent trouvé! 20 recherches totalement gratuites.',
+            'Dès qu\'ils souscrivent à un plan payant, vous recevez 1 mois offert sur votre abonnement.',
+          ].map((step, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-[10px] font-bold text-white">{i + 1}</span>
+              <p className="text-xs leading-relaxed text-slate-600" dangerouslySetInnerHTML={{ __html: step.replace('1 mois offert', '<strong>1 mois offert</strong>').replace('20 recherches totalement gratuites', '<strong>20 recherches totalement gratuites</strong>') }} />
+            </div>
+          ))}
         </div>
       </div>
 

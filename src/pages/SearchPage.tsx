@@ -886,7 +886,7 @@ function UserMenu({ account, onLogout, onOpenAccount }: { account: Account; onLo
     { icon: UserCircle2,     label: 'Mon profil',             action: () => { setOpen(false); onOpenAccount('profil') } },
     { icon: CreditCard,      label: 'Mon abonnement',         action: () => { setOpen(false); onOpenAccount('abonnement') } },
     { icon: LayoutDashboard, label: 'Dashboard',              action: () => { setOpen(false); onOpenAccount('dashboard') } },
-    { icon: UserPlus,        label: 'Parrainage',             action: () => setOpen(false) },
+    { icon: UserPlus,        label: 'Parrainage',             action: () => { setOpen(false); onOpenAccount('parrainage') } },
     { icon: MessageSquare,   label: 'Aide à la prospection',  action: () => setOpen(false) },
     { icon: MessageSquare,   label: 'Support',                action: () => setOpen(false) },
   ]
