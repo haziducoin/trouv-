@@ -448,7 +448,7 @@ export default function AccountPanel({
         </header>
 
 
-        {drawerView !== 'workspace' && !requestCreated && (
+        {(drawerView === 'login' || drawerView === 'register') && !requestCreated && (
           <nav className="mb-7 flex rounded-2xl bg-slate-100 p-1">
             {[
               { id: 'register' as const, label: 'Créer mon compte' },
