@@ -907,6 +907,88 @@ export default function LandingPage({
 
           </div>
         </section>
+
+        {/* ── Témoignages ─────────────────────────────────────────────────── */}
+        <section className="px-5 py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#124bd2]">Ils nous font confiance</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
+                Ce que disent nos clients
+              </h2>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  name: 'Sophie Marchand',
+                  role: 'Directrice agence',
+                  company: 'Marchand Immobilier · Paris 16e',
+                  avatar: 'SM',
+                  color: 'bg-blue-100 text-[#124bd2]',
+                  quote: 'trouvé! a transformé notre prospection. En 30 secondes je trouve n\'importe quelle agence partenaire en France. On a multiplié nos prises de contact par 4 en deux mois.',
+                  stars: 5,
+                },
+                {
+                  name: 'Karim Benali',
+                  role: 'Mandataire indépendant',
+                  company: 'IAD France · Lyon',
+                  avatar: 'KB',
+                  color: 'bg-indigo-100 text-indigo-600',
+                  quote: 'Les données sont fiables et toujours à jour. J\'utilise l\'export CSV chaque semaine pour alimenter mon CRM. Un outil indispensable pour tout pro de l\'immo sérieux.',
+                  stars: 5,
+                },
+                {
+                  name: 'Élise Fontaine',
+                  role: 'Responsable développement réseau',
+                  company: 'Century 21 · Bordeaux',
+                  avatar: 'EF',
+                  color: 'bg-emerald-100 text-emerald-600',
+                  quote: 'On cherche des agences à recruter sur tout le territoire. Avant trouvé!, on passait des heures sur des annuaires obsolètes. Maintenant c\'est 10 minutes par jour, résultats en temps réel.',
+                  stars: 5,
+                },
+              ].map((t) => (
+                <div key={t.name} className="flex flex-col gap-5 rounded-3xl border border-slate-100 bg-white p-7 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.08)] transition hover:shadow-[0_8px_32px_-8px_rgba(15,23,42,0.13)]">
+                  {/* Stars */}
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: t.stars }).map((_, i) => (
+                      <svg key={i} viewBox="0 0 20 20" className="h-4 w-4 fill-amber-400"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                    ))}
+                  </div>
+                  {/* Quote */}
+                  <p className="flex-1 text-sm leading-relaxed text-slate-600">"{t.quote}"</p>
+                  {/* Author */}
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${t.color}`}>
+                      {t.avatar}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{t.name}</p>
+                      <p className="text-xs text-slate-400">{t.role} · {t.company}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rating strip */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500">
+              <span className="flex items-center gap-2 font-semibold text-slate-700">
+                <span className="text-2xl font-bold text-[#124bd2]">4,9</span>
+                <span>/ 5</span>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <svg key={i} viewBox="0 0 20 20" className="h-4 w-4 fill-amber-400"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  ))}
+                </div>
+              </span>
+              <span className="text-slate-300">·</span>
+              <span>+340 professionnels actifs</span>
+              <span className="text-slate-300">·</span>
+              <span>98% de renouvellement</span>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-5 py-8">
