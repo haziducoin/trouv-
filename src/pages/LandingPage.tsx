@@ -258,6 +258,7 @@ export default function LandingPage({
   const [checkoutError, setCheckoutError]       = useState<string | null>(null)
   const [emailInput, setEmailInput]             = useState('')
   const [showQualModal, setShowQualModal]       = useState(false)
+  const [demoTransition, setDemoTransition]     = useState<'hidden' | 'visible' | 'leaving'>('hidden')
 
   const accountPanel    = externalAccountPanel  !== undefined ? externalAccountPanel  : _localPanel
   const setAccountPanel = onOpenAccountPanel    !== undefined ? onOpenAccountPanel    : _setLocalPanel
@@ -279,6 +280,13 @@ export default function LandingPage({
     e.preventDefault()
     if (!emailInput.trim() || !emailInput.includes('@')) return
     setShowQualModal(true)
+  }
+
+  const handleDemoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    setDemoTransition('visible')
+    setTimeout(() => setDemoTransition('leaving'), 1600)
+    setTimeout(() => { window.location.href = '/?demo=1' }, 2000)
   }
 
   const handleCheckout = async (planCode: string) => {
@@ -335,8 +343,14 @@ export default function LandingPage({
           {/* Liens de navigation — masqués sur mobile */}
           {!currentAccount && (
             <div className="hidden items-center gap-7 md:flex">
+              <a
+                href="/?demo=1"
+                onClick={handleDemoClick}
+                className="relative text-sm font-semibold text-slate-600 transition hover:text-[#124bd2] after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-[#124bd2] after:transition-all hover:after:w-full"
+              >
+                Démo
+              </a>
               {([
-                { label: 'Démo',            href: '/?demo=1' },
                 { label: 'Fonctionnalités', href: '#criteres' },
                 { label: 'Tarifs',          href: '#tarifs' },
                 { label: 'Sécurité',        href: '#securite' },
@@ -1207,6 +1221,72 @@ export default function LandingPage({
           onClose={() => setAccountPanel(null)}
           onLogout={logout}
         />
+      )}
+
+      {/* ── Overlay transition Démo ── */}
+      {demoTransition !== 'hidden' && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8"
+          style={{
+            background: '#07113d',
+            opacity: demoTransition === 'leaving' ? 0 : 1,
+            transition: `opacity ${demoTransition === 'leaving' ? '400ms' : '350ms'} cubic-bezier(0.4,0,0.2,1)`,
+          }}
+        >
+          {/* Glow ambiant */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(27,84,255,0.18) 0%, transparent 70%)' }}
+          />
+
+          {/* Logo + anneau */}
+          <div className="relative flex h-40 w-40 items-center justify-center">
+            <svg
+              className="absolute inset-0 h-full w-full"
+              viewBox="0 0 160 160"
+              style={{ transform: 'rotate(-90deg)' }}
+            >
+              <defs>
+                <linearGradient id="demoRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#3b8eff" />
+                  <stop offset="100%" stopColor="#1B54FF" />
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
+              <circle
+                cx="80" cy="80" r="70"
+                fill="none" stroke="url(#demoRingGrad)" strokeWidth="2.5" strokeLinecap="round"
+                style={{ strokeDasharray: 440, animation: 'demoRingFill 1.1s 0.22s cubic-bezier(0.4,0,0.2,1) forwards' }}
+              />
+            </svg>
+
+            <svg
+              width="72" height="72" viewBox="0 0 100 100"
+              className="relative z-10"
+              style={{
+                filter: 'drop-shadow(0 0 28px rgba(27,84,255,0.6))',
+                animation: 'demoLogoIn 0.45s 0.08s cubic-bezier(0.34,1.56,0.64,1) forwards',
+                opacity: 0,
+              }}
+            >
+              <rect x="21" y="12" width="19" height="76" rx="9.5" fill="white" />
+              <rect x="8"  y="33" width="45" height="18" rx="9"   fill="white" />
+              <rect x="66" y="12" width="17" height="50" rx="8.5" fill="white" />
+              <circle cx="74.5" cy="84" r="8.5" fill="white" />
+            </svg>
+          </div>
+
+          {/* Texte */}
+          <p
+            className="flex items-center gap-1 text-xs font-semibold tracking-wider text-white/40"
+            style={{ animation: 'demoTextIn 0.4s 0.3s ease both' }}
+          >
+            Préparation de la démo
+            <span style={{ animation: 'demoDotBounce 1.2s 0.5s infinite' }}>.</span>
+            <span style={{ animation: 'demoDotBounce 1.2s 0.7s infinite' }}>.</span>
+            <span style={{ animation: 'demoDotBounce 1.2s 0.9s infinite' }}>.</span>
+          </p>
+        </div>
       )}
 
       {/* ── Modale qualification post-email ── */}
