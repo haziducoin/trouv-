@@ -2032,7 +2032,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 accessLevel={accessLevel}
                 used={demoSearchCount}
                 max={maxSearches}
-                onCta={() => window.location.replace('/?pricing=1')}
+                onCta={() => setShowConversionModal(true)}
               />
             )}
 
