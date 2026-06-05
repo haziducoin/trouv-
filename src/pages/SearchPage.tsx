@@ -1618,8 +1618,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
-  const [showFilters, setShowFilters]         = useState(false)
+  const [showFilters, setShowFilters]                   = useState(false)
   const [showProspectionPanel, setShowProspectionPanel] = useState(false)
+  const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
+  const [transitionQuery, setTransitionQuery]           = useState('')
+  const transitionStartRef                              = useRef(0)
 
   // Résultats
   const [results, setResults]       = useState<ProspectResult[]>([])
@@ -1775,6 +1778,18 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   }, [accessLevel, usedQuota, account.quota, account.id, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
 
   // Debounce search-as-you-type (barre principale uniquement)
+  // Ferme l'overlay de transition quand la recherche se termine (minimum 650ms d'affichage)
+  useEffect(() => {
+    if (!isLoading && searchTransition === 'visible') {
+      const elapsed = Date.now() - transitionStartRef.current
+      const delay   = Math.max(0, 650 - elapsed)
+      setTimeout(() => {
+        setSearchTransition('leaving')
+        setTimeout(() => setSearchTransition('hidden'), 450)
+      }, delay)
+    }
+  }, [isLoading]) // eslint-disable-line
+
   useEffect(() => {
     if (!hasSearched) return // pas de debounce avant la 1ère recherche manuelle
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -1791,7 +1806,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     if (debounceRef.current) clearTimeout(debounceRef.current)
     setQuery(inputValue)
     setShowRecent(false)
-    doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    const q = buildQuery()
+    if (q.trim()) {
+      setTransitionQuery(inputValue.trim() || q.trim())
+      setSearchTransition('visible')
+      transitionStartRef.current = Date.now()
+    }
+    doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -2363,6 +2384,54 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           onConfirm={handleAddToListConfirm}
           onClose={() => setAddPopupProspect(null)}
         />
+      )}
+
+      {/* Overlay transition recherche */}
+      {searchTransition !== 'hidden' && (
+        <div
+          className="fixed inset-0 z-[150] flex flex-col items-center justify-center gap-8"
+          style={{
+            background: '#07113d',
+            opacity: searchTransition === 'leaving' ? 0 : 1,
+            transition: `opacity ${searchTransition === 'leaving' ? '450ms' : '300ms'} cubic-bezier(0.4,0,0.2,1)`,
+          }}
+        >
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(27,84,255,0.18) 0%, transparent 70%)' }} />
+
+          <div className="relative flex h-40 w-40 items-center justify-center">
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
+              <defs>
+                <linearGradient id="srGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#3b8eff" />
+                  <stop offset="100%" stopColor="#1B54FF" />
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
+              <circle cx="80" cy="80" r="70" fill="none" stroke="url(#srGrad)" strokeWidth="2.5" strokeLinecap="round"
+                style={{ strokeDasharray: 440, animation: 'demoRingFill 1.1s 0.22s cubic-bezier(0.4,0,0.2,1) forwards' }} />
+            </svg>
+            <svg width="72" height="72" viewBox="0 0 100 100" className="relative z-10"
+              style={{ filter: 'drop-shadow(0 0 28px rgba(27,84,255,0.6))', animation: 'demoLogoIn 0.45s 0.08s cubic-bezier(0.34,1.56,0.64,1) forwards', opacity: 0 }}>
+              <rect x="21" y="12" width="19" height="76" rx="9.5" fill="white" />
+              <rect x="8"  y="33" width="45" height="18" rx="9"   fill="white" />
+              <rect x="66" y="12" width="17" height="50" rx="8.5" fill="white" />
+              <circle cx="74.5" cy="84" r="8.5" fill="white" />
+            </svg>
+          </div>
+
+          {transitionQuery && (
+            <div className="text-center" style={{ animation: 'demoTextIn 0.4s 0.3s ease both' }}>
+              <p className="mb-1 text-base font-bold text-white">"{transitionQuery}"</p>
+              <p className="flex items-center justify-center gap-1 text-xs font-semibold tracking-wider text-white/35">
+                Analyse en cours
+                <span style={{ animation: 'demoDotBounce 1.2s 0.5s infinite' }}>.</span>
+                <span style={{ animation: 'demoDotBounce 1.2s 0.7s infinite' }}>.</span>
+                <span style={{ animation: 'demoDotBounce 1.2s 0.9s infinite' }}>.</span>
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Aide à la prospection */}

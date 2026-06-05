@@ -282,11 +282,15 @@ export default function LandingPage({
     setShowQualModal(true)
   }
 
-  const handleDemoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault()
+  const triggerDemoTransition = () => {
     setDemoTransition('visible')
     setTimeout(() => setDemoTransition('leaving'), 1600)
     setTimeout(() => { window.location.href = '/?demo=1' }, 2000)
+  }
+
+  const handleDemoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    triggerDemoTransition()
   }
 
   const handleCheckout = async (planCode: string) => {
@@ -478,7 +482,7 @@ export default function LandingPage({
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={() => { window.location.href = '/?demo=1' }}
+                onClick={triggerDemoTransition}
                 className="btn-glow inline-flex h-14 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-8 text-base font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
               >
                 Voir la démo
