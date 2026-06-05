@@ -866,22 +866,22 @@ function Workspace({
       )}
 
       {account.role === 'agence' && (
-        <div className="mt-6 rounded-2xl border border-slate-200 p-5">
-          <p className="flex items-center gap-2 font-medium text-slate-950">
+        <div className="mt-6 rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 p-5">
+          <p className="flex items-center gap-2 font-medium text-slate-950 dark:text-white">
             <UsersRound size={17} className="text-blue-700" />
             Comptes de l'agence
           </p>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             {verifiedMembers.length || 1} utilisateur{verifiedMembers.length > 1 ? 's' : ''} autorisé{verifiedMembers.length > 1 ? 's' : ''} · quota partagé suivi
           </p>
           <div className="mt-4 space-y-2">
             {verifiedMembers.map((member) => (
-              <div key={member.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-3 text-xs">
+              <div key={member.id} className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 px-3 py-3 text-xs">
                 <div>
-                  <p className="font-medium text-slate-900">{member.firstName} {member.lastName}</p>
-                  <p className="mt-0.5 text-slate-500">{member.email}</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{member.firstName} {member.lastName}</p>
+                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">{member.email}</p>
                 </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-blue-700">{roleLabels[member.role]}</span>
+                <span className="rounded-full bg-white dark:bg-slate-700 px-2.5 py-1 text-blue-700 dark:text-blue-400">{roleLabels[member.role]}</span>
               </div>
             ))}
           </div>
@@ -1267,25 +1267,25 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
           { value: '3',                                        label: 'Licences actives' },
           { value: remaining.toLocaleString('fr-FR'),          label: 'Recherches restantes', green: true },
         ].map(({ value, label, green }) => (
-          <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
+          <div key={label} className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-center">
             <p className={`text-xl font-extrabold ${green ? 'text-emerald-600' : 'text-[#1B54FF]'}`}>{value}</p>
-            <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Activité récente */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <History size={15} className="text-blue-700" /> Activité récente
         </p>
         <div className="flex flex-col gap-1.5">
           {DEMO_ACTIVITY.map(({ initials, color, name, sub, time }) => (
-            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
               <div className="flex items-center gap-2.5">
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initials}</div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{name}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
                   <p className="text-[10px] text-slate-400">{sub}</p>
                 </div>
               </div>
@@ -1297,33 +1297,33 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
 
       {/* Utilisation par licence */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <UsersRound size={15} className="text-blue-700" /> Utilisation par licence
         </p>
         <div className="flex flex-col gap-2">
           {DEMO_TEAM.map(({ initial, color, name, isSelf, usage, pct }) => (
-            <div key={name} className="rounded-xl border border-slate-200 p-3">
+            <div key={name} className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initial}</div>
-                  <span className="text-sm font-semibold text-slate-800">{name}{isSelf && <span className="ml-1.5 text-[10px] text-slate-400">(vous)</span>}</span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}{isSelf && <span className="ml-1.5 text-[10px] text-slate-400">(vous)</span>}</span>
                 </div>
                 <span className="text-sm font-bold text-[#1B54FF]">{usage} rech.</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-600">
                 <div className="h-1.5 rounded-full bg-[#1B54FF]" style={{ width: `${pct}%` }} />
               </div>
             </div>
           ))}
           {/* Licence libre */}
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-400">+</div>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-xs font-bold text-slate-400">+</div>
                 <span className="text-sm text-slate-400">Licence disponible</span>
               </div>
               <button type="button" onClick={onRequestAuth}
-                className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#1B54FF] transition hover:bg-blue-100">
+                className="rounded-lg bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 text-xs font-semibold text-[#1B54FF] dark:text-blue-400 transition hover:bg-blue-100 dark:hover:bg-blue-900/50">
                 Inviter →
               </button>
             </div>
@@ -1332,14 +1332,14 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
       </div>
 
       {/* Ajouter une licence */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/50 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
             <UsersRound size={16} className="text-[#1B54FF]" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">Ajouter une licence</p>
-            <p className="text-[10px] text-slate-500">Donnez accès à un collaborateur supplémentaire</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Ajouter une licence</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">Donnez accès à un collaborateur supplémentaire</p>
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -1352,20 +1352,20 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
       </div>
 
       {/* Alerte quota */}
-      <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${usagePct > 80 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+      <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${usagePct > 80 ? 'border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20' : 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/20'}`}>
         <BadgeCheck size={16} className={`shrink-0 ${usagePct > 80 ? 'text-amber-600' : 'text-emerald-600'}`} />
         <div>
-          <p className={`text-xs font-semibold ${usagePct > 80 ? 'text-amber-800' : 'text-emerald-800'}`}>
+          <p className={`text-xs font-semibold ${usagePct > 80 ? 'text-amber-800 dark:text-amber-400' : 'text-emerald-800 dark:text-emerald-400'}`}>
             {usagePct > 80 ? 'Quota bientôt atteint' : 'Quota en bonne santé'}
           </p>
-          <p className={`text-[10px] ${usagePct > 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+          <p className={`text-[10px] ${usagePct > 80 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
             {remaining.toLocaleString('fr-FR')} recherches disponibles jusqu'au 1er du mois
           </p>
         </div>
       </div>
 
       <button type="button" onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
         <LogOut size={15} /> Se déconnecter
       </button>
     </div>
@@ -1416,13 +1416,13 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
 
       {/* Lien de parrainage */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <Link size={15} className="text-blue-700" /> Votre lien de parrainage
         </p>
         <div className="flex gap-2">
-          <div className="flex flex-1 items-center gap-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+          <div className="flex flex-1 items-center gap-2 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
             <Link size={13} className="shrink-0 text-slate-400" />
-            <span className="truncate text-sm text-slate-700">{refLink}</span>
+            <span className="truncate text-sm text-slate-700 dark:text-slate-300">{refLink}</span>
           </div>
           <button type="button" onClick={copy}
             className="shrink-0 rounded-xl bg-[#1B54FF] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0b3fbc]">
@@ -1436,7 +1436,7 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
             { label: 'LinkedIn', ch: 'linkedin' as const },
           ]).map(({ label, ch }) => (
             <button key={ch} type="button" onClick={() => share(ch)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
               {label}
             </button>
           ))}
@@ -1445,7 +1445,7 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
 
       {/* Stats */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <BarChart3 size={15} className="text-blue-700" /> Mes statistiques
         </p>
         <div className="grid grid-cols-3 gap-2.5">
@@ -1454,9 +1454,9 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
             { value: '1',      label: 'Convertis',        color: 'text-emerald-600' },
             { value: '1 mois', label: 'Gain accumulé',    color: 'text-amber-500' },
           ].map(({ value, label, color }) => (
-            <div key={label} className="rounded-xl border border-slate-200 p-3 text-center">
+            <div key={label} className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-center">
               <p className={`text-xl font-extrabold ${color}`}>{value}</p>
-              <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
             </div>
           ))}
         </div>
@@ -1464,16 +1464,16 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
 
       {/* Filleuls */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <UsersRound size={15} className="text-blue-700" /> Mes filleuls
         </p>
         <div className="flex flex-col gap-1.5">
           {DEMO_REFERRALS.map(({ initials, color, name, sub, status, statusColor }) => (
-            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
               <div className="flex items-center gap-2.5">
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initials}</div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{name}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
                   <p className="text-[10px] text-slate-400">{sub}</p>
                 </div>
               </div>
@@ -1485,7 +1485,7 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
 
       {/* Comment ça marche */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <BadgeCheck size={15} className="text-blue-700" /> Comment ça marche
         </p>
         <div className="flex flex-col gap-2">
@@ -1494,16 +1494,16 @@ function ParrainageSection({ account, onLogout }: { account: Account; onLogout: 
             'Ils s\'inscrivent et testent trouvé! 20 recherches totalement gratuites.',
             'Dès qu\'ils souscrivent à un plan payant, vous recevez 1 mois offert sur votre abonnement.',
           ].map((step, i) => (
-            <div key={i} className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-3">
+            <div key={i} className="flex items-start gap-3 rounded-xl bg-slate-50 dark:bg-slate-800 px-3 py-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-[10px] font-bold text-white">{i + 1}</span>
-              <p className="text-xs leading-relaxed text-slate-600" dangerouslySetInnerHTML={{ __html: step.replace('1 mois offert', '<strong>1 mois offert</strong>').replace('20 recherches totalement gratuites', '<strong>20 recherches totalement gratuites</strong>') }} />
+              <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: step.replace('1 mois offert', '<strong>1 mois offert</strong>').replace('20 recherches totalement gratuites', '<strong>20 recherches totalement gratuites</strong>') }} />
             </div>
           ))}
         </div>
       </div>
 
       <button type="button" onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
         <LogOut size={15} /> Se déconnecter
       </button>
     </div>
@@ -1553,29 +1553,28 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
   return (
     <div className="mt-6 space-y-4">
       {/* Header */}
-      <p className="flex items-center gap-2 font-medium text-slate-950">
+      <p className="flex items-center gap-2 font-medium text-slate-950 dark:text-white">
         <TrendingUp size={17} className="text-blue-700" />
         Mon abonnement
       </p>
 
       {/* Current plan card */}
-      <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
+      <div className="rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">Plan actuel</p>
-            <p className="mt-0.5 text-lg font-bold text-slate-950">{currentPlan.name}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Plan actuel</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-950 dark:text-white">{currentPlan.name}</p>
           </div>
-          <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 shadow-sm">
+          <span className="rounded-full bg-white dark:bg-slate-800 px-3 py-1 text-sm font-bold text-blue-700 dark:text-blue-400 shadow-sm">
             {currentPlan.price} €<span className="text-xs font-normal text-slate-400"> /mois</span>
           </span>
         </div>
-        {/* Usage bar */}
         <div className="mt-3">
-          <div className="mb-1 flex justify-between text-xs text-slate-500">
+          <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>{monthlyUsage} recherches utilisées</span>
             <span>{quota} incluses</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-blue-200">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900/50">
             <div
               className={`h-2 rounded-full transition-all ${usagePct > 80 ? 'bg-amber-500' : 'bg-blue-600'}`}
               style={{ width: `${usagePct}%` }}
@@ -1589,35 +1588,28 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Passer à</p>
         {PLANS_INFO.filter(p => p.searches > currentPlan.searches).map(plan => (
-          <div key={plan.code} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div key={plan.code} className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
             <div className="flex items-center gap-2">
               {plan.recommended && <Sparkles size={13} className="text-amber-500" />}
               <div>
-                <p className="text-sm font-semibold text-slate-900">{plan.name} · {plan.price} €/mois</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{plan.name} · {plan.price} €/mois</p>
                 <p className="text-xs text-slate-400">{plan.searches.toLocaleString('fr-FR')} recherches · {plan.seats} compte{plan.seats > 1 ? 's' : ''}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => contactUpgrade(plan.name)}
-              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
-            >
-              <TrendingUp size={11} />
-              Upgrade
+            <button type="button" onClick={() => contactUpgrade(plan.name)}
+              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <TrendingUp size={11} /> Upgrade
             </button>
           </div>
         ))}
         {PLANS_INFO.filter(p => p.searches > currentPlan.searches).length === 0 && (
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Réseau · Sur devis</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Réseau · Sur devis</p>
               <p className="text-xs text-slate-400">Utilisateurs illimités · Infrastructure dédiée</p>
             </div>
-            <button
-              type="button"
-              onClick={() => contactUpgrade('Réseau')}
-              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
-            >
+            <button type="button" onClick={() => contactUpgrade('Réseau')}
+              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
               Contacter
             </button>
           </div>
@@ -1628,26 +1620,20 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Acheter en plus</p>
         <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => contactAddon('+500 recherches — 49 €')}
-            className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50"
-          >
+          <button type="button" onClick={() => contactAddon('+500 recherches — 49 €')}
+            className="flex flex-col items-start rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/20">
             <div className="flex items-center gap-1.5">
               <Plus size={13} className="text-blue-600" />
-              <span className="text-xs font-bold text-slate-900">+500 recherches</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">+500 recherches</span>
             </div>
             <span className="mt-1 text-lg font-bold text-[#124bd2]">49 €</span>
             <span className="text-[10px] text-slate-400">Valable 30 jours</span>
           </button>
-          <button
-            type="button"
-            onClick={() => contactAddon('Siège supplémentaire — 59 €/mois')}
-            className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50"
-          >
+          <button type="button" onClick={() => contactAddon('Siège supplémentaire — 59 €/mois')}
+            className="flex flex-col items-start rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/20">
             <div className="flex items-center gap-1.5">
               <CreditCard size={13} className="text-blue-600" />
-              <span className="text-xs font-bold text-slate-900">Siège supp.</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">Siège supp.</span>
             </div>
             <span className="mt-1 text-lg font-bold text-[#124bd2]">59 €</span>
             <span className="text-[10px] text-slate-400">Par mois</span>
@@ -1677,9 +1663,9 @@ function formatAction(action: string) {
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4">
-      <p className="text-[11px] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-medium text-slate-950">{value}</p>
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-4">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-2 text-sm font-medium text-slate-950 dark:text-slate-100">{value}</p>
     </div>
   )
 }
@@ -1708,7 +1694,7 @@ function Field({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-xs font-medium text-slate-600">{label}</label>
+      <label htmlFor={id} className="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-400">{label}</label>
       <div className="relative">
         <input
           id={id}
