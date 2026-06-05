@@ -710,7 +710,7 @@ function AuthShowcase() {
         </div>
 
         <div className="mx-auto mt-7 grid max-w-4xl grid-cols-3 rounded-[24px] border border-white/80 bg-white/70 p-5 text-center shadow-[0_24px_70px_-60px_rgba(7,39,115,0.75)] backdrop-blur">
-          <Metric value="5.8B+" label="Données" />
+          <Metric value="267M+" label="Données" />
           <Metric value="25+" label="Critères" framed />
           <Metric value="<1s" label="Résultats" />
         </div>
