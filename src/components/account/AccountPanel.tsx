@@ -443,24 +443,24 @@ export default function AccountPanel({
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
       <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
       <section
-        className={`relative h-full w-full max-w-[620px] overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-300 ease-out sm:p-8 ${entered ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`relative h-full w-full max-w-[620px] overflow-y-auto bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-2xl transition-transform duration-300 ease-out sm:p-8 ${entered ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <header className="mb-6 flex items-start justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-blue-600">Espace sécurisé</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
               {sectionTitles[view as AccountPanelView] ?? 'Accès trouvé!'}
             </h2>
           </div>
           <button type="button" aria-label="Fermer" onClick={onClose}
-            className="rounded-full border border-slate-200 p-2.5 text-slate-500 transition hover:bg-slate-50">
+            className="rounded-full border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-50 dark:hover:bg-slate-800">
             <X size={18} />
           </button>
         </header>
 
 
         {(drawerView === 'login' || drawerView === 'register') && !requestCreated && (
-          <nav className="mb-7 flex rounded-2xl bg-slate-100 p-1">
+          <nav className="mb-7 flex rounded-2xl bg-slate-100 dark:bg-slate-800 p-1">
             {[
               { id: 'register' as const, label: 'Créer mon compte' },
               { id: 'login' as const, label: 'Connexion' },
@@ -471,7 +471,7 @@ export default function AccountPanel({
                 onClick={() => setView(item.id)}
                 className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition ${
                   drawerView === item.id
-                    ? 'bg-white text-slate-950 shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-slate-950 dark:text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -755,7 +755,7 @@ function AuthInput({
         value={value}
         placeholder={label}
         onChange={(event) => onChange(event.target.value)}
-        className={`h-[50px] w-full rounded-xl border border-slate-200 bg-white text-sm font-medium text-[#07113d] outline-none transition placeholder:text-slate-400 focus:border-[#0757f8] focus:ring-4 focus:ring-blue-100 ${
+        className={`h-[50px] w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-[#07113d] dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-[#0757f8] focus:ring-4 focus:ring-blue-100 ${
           Icon ? 'pl-12' : 'pl-4'
         } ${isPassword ? 'pr-12' : 'pr-4'}`}
       />
