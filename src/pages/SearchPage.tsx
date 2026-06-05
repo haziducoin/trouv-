@@ -1790,16 +1790,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
   }, [isLoading]) // eslint-disable-line
 
-  useEffect(() => {
-    if (!hasSearched) return // pas de debounce avant la 1ère recherche manuelle
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
-        .map(s => s.trim()).filter(Boolean).join(' ')
-      doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
-    }, 420)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [inputValue]) // eslint-disable-line
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -1821,10 +1811,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
-  // Recherche auto au montage (pas de recherche vide — attendre la saisie)
-  useEffect(() => {
-    doSearch({ query: '', department: '', activityCode: '', activeOnly: true })
-  }, []) // eslint-disable-line
 
   const handlePageChange = (pg: number) => {
     doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
@@ -2423,7 +2409,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           {transitionQuery && (
             <div className="text-center" style={{ animation: 'demoTextIn 0.4s 0.3s ease both' }}>
               <p className="mb-1 text-base font-bold text-white">"{transitionQuery}"</p>
-              <p className="flex items-center justify-center gap-1 text-xs font-semibold tracking-wider text-white/35">
+              <p className="flex items-center justify-center gap-1 text-xs font-semibold tracking-wider text-white/60">
                 Analyse en cours
                 <span style={{ animation: 'demoDotBounce 1.2s 0.5s infinite' }}>.</span>
                 <span style={{ animation: 'demoDotBounce 1.2s 0.7s infinite' }}>.</span>
