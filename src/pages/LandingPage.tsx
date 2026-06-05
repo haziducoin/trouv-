@@ -336,7 +336,7 @@ export default function LandingPage({
           {!currentAccount && (
             <div className="hidden items-center gap-7 md:flex">
               {([
-                { label: 'Démo',            href: '#demo' },
+                { label: 'Démo',            href: '/?demo=1' },
                 { label: 'Fonctionnalités', href: '#criteres' },
                 { label: 'Tarifs',          href: '#tarifs' },
                 { label: 'Sécurité',        href: '#securite' },
