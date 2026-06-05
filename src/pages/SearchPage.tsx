@@ -1871,9 +1871,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         {/* Logo */}
         <div className="flex h-16 flex-col items-start justify-center border-b border-white/[0.06] px-6">
           <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
-          {account.role === 'agent' && (
-            <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">Accès Salarié</p>
-          )}
+          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">
+            {account.role === 'agent' ? 'Accès Salarié' : account.role === 'admin' ? 'Accès Admin' : 'Accès Dirigeant'}
+          </p>
         </div>
 
         {/* Navigation */}
