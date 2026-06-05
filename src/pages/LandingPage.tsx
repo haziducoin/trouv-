@@ -465,7 +465,7 @@ export default function LandingPage({
               <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-6 py-5 shadow-sm backdrop-blur-sm">
                 <div className="flex flex-col divide-y divide-slate-100 md:flex-row md:divide-x md:divide-y-0">
                   {[
-                    { value: '5.8B+', label: 'Données\ndisponibles' },
+                    { value: '267M+', label: 'Données\ndisponibles' },
                     { value: '25+',   label: 'Critères\nde recherche' },
                     { value: '<1s',   label: 'Pour obtenir\nun résultat' },
                   ].map(({ value, label }) => (
