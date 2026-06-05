@@ -326,11 +326,32 @@ export default function LandingPage({
         <div className="absolute left-1/2 top-[-16rem] h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-blue-100/45 blur-[110px]" />
       </div>
 
-      <header className="fixed inset-x-0 top-0 z-50 px-6 py-6">
-        <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between bg-white/85 backdrop-blur-sm">
-          <a href="#" aria-label="trouvé! accueil" className="cursor-pointer">
-            <img src={trouveLogo} alt="trouvé!" className="h-9 w-auto md:h-11" />
+      <header className="fixed inset-x-0 top-0 z-50 px-6 py-4">
+        <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl bg-white/85 px-6 shadow-sm ring-1 ring-slate-100/80 backdrop-blur-md">
+          <a href="#produit" aria-label="trouvé! accueil" className="cursor-pointer flex-shrink-0">
+            <img src={trouveLogo} alt="trouvé!" className="h-9 w-auto md:h-10" />
           </a>
+
+          {/* Liens de navigation — masqués sur mobile */}
+          {!currentAccount && (
+            <div className="hidden items-center gap-7 md:flex">
+              {([
+                { label: 'Démo',            href: '#demo' },
+                { label: 'Fonctionnalités', href: '#criteres' },
+                { label: 'Tarifs',          href: '#tarifs' },
+                { label: 'Sécurité',        href: '#securite' },
+              ] as const).map(({ label, href }) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="relative text-sm font-semibold text-slate-600 transition hover:text-[#124bd2] after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-[#124bd2] after:transition-all hover:after:w-full"
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          )}
+
           {currentAccount ? (
             <button
               type="button"
