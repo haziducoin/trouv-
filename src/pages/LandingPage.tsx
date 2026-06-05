@@ -426,9 +426,9 @@ export default function LandingPage({
               <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-6 py-5 shadow-sm backdrop-blur-sm">
                 <div className="flex flex-col divide-y divide-slate-100 md:flex-row md:divide-x md:divide-y-0">
                   {[
-                    { value: '92%',  label: 'de taux de\ncorrespondance' },
-                    { value: '+15M', label: 'contacts professionnels\ndans la base' },
-                    { value: '<2s',  label: 'pour obtenir\nun résultat qualifié' },
+                    { value: '5.8B+', label: 'Données\ndisponibles' },
+                    { value: '25+',   label: 'Critères\nde recherche' },
+                    { value: '<1s',   label: 'Pour obtenir\nun résultat' },
                   ].map(({ value, label }) => (
                     <div key={value} className="flex flex-1 flex-col items-center gap-1 py-4 md:py-2">
                       <span className="text-3xl font-black tracking-tight text-[#124bd2]">{value}</span>
