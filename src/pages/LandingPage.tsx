@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserRoundCheck,
+  Users,
   X,
   Zap,
 } from 'lucide-react'
@@ -255,6 +256,8 @@ export default function LandingPage({
   const [billingPeriod, setBillingPeriod]       = useState<BillingPeriod>('monthly')
   const [checkoutLoading, setCheckoutLoading]   = useState<string | null>(null)
   const [checkoutError, setCheckoutError]       = useState<string | null>(null)
+  const [emailInput, setEmailInput]             = useState('')
+  const [showQualModal, setShowQualModal]       = useState(false)
 
   const accountPanel    = externalAccountPanel  !== undefined ? externalAccountPanel  : _localPanel
   const setAccountPanel = onOpenAccountPanel    !== undefined ? onOpenAccountPanel    : _setLocalPanel
@@ -270,6 +273,12 @@ export default function LandingPage({
     await clearSession()
     setCurrentAccount(null)
     setAccountPanel(null)
+  }
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!emailInput.trim() || !emailInput.includes('@')) return
+    setShowQualModal(true)
   }
 
   const handleCheckout = async (planCode: string) => {
@@ -366,19 +375,84 @@ export default function LandingPage({
             <p className="mx-auto mt-7 max-w-4xl text-xl leading-relaxed text-slate-800 md:text-2xl">
               Le moteur de recherche pour identifier et contacter vos cibles qualifiées.
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {/* ── Capture email ── */}
+            <div className="mx-auto mt-10 max-w-2xl">
+              <form
+                onSubmit={handleEmailSubmit}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_8px_32px_-8px_rgba(18,75,210,0.15)] sm:flex-row sm:gap-2"
+              >
+                <div className="relative flex-1">
+                  <Mail size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={e => setEmailInput(e.target.value)}
+                    placeholder="Entrez votre adresse email professionnelle..."
+                    className="w-full rounded-xl border border-transparent bg-slate-50 py-3.5 pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#124bd2] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-7 py-3.5 text-sm font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition hover:-translate-y-0.5 hover:bg-[#0f3fc7] whitespace-nowrap"
+                >
+                  Commencer gratuitement
+                  <ArrowRight size={15} />
+                </button>
+              </form>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                <LockKeyhole size={11} />
+                Conforme RGPD & CNIL · Résiliable à tout moment
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <div className="flex -space-x-2">
+                  {[
+                    'bg-gradient-to-br from-blue-400 to-blue-600',
+                    'bg-gradient-to-br from-emerald-400 to-emerald-600',
+                    'bg-gradient-to-br from-purple-400 to-purple-600',
+                  ].map((cls, i) => (
+                    <div key={i} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold text-white ${cls}`}>
+                      {['JD','ML','AS'][i]}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                  <span className="font-semibold text-slate-700">+2 400 professionnels</span> l'utilisent ce mois-ci
+                </p>
+              </div>
+            </div>
+
+            {/* ── Bande de statistiques ── */}
+            <div className="mx-auto mt-10 max-w-3xl">
+              <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-6 py-5 shadow-sm backdrop-blur-sm">
+                <div className="flex flex-col divide-y divide-slate-100 md:flex-row md:divide-x md:divide-y-0">
+                  {[
+                    { value: '92%',  label: 'de taux de\ncorrespondance' },
+                    { value: '+15M', label: 'contacts professionnels\ndans la base' },
+                    { value: '<2s',  label: 'pour obtenir\nun résultat qualifié' },
+                  ].map(({ value, label }) => (
+                    <div key={value} className="flex flex-1 flex-col items-center gap-1 py-4 md:py-2">
+                      <span className="text-3xl font-black tracking-tight text-[#124bd2]">{value}</span>
+                      <span className="whitespace-pre-line text-center text-xs font-semibold text-slate-500">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── CTAs secondaires (existants) ── */}
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={() => { window.location.href = '/?demo=1' }}
-                className="btn-glow inline-flex h-16 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-10 text-lg font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
+                className="btn-glow inline-flex h-14 cursor-pointer items-center gap-3 rounded-full bg-[#124bd2] px-8 text-base font-bold text-white shadow-[0_22px_44px_-22px_rgba(18,75,210,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#0f3fc7]"
               >
                 Voir la démo
-                <ArrowRight size={22} />
+                <ArrowRight size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => setAccountPanel('register')}
-                className="inline-flex h-16 cursor-pointer items-center gap-3 rounded-full border border-slate-200 bg-white px-8 text-lg font-bold text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#124bd2]"
+                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-full border border-slate-200 bg-white px-7 text-base font-bold text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#124bd2]"
               >
                 Créer un accès complet
               </button>
@@ -989,6 +1063,109 @@ export default function LandingPage({
             </div>
           </div>
         </section>
+
+        {/* ── SECTION SÉCURITÉ & CONFORMITÉ ─────────────────────────────── */}
+        <section className="relative px-5 py-24">
+          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white via-slate-50/60 to-white" />
+          <div className="mx-auto max-w-6xl">
+
+            <div className="mb-14 text-center">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#124bd2]">Confiance & Conformité</p>
+              <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
+                Une plateforme construite sur la{' '}
+                <span className="bg-gradient-to-r from-[#124bd2] via-[#1e6cff] to-[#3b8eff] bg-clip-text text-transparent">sécurité</span>
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base text-slate-500">
+                Chaque fonctionnalité a été pensée pour respecter vos données et celles de vos contacts, en conformité totale avec la législation française.
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3">
+
+              {/* Carte 1 — RGPD */}
+              <div className="group rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(18,75,210,0.12)]">
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2] transition group-hover:bg-[#124bd2] group-hover:text-white">
+                  <ShieldCheck size={22} strokeWidth={1.8} />
+                </div>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <h3 className="text-base font-bold text-[#070f22]">Protection RGPD absolue</h3>
+                  <span className="mt-0.5 shrink-0 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600">CNIL ✓</span>
+                </div>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  Toutes les données sont <strong className="text-slate-700">chiffrées de bout en bout</strong>. Vos listes de prospects ne sont jamais revendues ni partagées. Vous restez seul propriétaire de vos recherches.
+                </p>
+                <ul className="mt-5 space-y-2">
+                  {['Chiffrement AES-256', "Droit à l'oubli garanti", 'Hébergement 100 % France'].map(item => (
+                    <li key={item} className="flex items-center gap-2.5 text-xs font-medium text-slate-600">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#124bd2]" />{item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Carte 2 — Sources (fond dark, mise en avant) */}
+              <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#07113d] to-[#0f2460] p-7 shadow-xl transition hover:-translate-y-1">
+                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#1B54FF]/20 blur-3xl" />
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
+                  <Search size={22} strokeWidth={1.8} />
+                </div>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <h3 className="text-base font-bold text-white">Sources ouvertes & vérifiées</h3>
+                  <span className="mt-0.5 shrink-0 rounded-full border border-white/20 bg-white/15 px-2.5 py-0.5 text-[10px] font-bold text-white/80">Zéro scraping illégal</span>
+                </div>
+                <p className="text-sm leading-relaxed text-white/70">
+                  trouvé! enrichit les données depuis des <strong className="text-white">sources publiques et partenaires agréés uniquement</strong>. Chaque accès est nominatif, tracé et limité par quota.
+                </p>
+                <ul className="mt-5 space-y-2">
+                  {['Comptes nominatifs vérifiés', 'Anti-extraction massive', "Quotas et registres d'usage"].map(item => (
+                    <li key={item} className="flex items-center gap-2.5 text-xs font-medium text-white/80">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Carte 3 — CNIL */}
+              <div className="group rounded-3xl border border-slate-200/80 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(124,58,237,0.12)]">
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 transition group-hover:bg-purple-600 group-hover:text-white">
+                  <BadgeCheck size={22} strokeWidth={1.8} />
+                </div>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <h3 className="text-base font-bold text-[#070f22]">Conformité CNIL & législation</h3>
+                  <span className="mt-0.5 shrink-0 rounded-full border border-purple-100 bg-purple-50 px-2.5 py-0.5 text-[10px] font-bold text-purple-600">100 % Légal</span>
+                </div>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  Une plateforme développée en <strong className="text-slate-700">parfaite conformité</strong> avec les directives de la CNIL, le RGPD et les législations françaises sur la protection des données professionnelles.
+                </p>
+                <ul className="mt-5 space-y-2">
+                  {['RGPD & ePrivacy', 'Directives CNIL 2024', 'Audit sécurité annuel'].map(item => (
+                    <li key={item} className="flex items-center gap-2.5 text-xs font-medium text-slate-600">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-purple-500" />{item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+            </div>
+
+            {/* Bande de garanties */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 rounded-2xl border border-slate-100 bg-white/60 px-8 py-5">
+              {([
+                { icon: ShieldCheck, label: 'Comptes nominatifs vérifiés' },
+                { icon: Zap,         label: 'Anti-extraction massive' },
+                { icon: History,     label: "Registres d'utilisation" },
+                { icon: LockKeyhole, label: 'Données jamais revendues' },
+              ] as const).map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                  <Icon size={15} className="text-emerald-500" />
+                  {label}
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </section>
+
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-5 py-8">
@@ -1009,6 +1186,75 @@ export default function LandingPage({
           onClose={() => setAccountPanel(null)}
           onLogout={logout}
         />
+      )}
+
+      {/* ── Modale qualification post-email ── */}
+      {showQualModal && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setShowQualModal(false) }}
+        >
+          <div className="animate-in zoom-in-95 relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl duration-200">
+            <button
+              onClick={() => setShowQualModal(false)}
+              className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50"
+            >
+              <X size={15} />
+            </button>
+
+            {/* Étape */}
+            <div className="mb-6 flex items-center gap-2">
+              <div className="h-2 w-8 rounded-full bg-[#124bd2]" />
+              <div className="h-2 w-4 rounded-full bg-slate-200" />
+              <div className="h-2 w-4 rounded-full bg-slate-200" />
+              <span className="ml-1 text-xs font-medium text-slate-400">Étape 1 sur 2</span>
+            </div>
+
+            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+              <UserRoundCheck size={26} strokeWidth={1.8} />
+            </div>
+
+            <h2 className="text-xl font-bold text-[#070f22]">Quel est votre profil ?</h2>
+            <p className="mt-1.5 text-sm text-slate-500">Cela nous permet de personnaliser votre accès.</p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                onClick={() => { setShowQualModal(false); setAccountPanel('register') }}
+                className="group flex items-start gap-4 rounded-2xl border-2 border-slate-200 bg-white p-4 text-left transition hover:border-[#124bd2] hover:bg-blue-50/50"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#124bd2] transition group-hover:bg-[#124bd2] group-hover:text-white">
+                  <Users size={18} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-[#070f22]">Je prospecte pour une agence ou une équipe commerciale</p>
+                  <p className="mt-0.5 text-xs text-slate-400">Dirigeant, responsable commercial, équipe de vente…</p>
+                </div>
+                <ArrowRight size={16} className="mt-1 shrink-0 text-slate-300 transition group-hover:text-[#124bd2]" />
+              </button>
+
+              <button
+                onClick={() => { setShowQualModal(false); setAccountPanel('register') }}
+                className="group flex items-start gap-4 rounded-2xl border-2 border-slate-200 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50/50"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-500 group-hover:text-white">
+                  <UserRoundCheck size={18} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-[#070f22]">Je travaille seul en tant qu'indépendant ou consultant</p>
+                  <p className="mt-0.5 text-xs text-slate-400">Agent immobilier, freelance, auto-entrepreneur…</p>
+                </div>
+                <ArrowRight size={16} className="mt-1 shrink-0 text-slate-300 transition group-hover:text-emerald-500" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => { setShowQualModal(false); setAccountPanel('register') }}
+              className="mt-5 block w-full text-center text-xs text-slate-400 transition hover:text-slate-600"
+            >
+              Passer cette étape →
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
