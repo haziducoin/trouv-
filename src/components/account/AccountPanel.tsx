@@ -1083,16 +1083,16 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
   return (
     <div className="flex flex-col gap-5">
       {/* Avatar + identité */}
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-5">
+      <div className="flex items-center gap-4 rounded-2xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-5">
         <div className="relative shrink-0">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1B54FF] to-indigo-500 text-2xl font-bold text-white shadow-lg shadow-blue-500/25">
             {initial}
           </div>
-          <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
+          <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-slate-800 bg-emerald-400" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-bold text-slate-900">{account.companyName || `${account.firstName} ${account.lastName}`}</p>
+            <p className="text-base font-bold text-slate-900 dark:text-white">{account.companyName || `${account.firstName} ${account.lastName}`}</p>
             <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-700">{roleLabels[account.role]}</span>
             <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
               <BadgeCheck size={10} /> Validé
@@ -1105,57 +1105,57 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
 
       {/* Informations personnelles */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <UserRound size={15} className="text-blue-700" /> Informations personnelles
         </p>
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prénom</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{account.firstName || '—'}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{account.firstName || '—'}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nom</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{account.lastName || '—'}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{account.lastName || '—'}</p>
           </div>
-          <div className="col-span-2 rounded-xl border border-slate-200 p-3">
+          <div className="col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Adresse e-mail professionnelle</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{account.email}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{account.email}</p>
           </div>
         </div>
       </div>
 
       {/* Entreprise & licences */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <Building2 size={15} className="text-blue-700" /> Entreprise & licences
         </p>
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="col-span-2 rounded-xl border border-slate-200 p-3">
+          <div className="col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Raison sociale</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{account.companyName || '—'}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{account.companyName || '—'}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">SIREN</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{account.siren || '—'}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{account.siren || '—'}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 p-3">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Plan actif</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{plan}</p>
+            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{plan}</p>
           </div>
         </div>
       </div>
 
       {/* Utilisation du mois */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <BarChart3 size={15} className="text-blue-700" /> Utilisation ce mois
         </p>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-1.5 flex justify-between text-xs text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+          <div className="mb-1.5 flex justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>{account.monthlyUsage} recherches effectuées</span>
             <span>/ {account.quota} incluses</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-600">
             <div className={`h-2 rounded-full ${usagePct > 80 ? 'bg-amber-500' : 'bg-[#1B54FF]'}`} style={{ width: `${usagePct}%` }} />
           </div>
           <p className="mt-1 text-right text-[10px] text-slate-400">{usagePct}% utilisé · renouvellement le 1er du mois</p>
@@ -1164,14 +1164,14 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
 
       {/* Sécurité */}
       <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
           <ShieldCheck size={15} className="text-blue-700" /> Sécurité & accès
         </p>
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-4 py-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mot de passe</p>
-              <p className="mt-0.5 text-sm text-slate-700">••••••••••••</p>
+              <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-300">••••••••••••</p>
             </div>
             <button type="button"
               onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${account.email}`, '_blank')}
@@ -1179,33 +1179,33 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
               Modifier →
             </button>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 px-4 py-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Journalisation</p>
-              <p className="mt-0.5 text-sm text-slate-700">Toutes les recherches sont tracées</p>
+              <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-300">Toutes les recherches sont tracées</p>
             </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">Actif</span>
+            <span className="rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">Actif</span>
           </div>
         </div>
       </div>
 
       {/* Zone sensible */}
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-        <p className="mb-1 text-sm font-bold text-red-600">Zone sensible</p>
-        <p className="mb-3 text-xs text-red-400">Ces actions sont irréversibles. Lisez attentivement avant de procéder.</p>
+      <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-4">
+        <p className="mb-1 text-sm font-bold text-red-600 dark:text-red-400">Zone sensible</p>
+        <p className="mb-3 text-xs text-red-400 dark:text-red-500">Ces actions sont irréversibles. Lisez attentivement avant de procéder.</p>
         <div className="flex flex-col gap-2">
           {[
             { label: 'Résilier l\'abonnement',           sub: 'Accès actif jusqu\'à la fin de la période en cours.',      subject: 'Résiliation abonnement' },
             { label: 'Supprimer le compte',               sub: 'Supprime définitivement l\'accès et toutes les licences.', subject: 'Suppression compte' },
             { label: 'Suppression des données (RGPD)',    sub: 'Droit à l\'effacement — traité sous 30 jours.',            subject: 'Suppression données RGPD' },
           ].map(({ label, sub, subject }) => (
-            <div key={label} className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-white px-3 py-2.5">
+            <div key={label} className="flex items-center justify-between gap-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-white dark:bg-slate-800 px-3 py-2.5">
               <div>
-                <p className="text-xs font-semibold text-slate-800">{label}</p>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{label}</p>
                 <p className="text-[10px] text-slate-400">{sub}</p>
               </div>
               <button type="button" onClick={() => dangerAction(subject)}
-                className="shrink-0 rounded-lg border border-red-300 px-2.5 py-1 text-[10px] font-semibold text-red-600 transition hover:bg-red-50">
+                className="shrink-0 rounded-lg border border-red-300 dark:border-red-700 px-2.5 py-1 text-[10px] font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/30">
                 Demander →
               </button>
             </div>
@@ -1214,7 +1214,7 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
       </div>
 
       <button type="button" onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
         <LogOut size={15} /> Se déconnecter
       </button>
     </div>
