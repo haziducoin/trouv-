@@ -114,7 +114,14 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
 
-  const { data, error } = await supabase.rpc('search_contacts', rpcParams)
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Recherche trop longue — réessayez avec un nom exact')), 10000)
+  )
+
+  const { data, error } = await Promise.race([
+    supabase.rpc('search_contacts', rpcParams),
+    timeout,
+  ]) as Awaited<ReturnType<typeof supabase.rpc>>
 
   if (error) {
     if (
