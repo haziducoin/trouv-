@@ -7,7 +7,7 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu,
 } from 'lucide-react'
 import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
 
@@ -1643,6 +1643,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [appView, setAppView]                 = useState<AppView>('search')
   const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
+  const [showMobileMenu, setShowMobileMenu]   = useState(false)
 
   // Compteur de recherches pour modes demo / limited
   const DEMO_COUNT_KEY = `trouve_demo_count_${account.id}`
@@ -1864,8 +1865,50 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
-      {/* ── Sidebar gauche (fixe, dark) ──────────────────────────────────── */}
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06]">
+      {/* ── Header mobile (visible < lg) ─────────────────────────────────── */}
+      <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-[#07113d] border-b border-white/[0.06]">
+        <button onClick={() => setShowMobileMenu(true)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
+          <Menu size={20} />
+        </button>
+        <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+        <button onClick={() => setDarkMode(d => !d)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
+          {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+      </header>
+
+      {/* ── Overlay mobile menu ───────────────────────────────────────────── */}
+      {showMobileMenu && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={() => setShowMobileMenu(false)} />
+          <aside className="fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06] lg:hidden">
+            <div className="flex h-14 items-center justify-between border-b border-white/[0.06] px-5">
+              <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+              <button onClick={() => setShowMobileMenu(false)} className="text-white/50 hover:text-white"><X size={18} /></button>
+            </div>
+            <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-2">
+              {([{ key: 'search', label: 'Recherche', icon: Search }, { key: 'history', label: 'Historique', icon: History }] as const).map(({ key, label, icon: Icon }) => (
+                <button key={key} onClick={() => { setAppView(key); setShowMobileMenu(false) }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === key ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/8 hover:text-white/80'}`}>
+                  <Icon size={15} />{label}
+                </button>
+              ))}
+              <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-white/25">Mes listes</div>
+              <button onClick={() => { setAppView('lists'); setShowMobileMenu(false) }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === 'lists' ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/8 hover:text-white/80'}`}>
+                <Plus size={15} /><span className="flex-1 text-left">Toutes les listes</span>
+                {lists.length > 0 && <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
+              </button>
+              <button onClick={() => { setShowMobileMenu(false); setAddPopupProspect({ id: '__new_list__' } as ProspectResult) }}
+                className="mt-2 flex w-full items-center gap-2 rounded-xl bg-[#124bd2]/20 border border-[#124bd2]/50 px-3 py-2.5 text-xs font-bold text-blue-300 transition hover:bg-[#124bd2]/30">
+                <Plus size={13} /> Nouvelle liste
+              </button>
+            </nav>
+          </aside>
+        </>
+      )}
+
+      {/* ── Sidebar gauche (fixe, dark) — desktop uniquement ─────────────── */}
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06]">
 
         {/* Logo */}
         <div className="flex h-16 flex-col items-start justify-center border-b border-white/[0.06] px-6">
@@ -1941,7 +1984,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       </aside>
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
-      <div className="ml-60 flex flex-1 flex-col">
+      <div className="lg:ml-60 flex flex-1 flex-col pt-14 lg:pt-0 pb-16 lg:pb-0">
 
         {/* Vue Historique */}
         {appView === 'history' && (
@@ -1973,7 +2016,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
         {/* Vue Recherche */}
         {appView === 'search' && (
-          <div className="flex flex-1 flex-col px-8 py-8">
+          <div className="flex flex-1 flex-col px-4 py-4 lg:px-8 lg:py-8">
 
             {/* En-tête */}
             <div className="mb-7 flex items-start justify-between">
@@ -2442,6 +2485,21 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           }}
         />
       )}
+
+      {/* ── Bottom nav mobile ────────────────────────────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1">
+        {([
+          { key: 'search',  label: 'Recherche', icon: Search },
+          { key: 'history', label: 'Historique', icon: History },
+          { key: 'lists',   label: 'Listes',     icon: Plus },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button key={key} onClick={() => setAppView(key)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition ${appView === key ? 'text-white' : 'text-white/40'}`}>
+            <Icon size={18} />
+            {label}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
