@@ -1,8 +1,6 @@
-// ─── API Prospects — interroge la table Supabase "prospects" ──────────────────
+// ─── API Prospects — interroge la table Supabase "contacts" ───────────────────
 import { extractBirthCity, extractBirthYear, stripSensitiveFields } from '@/lib/privacy'
 import { getSupabaseClient } from '@/lib/supabase'
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 export interface ProspectResult {
   id:            string
@@ -35,6 +33,9 @@ export interface ProspectResult {
 
 export interface ProspectSearchParams {
   query:           string
+  nom?:            string
+  prenom?:         string
+  city?:           string
   department?:     string
   activityCode?:   string
   zipCode?:        string
@@ -55,82 +56,67 @@ export interface ProspectSearchResponse {
 
 function mapRow(row: Record<string, any>): ProspectResult {
   const clean = stripSensitiveFields(row)
-  const firstName = clean.first_name ?? clean.firstName ?? ''
-  const lastName = clean.last_name ?? clean.lastName ?? ''
-  const companyName = clean.company_name ?? clean.companyName ?? null
+
+  const firstName = clean.prenom ?? clean.first_name ?? clean.firstName ?? ''
+  const lastName  = clean.nom    ?? clean.last_name  ?? clean.lastName  ?? ''
+  const companyName = clean.organisme ?? clean.company_name ?? clean.companyName ?? null
 
   return {
     id:            String(clean.id ?? crypto.randomUUID()),
     firstName,
     lastName,
-    fullName:      clean.fullName ?? (`${firstName} ${lastName}`.trim() || companyName || 'Inconnu'),
-    jobTitle:      clean.job_title      ?? clean.jobTitle ?? null,
+    fullName:      `${firstName} ${lastName}`.trim() || companyName || 'Inconnu',
+    jobTitle:      clean.situation    ?? clean.job_title   ?? clean.jobTitle   ?? null,
     companyName,
     companySiren:  null,
     activityCode:  null,
-    activityLabel: clean.activity_label ?? clean.activityLabel ?? null,
+    activityLabel: null,
     companySize:   null,
     companyType:   null,
-    email:         clean.email          ?? null,
-    phone:         clean.phone          ?? null,
-    phoneMobile:   clean.phone_mobile   ?? clean.phoneMobile ?? null,
-    linkedinUrl:   clean.linkedin_url   ?? clean.linkedinUrl ?? clean.public_social_url ?? null,
+    email:         clean.email        ?? null,
+    phone:         clean.telephone    ?? clean.phone        ?? null,
+    phoneMobile:   clean.phone_mobile ?? clean.phoneMobile  ?? null,
+    linkedinUrl:   clean.linkedin_url ?? clean.linkedinUrl  ?? null,
     website:       null,
-    address:       clean.address        ?? null,
-    city:          clean.city           ?? null,
-    zipCode:       clean.zip_code       ?? clean.zipCode ?? null,
+    address:       clean.adresse      ?? clean.address      ?? null,
+    city:          clean.ville        ?? clean.city         ?? null,
+    zipCode:       clean.code_postal  ?? clean.zip_code     ?? clean.zipCode ?? null,
     department:    null,
     region:        null,
-    country:       clean.country        ?? null,
-    birthYear:     clean.birthYear      ?? extractBirthYear(clean),
-    birthCity:     clean.birthCity      ?? extractBirthCity(clean),
+    country:       clean.country      ?? null,
+    birthYear:     clean.birthYear    ?? extractBirthYear(clean),
+    birthCity:     clean.birthCity    ?? extractBirthCity(clean),
     isActive:      true,
-    createdAt:     clean.created_at     ?? new Date().toISOString(),
+    createdAt:     clean.created_at   ?? new Date().toISOString(),
   }
 }
 
 export async function searchProspects(params: ProspectSearchParams): Promise<ProspectSearchResponse> {
-  const supabase  = getSupabaseClient()
-  const pg        = params.page    ?? 1
-  const pp        = params.perPage ?? 20
-  const token     = (await supabase.auth.getSession()).data.session?.access_token
+  const supabase = getSupabaseClient()
+  const pg = params.page    ?? 1
+  const pp = params.perPage ?? 20
 
-  if (token) {
-    try {
-      const response = await fetch(`${API_URL}/api/prospects/search`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...params, page: pg, perPage: pp }),
-      })
+  let p_nom    = params.nom?.trim()    || null
+  let p_prenom = params.prenom?.trim() || null
 
-      if (!response.ok) throw new Error(`API prospects indisponible (${response.status})`)
-
-      const payload = await response.json() as ProspectSearchResponse
-      return {
-        ...payload,
-        results: (payload.results ?? []).map(row => mapRow(row as unknown as Record<string, any>)),
-      }
-    } catch (error) {
-      if (import.meta.env.PROD) throw error
-    }
+  if (!p_nom && !p_prenom && params.query.trim()) {
+    const parts = params.query.trim().split(/\s+/)
+    p_nom    = parts[0] || null
+    p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
   }
 
-  const { data, error } = await supabase.rpc('search_prospects', {
-    p_query:          params.query.trim(),
-    p_department:     params.department    ?? '',
-    p_activity_code:  params.activityCode  ?? '',
-    p_zip_code:       params.zipCode       ?? '',
-    p_employee_range: params.employeeRange ?? '',
-    p_legal_form:     params.legalForm     ?? '',
-    p_page:           pg,
-    p_per_page:       pp,
-  })
+  const rpcParams: Record<string, any> = {
+    p_limit:  pp,
+    p_offset: (pg - 1) * pp,
+  }
+  if (p_nom)                  rpcParams.p_nom    = p_nom
+  if (p_prenom)               rpcParams.p_prenom = p_prenom
+  if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
+  if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
+
+  const { data, error } = await supabase.rpc('search_contacts', rpcParams)
 
   if (error) {
-    // Fonction RPC absente = SQL pas encore exécuté dans Supabase → état vide silencieux
     if (
       error.message?.includes('Could not find') ||
       error.message?.includes('function') ||
@@ -141,8 +127,10 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     throw new Error(`Recherche impossible : ${error.message}`)
   }
 
-  const rows = (data ?? []) as Array<Record<string, any>>
-  const total = rows.length > 0 ? Number(rows[0].total_count) : 0
+  const rows  = (data ?? []) as Array<Record<string, any>>
+  const total = rows.length > 0
+    ? (Number(rows[0].total_count) || rows.length)
+    : 0
 
   return {
     results:    rows.map(mapRow),
@@ -173,7 +161,7 @@ export function exportProspectsCSV(results: ProspectResult[], query: string) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `prospects_${query || 'immobilier'}_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `contacts_${query || 'recherche'}_${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }

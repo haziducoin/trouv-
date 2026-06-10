@@ -265,8 +265,7 @@ export default function App() {
         <SearchPage
           key={demoView}
           account={demoAccount}
-          accessLevel="demo"
-          maxSearches={demoView === 'admin' ? 5 : undefined}
+          accessLevel="full"
           onLogout={() => window.location.replace('/')}
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
@@ -310,27 +309,13 @@ export default function App() {
     )
   }
 
-  // ── En attente — 5 recherches partiellement floues ───────────────────────
-  if (account && account.status === 'pending') {
-    return (
-      <SearchPage
-        account={account}
-        accessLevel="demo"
-        maxSearches={5}
-        onLogout={handleLogout}
-        onOpenAccount={() => {}}
-      />
-    )
-  }
-
-  // ── Démo validée — 10 vraies recherches non floues ───────────────────────
-  if (account && account.status === 'trial') {
+  // ── En attente ou trial → accès complet pour les tests ──────────────────
+  if (account && (account.status === 'pending' || account.status === 'trial')) {
     return (
       <>
         <SearchPage
           account={account}
-          accessLevel="trial"
-          maxSearches={10}
+          accessLevel="full"
           onLogout={handleLogout}
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
