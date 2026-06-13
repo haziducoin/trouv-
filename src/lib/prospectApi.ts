@@ -182,8 +182,13 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     ? (Number(rows[0].total_count) || rows.length)
     : 0
 
+  const allResults = rows.map(mapRow)
+  const results = allResults.filter(p =>
+    p.phone || p.phoneMobile || p.email || p.address || p.city || p.zipCode
+  )
+
   return {
-    results:    rows.map(mapRow),
+    results,
     total,
     page:       pg,
     perPage:    pp,
