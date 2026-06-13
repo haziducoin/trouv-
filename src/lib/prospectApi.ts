@@ -2,9 +2,22 @@
 import { extractBirthCity, extractBirthYear, stripSensitiveFields } from '@/lib/privacy'
 import { getSupabaseClient } from '@/lib/supabase'
 
+function fixMojibake(str: string): string {
+  // Répare l'encodage Latin-1 mal interprété en UTF-8
+  // ex: "SÃ©bastien" → "Sébastien"
+  if (!/[Ã\xC0-\xC5]/.test(str)) return str
+  try {
+    const bytes = new Uint8Array([...str].map(c => c.charCodeAt(0)))
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return str
+  }
+}
+
 function toTitleCase(str: string | null | undefined): string | null {
   if (!str) return null
-  return str.toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase())
+  const fixed = fixMojibake(str)
+  return fixed.toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase())
 }
 
 function formatPhone(phone: string | null | undefined): string | null {
