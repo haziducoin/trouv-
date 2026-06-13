@@ -109,7 +109,9 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const rpcParams: Record<string, any> = {
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
-    p_mode:   params.searchMode ?? 'exact',
+  }
+  if (params.searchMode && params.searchMode !== 'exact') {
+    rpcParams.p_mode = params.searchMode
   }
   if (p_nom)                  rpcParams.p_nom    = p_nom
   if (p_prenom)               rpcParams.p_prenom = p_prenom
