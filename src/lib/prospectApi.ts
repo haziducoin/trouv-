@@ -2,6 +2,31 @@
 import { extractBirthCity, extractBirthYear, stripSensitiveFields } from '@/lib/privacy'
 import { getSupabaseClient } from '@/lib/supabase'
 
+function toTitleCase(str: string | null | undefined): string | null {
+  if (!str) return null
+  return str.toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase())
+}
+
+function formatPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null
+  const clean = phone.replace(/[^\d+]/g, '')
+  let digits: string
+
+  if (clean.startsWith('+33') && clean.length === 12) {
+    digits = clean.slice(3)
+  } else if (clean.startsWith('0033') && clean.length === 13) {
+    digits = clean.slice(4)
+  } else if (clean.startsWith('0') && clean.length === 10) {
+    digits = clean.slice(1)
+  } else if (clean.length === 9 && /^[1-9]/.test(clean)) {
+    digits = clean
+  } else {
+    return phone
+  }
+
+  return `+33 ${digits[0]} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`
+}
+
 export interface ProspectResult {
   id:            string
   firstName:     string
@@ -58,9 +83,9 @@ export interface ProspectSearchResponse {
 function mapRow(row: Record<string, any>): ProspectResult {
   const clean = stripSensitiveFields(row)
 
-  const firstName = clean.prenom ?? clean.first_name ?? clean.firstName ?? ''
-  const lastName  = clean.nom    ?? clean.last_name  ?? clean.lastName  ?? ''
-  const companyName = clean.organisme ?? clean.company_name ?? clean.companyName ?? null
+  const firstName = toTitleCase(clean.prenom ?? clean.first_name ?? clean.firstName) ?? ''
+  const lastName  = toTitleCase(clean.nom    ?? clean.last_name  ?? clean.lastName)  ?? ''
+  const companyName = toTitleCase(clean.organisme ?? clean.company_name ?? clean.companyName) ?? null
 
   return {
     id:            String(clean.id ?? crypto.randomUUID()),
@@ -75,8 +100,8 @@ function mapRow(row: Record<string, any>): ProspectResult {
     companySize:   null,
     companyType:   null,
     email:         clean.email        ?? null,
-    phone:         clean.telephone    ?? clean.phone        ?? null,
-    phoneMobile:   clean.phone_mobile ?? clean.phoneMobile  ?? null,
+    phone:         formatPhone(clean.telephone ?? clean.phone),
+    phoneMobile:   formatPhone(clean.phone_mobile ?? clean.phoneMobile),
     linkedinUrl:   clean.linkedin_url ?? clean.linkedinUrl  ?? null,
     website:       null,
     address:       clean.adresse      ?? clean.address      ?? null,
