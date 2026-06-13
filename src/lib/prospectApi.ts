@@ -184,7 +184,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
 
   const allResults = rows.map(mapRow)
   const results = allResults.filter(p =>
-    p.phone || p.phoneMobile || p.email || p.address || p.city || p.zipCode
+    p.phone || p.phoneMobile || p.email
   )
 
   return {
