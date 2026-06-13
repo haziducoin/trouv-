@@ -36,6 +36,7 @@ export interface ProspectSearchParams {
   nom?:            string
   prenom?:         string
   city?:           string
+  searchMode?:     'exact' | 'starts_with'
   department?:     string
   activityCode?:   string
   zipCode?:        string
@@ -108,6 +109,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const rpcParams: Record<string, any> = {
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
+    p_mode:   params.searchMode ?? 'exact',
   }
   if (p_nom)                  rpcParams.p_nom    = p_nom
   if (p_prenom)               rpcParams.p_prenom = p_prenom

@@ -1599,6 +1599,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   // État de recherche
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
+  const [searchMode, setSearchMode]     = useState<'exact' | 'starts_with' | 'ends_with' | 'contains'>('exact')
   const [department, setDepartment]     = useState('')
   const [activityCode, setActivityCode] = useState('')
   const [activeOnly, setActiveOnly]     = useState(true)
@@ -1795,25 +1796,25 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setQuery(inputValue)
+    setQuery(advLastName || advFirstName)
     setShowRecent(false)
-    const q = buildQuery()
-    if (q.trim()) {
-      setTransitionQuery(inputValue.trim() || q.trim())
+    const label = [advLastName, advFirstName].filter(Boolean).join(' ')
+    if (label.trim()) {
+      setTransitionQuery(label.trim())
       setSearchTransition('visible')
       transitionStartRef.current = Date.now()
     }
-    doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
     setInputValue(q); setQuery(q); setShowRecent(false)
-    doSearch({ query: q, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({ query: q, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2111,42 +2112,61 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               )
             })()}
 
-            {/* Barre de recherche principale */}
-            <form onSubmit={handleSearch} className="flex gap-3">
-              <div className="relative flex-1">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            {/* Barre de recherche Nom + Prénom */}
+            <form onSubmit={handleSearch} className="space-y-2">
+              <div className="flex gap-2">
                 <input
                   ref={searchInputRef}
                   type="text"
-                  value={inputValue}
-                  onChange={e => setInputValue(e.target.value)}
-                  onFocus={() => setShowRecent(true)}
-                  onBlur={() => setTimeout(() => setShowRecent(false), 150)}
-                  placeholder="Nom, prénom, entreprise, téléphone, adresse..."
+                  value={advLastName}
+                  onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
+                  placeholder="Nom *"
                   autoComplete="off"
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
+                  className="h-14 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
                 />
-                {showRecent && recentSearches.length > 0 && (
-                  <div className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-800">
-                    <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Récents</p>
-                    {recentSearches.map(r => (
-                      <button key={r} type="button" onMouseDown={() => handleRecentSearch(r)}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                        <Clock size={13} className="shrink-0 text-slate-300" /> {r}
-                      </button>
-                    ))}
-                    <button type="button" onMouseDown={() => { localStorage.removeItem(RECENT_SEARCHES_KEY); setRecentSearches([]) }}
-                      className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs text-slate-400 hover:text-slate-600 dark:border-slate-800 dark:text-slate-500 dark:hover:text-slate-300">
-                      <X size={11} /> Effacer l'historique
-                    </button>
-                  </div>
-                )}
+                <input
+                  type="text"
+                  value={advFirstName}
+                  onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
+                  placeholder="Prénom"
+                  autoComplete="off"
+                  className="h-14 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
+                />
+                <button type="submit"
+                  disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
+                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                  {isLoading ? <RefreshCw size={15} className="animate-spin" /> : <><Search size={15} /> Rechercher</>}
+                </button>
               </div>
-              <button type="submit"
-                disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
-                className="flex h-14 items-center gap-2 rounded-2xl bg-[#124bd2] px-8 text-base font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
-                {isLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Rechercher'}
-              </button>
+
+              {/* Sélecteur de mode */}
+              <div className="flex gap-1.5 flex-wrap">
+                {([
+                  { key: 'exact',       label: 'Exact' },
+                  { key: 'starts_with', label: 'Commence par' },
+                  { key: 'ends_with',   label: 'Finit par' },
+                  { key: 'contains',    label: 'Contient' },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSearchMode(key)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition border ${
+                      searchMode === key
+                        ? 'bg-[#124bd2] text-white border-[#124bd2]'
+                        : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-[#124bd2] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {label}
+                    {(key === 'contains' || key === 'ends_with') && (
+                      <span className="ml-1 opacity-60 text-[10px]">⚠️</span>
+                    )}
+                  </button>
+                ))}
+                <span className="self-center text-[10px] text-slate-400 ml-1">
+                  {searchMode === 'contains' || searchMode === 'ends_with' ? '⚠️ Plus lent sans index trigram' : ''}
+                </span>
+              </div>
             </form>
 
             {/* Barre secondaire : Recherches avancées + export */}
