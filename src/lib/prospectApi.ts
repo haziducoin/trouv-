@@ -17,7 +17,9 @@ function fixMojibake(str: string): string {
 function toTitleCase(str: string | null | undefined): string | null {
   if (!str) return null
   const fixed = fixMojibake(str)
-  return fixed.toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase())
+  // Capitalise la 1re lettre après début, espace, tiret ou apostrophe
+  // \b ne fonctionne pas avec les accents en JS → on évite
+  return fixed.toLowerCase().replace(/(^|[ \-'])(\p{L})/gu, (_, sep, letter) => sep + letter.toUpperCase())
 }
 
 function formatPhone(phone: string | null | undefined): string | null {
