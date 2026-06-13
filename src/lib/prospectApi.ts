@@ -116,7 +116,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     companyType:   null,
     email:         clean.email        ?? null,
     phone:         formatPhone(clean.telephone ?? clean.phone),
-    phoneMobile:   formatPhone(clean.phone_mobile ?? clean.phoneMobile),
+    phoneMobile:   formatPhone(clean.mobile ?? clean.phone_mobile ?? clean.phoneMobile),
     linkedinUrl:   clean.linkedin_url ?? clean.linkedinUrl  ?? null,
     website:       null,
     address:       clean.adresse      ?? clean.address      ?? null,
@@ -186,6 +186,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const results = allResults.filter(p =>
     p.phone || p.phoneMobile || p.email
   )
+
 
   return {
     results,
