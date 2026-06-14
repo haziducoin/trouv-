@@ -183,9 +183,22 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     : 0
 
   const allResults = rows.map(mapRow)
-  const results = allResults.filter(p =>
-    p.phone || p.phoneMobile || p.email
-  )
+
+  // Déduplique par (nom + prenom + telephone/mobile + email)
+  const seen = new Set<string>()
+  const results = allResults.filter(p => {
+    if (!p.phone && !p.phoneMobile && !p.email) return false
+    const key = [
+      p.lastName.toLowerCase(),
+      p.firstName.toLowerCase(),
+      p.phone ?? '',
+      p.phoneMobile ?? '',
+      p.email?.toLowerCase() ?? '',
+    ].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 
 
   return {
