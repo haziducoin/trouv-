@@ -1805,7 +1805,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setSearchTransition('visible')
       transitionStartRef.current = Date.now()
     }
-    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -1815,7 +1815,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2237,7 +2237,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
                     .map(s => s.trim()).filter(Boolean).join(' ')
                   setQuery(inputValue)
-                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
                 }}
                 onReset={() => {
                   setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
