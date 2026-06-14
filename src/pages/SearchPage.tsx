@@ -1600,6 +1600,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
   const [searchMode, setSearchMode]     = useState<'exact' | 'starts_with' | 'ends_with' | 'contains'>('exact')
+  const [searchTel, setSearchTel]       = useState('')
   const [department, setDepartment]     = useState('')
   const [activityCode, setActivityCode] = useState('')
   const [activeOnly, setActiveOnly]     = useState(true)
@@ -1804,7 +1805,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setSearchTransition('visible')
       transitionStartRef.current = Date.now()
     }
-    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -1814,7 +1815,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2112,17 +2113,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               )
             })()}
 
-            {/* Barre de recherche Nom + Prénom */}
+            {/* Barre de recherche Nom + Prénom + Téléphone */}
             <form onSubmit={handleSearch} className="space-y-2">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={advLastName}
                   onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
-                  placeholder="Nom *"
+                  placeholder="Nom"
                   autoComplete="off"
-                  className="h-14 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
+                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
                 <input
                   type="text"
@@ -2130,11 +2131,19 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
                   placeholder="Prénom"
                   autoComplete="off"
-                  className="h-14 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-base shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-600"
+                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+                />
+                <input
+                  type="tel"
+                  value={searchTel}
+                  onChange={e => { setSearchTel(e.target.value); setPage(1) }}
+                  placeholder="Téléphone / Mobile"
+                  autoComplete="off"
+                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
                 <button type="submit"
                   disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
-                  className="flex h-14 shrink-0 items-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                  className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
                   {isLoading ? <RefreshCw size={15} className="animate-spin" /> : <><Search size={15} /> Rechercher</>}
                 </button>
               </div>
@@ -2228,7 +2237,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
                     .map(s => s.trim()).filter(Boolean).join(' ')
                   setQuery(inputValue)
-                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
                 }}
                 onReset={() => {
                   setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')

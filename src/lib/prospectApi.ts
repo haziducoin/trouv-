@@ -76,7 +76,8 @@ export interface ProspectSearchParams {
   nom?:            string
   prenom?:         string
   city?:           string
-  searchMode?:     'exact' | 'starts_with'
+  tel?:            string
+  searchMode?:     'exact' | 'starts_with' | 'ends_with' | 'contains'
   department?:     string
   activityCode?:   string
   zipCode?:        string
@@ -157,6 +158,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (p_prenom)               rpcParams.p_prenom = p_prenom
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
+  if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
 
   const timeoutMs = 10000
   const rpcPromise = supabase.rpc('search_contacts', rpcParams)
