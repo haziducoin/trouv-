@@ -8,6 +8,11 @@ ALTER TABLE contacts ADD COLUMN IF NOT EXISTS mobile TEXT;
 CREATE INDEX IF NOT EXISTS contacts_tel_trgm    ON contacts USING GIN (telephone gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS contacts_mobile_trgm ON contacts USING GIN (mobile    gin_trgm_ops);
 
+-- ── Supprime TOUTES les surcharges existantes ────────────────────────────────
+DROP FUNCTION IF EXISTS search_contacts(TEXT,TEXT,TEXT,TEXT,INT,INT);
+DROP FUNCTION IF EXISTS search_contacts(TEXT,TEXT,TEXT,TEXT,TEXT,INT,INT);
+DROP FUNCTION IF EXISTS search_contacts(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,INT,INT);
+
 -- ── Fonction search_contacts : p_mode + p_tel ─────────────────────────────────
 CREATE OR REPLACE FUNCTION search_contacts(
   p_nom     TEXT    DEFAULT NULL,
