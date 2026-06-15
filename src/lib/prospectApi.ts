@@ -150,6 +150,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const rpcParams: Record<string, any> = {
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
+    p_mode:   params.searchMode ?? 'starts_with',
   }
   if (p_nom)                  rpcParams.p_nom    = p_nom
   if (p_prenom)               rpcParams.p_prenom = p_prenom
@@ -166,7 +167,10 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
 
   if (error) {
-    throw new Error(`RPC error [${error.code ?? 'no-code'}] : ${error.message}`)
+    if (error.code === 'PGRST202') {
+      return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
+    }
+    throw new Error(`Recherche impossible : ${error.message}`)
   }
 
   const rows  = (data ?? []) as Array<Record<string, any>>
