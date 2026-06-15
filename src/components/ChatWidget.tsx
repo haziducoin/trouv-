@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, MessageCircle, Send, ArrowRight } from 'lucide-react'
+import { X, MessageCircle } from 'lucide-react'
+import { PromptInputBox } from '@/components/ui/ai-prompt-box'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 const WHATSAPP_NUMBER = '33600000000' // ← remplace par ton numéro WhatsApp Business
@@ -16,7 +17,6 @@ const QUICK_REPLIES = [
 
 export default function ChatWidget() {
   const [open, setOpen]           = useState(false)
-  const [input, setInput]         = useState('')
   const [loading, setLoading]     = useState(false)
   const [showNotif, setShowNotif] = useState(true)
   const [history, setHistory]     = useState<{ role: Role; content: string }[]>([])
@@ -36,7 +36,6 @@ export default function ChatWidget() {
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return
-    setInput('')
     setShowNotif(false)
 
     const userMsg = { role: 'user' as Role, content: text }
@@ -164,21 +163,13 @@ export default function ChatWidget() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Input — prompt box IA */}
         <div className="border-t border-slate-100 bg-white p-3">
-          <div className="flex items-center gap-2">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && send(input)}
-              placeholder="Posez votre question..."
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-300 focus:bg-white"
-            />
-            <button onClick={() => send(input)} disabled={loading}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#124bd2] text-white transition hover:bg-[#0b3fbc] disabled:opacity-50">
-              <Send size={15} />
-            </button>
-          </div>
+          <PromptInputBox
+            onSend={(message) => send(message)}
+            isLoading={loading}
+            placeholder="Posez votre question..."
+          />
           <p className="mt-2 text-center text-[10px] text-slate-400">Propulsé par Claude (Anthropic) · trouvé! Support</p>
         </div>
       </div>
