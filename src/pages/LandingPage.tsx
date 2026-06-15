@@ -38,7 +38,6 @@ import { getSupabaseClient } from '@/lib/supabase'
 
 type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 const resultRows = [
   {
@@ -358,7 +357,8 @@ export default function LandingPage({
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) { setAccountPanel('login'); return }
 
-      const res = await fetch(`${API_URL}/api/stripe/checkout`, {
+      // Same-origin : fonctions serverless Vercel (/api/stripe/*)
+      const res = await fetch('/api/stripe/checkout', {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
