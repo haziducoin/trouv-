@@ -117,7 +117,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     companyType:   null,
     email:         clean.email        ?? null,
     phone:         formatPhone(clean.telephone ?? clean.phone),
-    phoneMobile:   formatPhone(clean.mobile ?? clean.phone_mobile ?? clean.phoneMobile),
+    phoneMobile:   formatPhone(clean.mobile ?? clean.phoneMobile ?? clean.phone_mobile),
     linkedinUrl:   clean.linkedin_url ?? clean.linkedinUrl  ?? null,
     website:       null,
     address:       clean.adresse      ?? clean.address      ?? null,
@@ -155,6 +155,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (p_prenom)               rpcParams.p_prenom = p_prenom
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
+  if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
 
   const timeoutMs = 10000
   const rpcPromise = supabase.rpc('search_contacts', rpcParams)
