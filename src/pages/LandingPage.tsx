@@ -577,9 +577,6 @@ export default function LandingPage({
                   <h2 className="text-4xl font-bold tracking-tight text-[#070f22] md:text-5xl">
                     Retrouvez un 06, un 07 ou un email.
                   </h2>
-                  <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-500">
-                    Entrez les indices que vous avez. trouvé! recoupe et vous montre les coordonnées utiles en aperçu.
-                  </p>
                 </div>
               }
             >
