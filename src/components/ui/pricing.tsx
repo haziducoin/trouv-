@@ -1,6 +1,6 @@
 import { useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { Check, Star, ArrowRight, Mail, X, AlertCircle } from "lucide-react"
+import { Check, Star, ArrowRight, X, AlertCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
@@ -11,12 +11,14 @@ import NumberFlow from "@number-flow/react"
 interface TrouvePlan {
   code: string
   name: string
+  tag: string
   description: string
-  monthlyPrice: number
-  annualPrice: number
+  monthlyPrice: number | null
+  annualPrice: number | null
   features: string[]
   buttonText: string
   isPopular: boolean
+  isSurMesure?: boolean
 }
 
 interface PricingSectionProps {
@@ -30,16 +32,17 @@ const PLANS: TrouvePlan[] = [
   {
     code: 'solo',
     name: 'Solo',
-    description: 'Accès complet indépendant',
-    monthlyPrice: 199,
-    annualPrice: 159,
+    tag: 'Indépendants',
+    description: 'Prospection individuelle',
+    monthlyPrice: 33,
+    annualPrice: 26,
     features: [
-      'Accès complet après validation',
-      '1 500 recherches / mois',
-      '1 compte nominatif',
-      'Coordonnées complètes',
-      'Historique 90 jours',
-      'Export PDF maîtrisé',
+      'Recherches de profils illimitées',
+      'E-mails B2B professionnels illimités',
+      '100 crédits téléphone / mois',
+      '25 e-mails directs inclus / mois',
+      '1 compte utilisateur',
+      'Renouvellement mensuel',
     ],
     buttonText: 'Choisir Solo',
     isPopular: false,
@@ -47,40 +50,40 @@ const PLANS: TrouvePlan[] = [
   {
     code: 'agence',
     name: 'Agence',
-    description: 'Offre équipe principale',
-    monthlyPrice: 499,
-    annualPrice: 399,
+    tag: '',
+    description: 'Prospection ciblée et intensive',
+    monthlyPrice: 79,
+    annualPrice: 63,
     features: [
-      'Accès complet équipe',
-      '5 000 recherches / mois',
-      '3 comptes nominatifs',
-      'Dashboard agence',
-      'Exports CSV encadrés',
-      'Historique 12 mois',
-      "Logs d'utilisation",
-      'Support prioritaire',
+      'Recherches de profils illimitées',
+      'E-mails B2B professionnels illimités',
+      '250 crédits téléphone / mois',
+      '250 e-mails directs inclus / mois',
+      'Export CSV & option Bulk',
+      'Tableau de bord équipe',
     ],
     buttonText: 'Choisir Agence',
     isPopular: true,
   },
   {
-    code: 'pro',
-    name: 'Pro',
-    description: 'Pour structures avancées',
-    monthlyPrice: 899,
-    annualPrice: 719,
+    code: 'entreprise',
+    name: 'Entreprise',
+    tag: 'Grands Comptes · Growth Teams',
+    description: 'Besoins illimités & automatisés',
+    monthlyPrice: null,
+    annualPrice: null,
     features: [
-      'Accès complet multi-équipe',
-      '12 000 recherches / mois',
-      '7 comptes nominatifs',
-      'Rôles agence / admin',
-      'API disponible sur validation',
-      'Intégrations CRM',
-      "Audit d'usage avancé",
-      'Support téléphonique',
+      'Recherches de profils illimitées',
+      'E-mails B2B illimités',
+      'Crédits téléphone illimités',
+      'E-mails directs personnels illimités',
+      'Accès API complet',
+      'Gestion des équipes & rôles',
+      'Support prioritaire dédié',
     ],
-    buttonText: 'Choisir Pro',
+    buttonText: 'Nous contacter',
     isPopular: false,
+    isSurMesure: true,
   },
 ]
 
@@ -199,25 +202,34 @@ export function PricingSection({
               )}
 
               <div className="flex-1 flex flex-col">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{plan.description}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{plan.tag}</p>
                 <p className="mt-1 text-xl font-bold text-[#070f22]">{plan.name}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{plan.description}</p>
 
                 {/* Prix animé */}
-                <div className="mt-6 flex items-baseline justify-center gap-1">
-                  <span className="text-5xl font-bold tracking-tight text-[#070f22]">
-                    <NumberFlow
-                      value={isAnnual ? plan.annualPrice : plan.monthlyPrice}
-                      transformTiming={{ duration: 500, easing: 'ease-out' }}
-                      willChange
-                    />
-                  </span>
-                  <span className="text-lg font-semibold text-slate-400"> €</span>
-                  <span className="text-sm text-slate-400">/ mois</span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAnnual ? 'facturé annuellement' : 'facturé mensuellement'}
-                </p>
-                {isAnnual && (
+                {plan.isSurMesure ? (
+                  <div className="mt-6 flex items-baseline justify-center">
+                    <span className="text-3xl font-bold tracking-tight text-[#070f22]">Sur mesure</span>
+                  </div>
+                ) : (
+                  <div className="mt-6 flex items-baseline justify-center gap-1">
+                    <span className="text-5xl font-bold tracking-tight text-[#070f22]">
+                      <NumberFlow
+                        value={isAnnual ? (plan.annualPrice ?? 0) : (plan.monthlyPrice ?? 0)}
+                        transformTiming={{ duration: 500, easing: 'ease-out' }}
+                        willChange
+                      />
+                    </span>
+                    <span className="text-lg font-semibold text-slate-400"> €</span>
+                    <span className="text-sm text-slate-400">/ mois</span>
+                  </div>
+                )}
+                {!plan.isSurMesure && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    {isAnnual ? 'facturé annuellement' : 'facturé mensuellement'}
+                  </p>
+                )}
+                {isAnnual && !plan.isSurMesure && plan.monthlyPrice && plan.annualPrice && (
                   <p className="mt-1.5 text-[11px] font-semibold text-emerald-600">
                     Vous économisez {(plan.monthlyPrice - plan.annualPrice) * 12} € / an
                   </p>
@@ -262,24 +274,6 @@ export function PricingSection({
           ))}
         </div>
 
-        {/* Réseau — contact banner */}
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-bold text-[#070f22]">Réseau · Sur mesure</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Multi-agences, volume personnalisé, SSO/SAML, contrat dédié et accompagnement CSM.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onCheckout('reseau', 'monthly')}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-[#124bd2] hover:text-[#124bd2]"
-            >
-              <Mail className="h-4 w-4" /> Nous contacter
-            </button>
-          </div>
-        </div>
 
         {/* Reassurance strip */}
         <div className="mt-6 flex flex-wrap justify-center gap-x-8 gap-y-2 text-xs text-slate-400">
