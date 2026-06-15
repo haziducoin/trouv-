@@ -166,14 +166,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
 
   if (error) {
-    if (
-      error.message?.includes('Could not find') ||
-      error.message?.includes('function') ||
-      error.code === 'PGRST202'
-    ) {
-      return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
-    }
-    throw new Error(`Recherche impossible : ${error.message}`)
+    throw new Error(`RPC error [${error.code ?? 'no-code'}] : ${error.message}`)
   }
 
   const rows  = (data ?? []) as Array<Record<string, any>>
