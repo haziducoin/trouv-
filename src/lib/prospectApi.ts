@@ -151,14 +151,10 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
   }
-  if (params.searchMode && params.searchMode !== 'exact') {
-    rpcParams.p_mode = params.searchMode
-  }
   if (p_nom)                  rpcParams.p_nom    = p_nom
   if (p_prenom)               rpcParams.p_prenom = p_prenom
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
-  if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
 
   const timeoutMs = 10000
   const rpcPromise = supabase.rpc('search_contacts', rpcParams)
