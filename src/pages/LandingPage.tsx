@@ -28,6 +28,7 @@ import { AnimatedTestimonials, type Testimonial } from '@/components/ui/animated
 import { ContainerScroll } from '@/components/ui/container-scroll-animation'
 import { AnimatedDemoButton } from '@/components/ui/animated-demo-button'
 import { HeroMeshGradient } from '@/components/ui/hero-mesh-gradient'
+import { NavbarTrouve } from '@/components/ui/navbar-trouve'
 import trouveLogo from '@/assets/trouve-logo.png'
 
 import { clearSession, restoreSession, type Account } from '@/lib/accountStore'
@@ -388,71 +389,13 @@ export default function LandingPage({
         <div className="absolute left-1/2 top-[-16rem] h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-blue-100/45 blur-[110px]" />
       </div>
 
-      <header className="fixed inset-x-0 top-0 z-50 px-6 py-4">
-        <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl bg-white/85 px-6 shadow-sm ring-1 ring-slate-100/80 backdrop-blur-md">
-          <a href="#produit" aria-label="trouvé! accueil" className="cursor-pointer flex-shrink-0">
-            <img src={trouveLogo} alt="trouvé!" className="h-9 w-auto md:h-10" />
-          </a>
-
-          {/* Liens de navigation — masqués sur mobile */}
-          {!currentAccount && (
-            <div className="hidden items-center gap-7 md:flex">
-              <a
-                href="/?demo=1"
-                onClick={handleDemoClick}
-                className="relative text-sm font-semibold text-slate-600 transition hover:text-[#124bd2] after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-[#124bd2] after:transition-all hover:after:w-full"
-              >
-                Démo
-              </a>
-              {([
-                { label: 'Fonctionnalités', href: '#criteres' },
-                { label: 'Tarifs',          href: '#tarifs' },
-                { label: 'Sécurité',        href: '#securite' },
-              ] as const).map(({ label, href }) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="relative text-sm font-semibold text-slate-600 transition hover:text-[#124bd2] after:absolute after:bottom-[-3px] after:left-0 after:h-[2px] after:w-0 after:rounded-full after:bg-[#124bd2] after:transition-all hover:after:w-full"
-                >
-                  {label}
-                </a>
-              ))}
-            </div>
-          )}
-
-          {currentAccount ? (
-            <button
-              type="button"
-              onClick={() => setAccountPanel('workspace')}
-              className="flex items-center gap-2 rounded-xl bg-[#124bd2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]"
-            >
-              <BadgeCheck size={15} />
-              {currentAccount.firstName} · {currentAccount.role === 'admin' ? 'Admin' : currentAccount.role === 'agence' ? 'Agence' : 'Agent'}
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => setAccountPanel('login')}
-                className="inline-flex h-12 items-center justify-center rounded-full px-4 text-base font-semibold text-slate-800 transition hover:text-[#124bd2] sm:px-6"
-              >
-                Connexion
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountPanel('register')}
-                className="group relative inline-flex h-14 items-center justify-center overflow-hidden rounded-full bg-gradient-to-r from-[#124bd2] via-[#1558ef] to-[#0b43c9] px-6 text-base font-bold text-white shadow-[0_18px_38px_-18px_rgba(18,75,210,0.9)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_-18px_rgba(18,75,210,0.95)] active:translate-y-0 sm:px-8"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-                <span className="relative inline-flex items-center gap-2">
-                  S'inscrire
-                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
-                </span>
-              </button>
-            </div>
-          )}
-        </nav>
-      </header>
+      <NavbarTrouve
+        currentAccount={currentAccount}
+        onLogin={() => setAccountPanel('login')}
+        onRegister={() => setAccountPanel('register')}
+        onWorkspace={() => setAccountPanel('workspace')}
+        onDemoClick={handleDemoClick}
+      />
 
       <main>
         <section id="produit" className="relative flex min-h-[92vh] items-center overflow-hidden px-5 pb-20 pt-28 md:pb-28 md:pt-36">

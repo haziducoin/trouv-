@@ -21,6 +21,8 @@ import {
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { AnimateNumber } from '@/components/ui/animated-blur-number'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -155,8 +157,9 @@ function QuotaBar({ used, total }: { used: number; total: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className={`text-xs font-medium tabular-nums ${isEmpty ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-slate-500'}`}>
-        {used.toLocaleString('fr-FR')}&thinsp;/&thinsp;{total.toLocaleString('fr-FR')}
+      <span className={`text-xs font-medium ${isEmpty ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-slate-500'}`}>
+        <AnimateNumber value={used} duration={350} className="text-xs font-medium" />
+        &thinsp;/&thinsp;{total.toLocaleString('fr-FR')}
       </span>
     </div>
   )
@@ -2047,19 +2050,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                       usedQuota / account.quota >= 0.9 ? 'text-red-500' :
                       usedQuota / account.quota >= 0.7 ? 'text-amber-600' : 'text-slate-500'
                     }`}>
-                      {usedQuota.toLocaleString('fr-FR')}&thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
+                      <AnimateNumber value={usedQuota} duration={350} className="text-xs font-medium" />
+                      &thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
                     </span>
                   </div>
                 )}
                 {/* Dark mode toggle */}
-                <button
-                  type="button"
-                  aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-                  onClick={() => setDarkMode(d => !d)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-blue-700"
-                >
-                  {darkMode ? <Sun size={15} /> : <Moon size={15} />}
-                </button>
+                <ThemeToggle size="sm" />
                 {account.status === 'approved' && (
                   <div className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 lg:flex">
                     <ShieldCheck size={12} />
@@ -2255,9 +2252,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
               <div>
                 {hasSearched && !isLoading && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{total.toLocaleString('fr-FR')}</span>
-                    {' '}résultat{total > 1 ? 's' : ''}
+                  <p className="flex items-baseline gap-1 text-sm text-slate-500 dark:text-slate-400">
+                    <AnimateNumber
+                      value={total}
+                      duration={400}
+                      className="font-semibold text-slate-800 dark:text-slate-100"
+                    />
+                    <span>résultat{total > 1 ? 's' : ''}</span>
                     {query && <span> pour <em className="text-slate-700 dark:text-slate-200">"{query}"</em></span>}
                     {department && <span> · {departmentLabel(department)}</span>}
                   </p>
