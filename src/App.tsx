@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import SuccessPage from './pages/SuccessPage'
+import PreviewPage from './pages/PreviewPage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
@@ -15,7 +16,9 @@ if (localStorage.getItem('trouve_dark') === '1') {
 const _params       = new URLSearchParams(window.location.search)
 const isDemoMode    = _params.has('demo')
 const isSuccessPage = _params.has('success')
+const isPreviewPage = _params.has('preview')
 const successPlan   = _params.get('plan') ?? 'agence'
+const panelParam    = _params.get('panel') as AccountPanelView | null
 
 function formatOAuthError(rawError: string) {
   const decoded = decodeURIComponent(rawError)
@@ -69,7 +72,7 @@ const DEMO_EMPLOYEE_ACCOUNT: Account = {
 export default function App() {
   const [account, setAccount]               = useState<Account | null>(isDemoMode ? DEMO_ACCOUNT : null)
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
-  const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(null)
+  const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(panelParam)
   const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
   const [authError, setAuthError]           = useState<string | null>(null)
   const [loadingTooLong, setLoadingTooLong] = useState(false)
@@ -168,6 +171,9 @@ export default function App() {
     setAccount(null)
     setAccountPanel(null)
   }
+
+  // ── Preview des composants UI ─────────────────────────────────────────────
+  if (isPreviewPage) return <PreviewPage />
 
   // ── Email perso bloqué ────────────────────────────────────────────────────
   if (blockedEmail) {

@@ -14,7 +14,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'framer-motion'],
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'framer-motion', '@paper-design/shaders-react'],
   },
   server: {
     port: 3000,
