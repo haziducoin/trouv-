@@ -48,7 +48,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         metadata: { organization_id: auth.organizationId, plan_code: planCode, period },
-        trial_period_days: 14,
       },
       billing_address_collection: 'required',
       tax_id_collection: { enabled: true },
