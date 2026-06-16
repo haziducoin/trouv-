@@ -24,16 +24,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const planCode = req.body?.plan_code as string
   const period = (req.body?.period ?? 'monthly') as BillingPeriod
 
-  if (!['solo', 'agence', 'pro'].includes(planCode)) {
-    res.status(400).json({ error: 'Plan invalide' })
+  if (!['solo', 'agence'].includes(planCode)) {
+    res.status(400).json({ error: "Ce plan n'est pas disponible à l'abonnement en ligne. Contactez-nous." })
     return
   }
-  if (!['monthly', 'quarterly', 'annual'].includes(period)) {
+  if (!['monthly', 'annual'].includes(period)) {
     res.status(400).json({ error: 'Période invalide' })
     return
   }
 
-  const priceId = PLANS[planCode as 'solo' | 'agence' | 'pro'].pricing[period].priceId
+  const priceId = PLANS[planCode as 'solo' | 'agence'].pricing[period]?.priceId
   if (!priceId) {
     res.status(503).json({ error: 'Prix Stripe non configuré pour ce plan.', code: 'PRICE_NOT_SYNCED' })
     return

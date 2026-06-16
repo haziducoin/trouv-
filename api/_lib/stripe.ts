@@ -11,7 +11,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 })
 
 export type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
-export type PlanCode = 'solo' | 'agence' | 'pro' | 'reseau'
+export type PlanCode = 'solo' | 'agence' | 'entreprise'
 
 const env = process.env
 
@@ -19,37 +19,27 @@ const env = process.env
 // Surchargeables par variable d'env (STRIPE_PRICE_<PLAN>_<PERIOD>).
 // Les valeurs en dur sont les prix de TEST ; pour passer en live il suffit de
 // poser les variables d'env correspondantes dans Vercel (aucun changement de code).
-export const PLANS: Record<Exclude<PlanCode, 'reseau'>, { pricing: Record<BillingPeriod, { priceId?: string }> }> = {
+// Offres actuelles (cf. src/components/ui/pricing.tsx) : Solo 33€/mois (312€/an),
+// Agence 79€/mois (756€/an). Entreprise = sur mesure (pas de prix Stripe, contact).
+// Mensuel + annuel uniquement.
+export const PLANS: Record<'solo' | 'agence', { pricing: Partial<Record<BillingPeriod, { priceId?: string }>> }> = {
   solo: {
     pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_SOLO_MONTHLY   ?? 'price_1TizUGIWqycqHBP2HgzpiLUF' },
-      quarterly: { priceId: env.STRIPE_PRICE_SOLO_QUARTERLY ?? 'price_1TizUGIWqycqHBP2qp6HWYvF' },
-      annual:    { priceId: env.STRIPE_PRICE_SOLO_ANNUAL    ?? 'price_1TizUHIWqycqHBP2Olz5tIOO' },
+      monthly: { priceId: env.STRIPE_PRICE_SOLO_MONTHLY ?? 'price_1TizaqIWqycqHBP2JxyTW49l' },
+      annual:  { priceId: env.STRIPE_PRICE_SOLO_ANNUAL  ?? 'price_1TizarIWqycqHBP2xLtnnudf' },
     },
   },
   agence: {
     pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_AGENCE_MONTHLY   ?? 'price_1TizUHIWqycqHBP2AGG8Cf7h' },
-      quarterly: { priceId: env.STRIPE_PRICE_AGENCE_QUARTERLY ?? 'price_1TizUIIWqycqHBP2vYfRTNOR' },
-      annual:    { priceId: env.STRIPE_PRICE_AGENCE_ANNUAL    ?? 'price_1TizUIIWqycqHBP2aA3DtW5K' },
-    },
-  },
-  pro: {
-    pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_PRO_MONTHLY   ?? 'price_1TizUIIWqycqHBP29uipTFmz' },
-      quarterly: { priceId: env.STRIPE_PRICE_PRO_QUARTERLY ?? 'price_1TizUJIWqycqHBP2TFZFFFVu' },
-      annual:    { priceId: env.STRIPE_PRICE_PRO_ANNUAL    ?? 'price_1TizUJIWqycqHBP2Lfyzpon1' },
+      monthly: { priceId: env.STRIPE_PRICE_AGENCE_MONTHLY ?? 'price_1TizarIWqycqHBP2XwD02TvU' },
+      annual:  { priceId: env.STRIPE_PRICE_AGENCE_ANNUAL  ?? 'price_1TizarIWqycqHBP2Im8W6fIT' },
     },
   },
 }
 
-export const ADDONS: Record<string, { priceId?: string }> = {
-  extra_searches_500: { priceId: env.STRIPE_PRICE_ADDON_SEARCHES ?? 'price_1TdbAeQ1xoNYTIlAh872t8lb' },
-  extra_user:         { priceId: env.STRIPE_PRICE_ADDON_USER     ?? 'price_1TdbAfQ1xoNYTIlAp90XuKDR' },
-}
-
+// Recherches illimitées sur les offres payantes → quota très élevé.
 export const PLAN_QUOTAS: Record<string, number> = {
-  solo: 1500, agence: 5000, pro: 12000, reseau: 999999,
+  solo: 999999, agence: 999999, entreprise: 999999,
 }
 
 export function mapStripeStatus(stripeStatus: string): string {

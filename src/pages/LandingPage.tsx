@@ -341,8 +341,8 @@ export default function LandingPage({
   }
 
   const handleCheckout = async (planCode: string, period: 'monthly' | 'annual' = 'monthly') => {
-    if (planCode === 'reseau') {
-      window.location.href = 'mailto:contact@trouve.fr?subject=Offre Réseau'
+    if (planCode === 'entreprise' || planCode === 'reseau') {
+      window.location.href = 'mailto:contact@trouve.fr?subject=Offre Entreprise sur mesure'
       return
     }
 
