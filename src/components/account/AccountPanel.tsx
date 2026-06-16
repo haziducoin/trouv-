@@ -80,6 +80,29 @@ const statusLabels = {
   suspended: 'Suspendu',
 }
 
+// Traduit une erreur brute (Supabase, réseau, JSON…) en message clair pour l'utilisateur.
+function friendlyAuthError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const m = raw.toLowerCase()
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials'))
+    return 'Email ou mot de passe incorrect.'
+  if (m.includes('email not confirmed'))
+    return "Votre compte n'est pas encore activé."
+  if (m.includes('already registered') || m.includes('already exists') || m.includes('user already'))
+    return 'Un compte existe déjà avec cet email. Connectez-vous plutôt.'
+  if (m.includes('provider is not enabled') || m.includes('unsupported provider'))
+    return "La connexion Google/Microsoft n'est pas encore disponible. Créez votre compte avec votre email professionnel ci-dessous."
+  if (m.includes('rate limit') || m.includes('too many') || m.includes('429'))
+    return 'Trop de tentatives. Patientez quelques minutes avant de réessayer.'
+  if (m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request'))
+    return 'Problème de connexion réseau. Vérifiez votre connexion et réessayez.'
+  if (m.includes('password') && (m.includes('least') || m.includes('short') || m.includes('6')))
+    return 'Le mot de passe doit contenir au moins 8 caractères.'
+  // Message déjà lisible en français → on le garde tel quel (mais jamais de JSON brut).
+  if (raw && !raw.trim().startsWith('{') && raw.length < 160) return raw
+  return 'Connexion impossible pour le moment. Réessayez dans un instant.'
+}
+
 export default function AccountPanel({
   initialView,
   currentAccount,
@@ -166,10 +189,10 @@ export default function AccountPanel({
     } catch (error) {
       if (error instanceof PersonalEmailError) {
         setRegisterError(
-          `${error.email} est une adresse personnelle. Utilisez votre email professionnel (@votre-agence.fr).`,
+          `${error.email} est une adresse personnelle. Utilisez votre email professionnel (ex : prenom@votre-agence.fr).`,
         )
       } else {
-        setRegisterError(error instanceof Error ? error.message : 'Impossible de créer le compte.')
+        setRegisterError(friendlyAuthError(error))
       }
     }
   }
@@ -189,7 +212,11 @@ export default function AccountPanel({
       onAuthenticated(account)
       setView('workspace')
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Connexion impossible.')
+      if (error instanceof PersonalEmailError) {
+        setLoginError(`${error.email} est une adresse personnelle. Connectez-vous avec votre email professionnel.`)
+      } else {
+        setLoginError(friendlyAuthError(error))
+      }
     } finally {
       setLoginLoading(false)
     }
@@ -207,11 +234,7 @@ export default function AccountPanel({
       }
     } catch (error) {
       setOauthLoading(null)
-      setLoginError(
-        error instanceof Error
-          ? error.message
-          : 'Connexion OAuth impossible. Vérifiez le provider dans Supabase.',
-      )
+      setLoginError(friendlyAuthError(error))
     }
   }
 
@@ -232,6 +255,9 @@ export default function AccountPanel({
   if (!isDrawerView) {
     const isRegister = view === 'register'
     const oauthPreview = isOAuthPreviewEnabled()
+    // OAuth masqué tant que Google/Microsoft ne sont pas configurés dans Supabase.
+    // Pour réactiver : poser VITE_OAUTH_ENABLED=1 dans Vercel (après config des providers).
+    const oauthEnabled = oauthPreview || import.meta.env.VITE_OAUTH_ENABLED === '1'
 
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto bg-white text-[#07113d]">
@@ -261,6 +287,7 @@ export default function AccountPanel({
                   : 'Connectez-vous à votre compte pour continuer.'}
               </p>
 
+              {oauthEnabled && (<>
               <div className="mt-5 space-y-3">
                 <button
                   type="button"
@@ -303,6 +330,7 @@ export default function AccountPanel({
                 ou
                 <span className="h-px flex-1 bg-slate-200" />
               </div>
+              </>)}
 
               {requestCreated ? (
                 <div className="rounded-[28px] border border-blue-100 bg-blue-50 p-6">
@@ -363,7 +391,7 @@ export default function AccountPanel({
                     <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{registerError}</p>
                   )}
                   <button className="h-12 w-full rounded-xl bg-[#0757f8] text-sm font-semibold text-white shadow-[0_18px_42px_-20px_rgba(7,87,248,0.8)] transition hover:bg-[#0048dd]">
-                    Soumettre pour validation
+                    Créer mon accès professionnel
                   </button>
                 </form>
               ) : (

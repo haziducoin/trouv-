@@ -361,6 +361,11 @@ export async function createAccessRequest(input: RegistrationInput, company?: Ve
 export async function authenticate(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase()
 
+  // Réservé aux adresses professionnelles.
+  if (isPersonalEmail(normalizedEmail)) {
+    throw new PersonalEmailError(normalizedEmail)
+  }
+
   if (usesRemoteDatabase) {
     const supabase = getSupabaseClient()
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -372,20 +377,36 @@ export async function authenticate(email: string, password: string) {
     }
 
     const [account] = await fetchRemoteProfiles(data.user.id)
-    if (!account || account.status === 'pending') {
+
+    // Seuls les accès explicitement refusés/suspendus sont bloqués.
+    if (account && (account.status === 'rejected' || account.status === 'suspended')) {
       await supabase.auth.signOut()
-      throw new Error('Votre accès attend encore la validation administrateur.')
-    }
-    if (account.status === 'rejected' || account.status === 'suspended') {
-      await supabase.auth.signOut()
-      throw new Error("Votre accès professionnel n'est pas actif.")
+      throw new Error("Votre accès professionnel n'est pas actif. Contactez-nous si besoin.")
     }
 
     // Non-bloquant : si la RPC n'existe pas encore, la connexion reste valide.
     void (async () => {
       await supabase.rpc('record_login')
     })().catch(() => {})
-    return account
+
+    // pending / trial / approved → on laisse entrer ; l'app route vers le bon niveau d'accès.
+    if (account) return account
+
+    // Profil pas encore créé (cas rare) → compte "pending" minimal, sans bloquer la connexion.
+    const meta = (data.user.user_metadata ?? {}) as Record<string, string>
+    return {
+      id:           data.user.id,
+      firstName:    meta.first_name ?? normalizedEmail.split('@')[0],
+      lastName:     meta.last_name ?? '',
+      email:        normalizedEmail,
+      companyName:  meta.company_name ?? '',
+      siren:        meta.siren ?? '',
+      role:         (meta.requested_role as UserRole) ?? 'agent',
+      status:       'pending' as AccessStatus,
+      quota:        quotaByRole.agent,
+      monthlyUsage: 0,
+      createdAt:    data.user.created_at ?? new Date().toISOString(),
+    }
   }
 
   const accounts = await initializeLocalAccounts()
@@ -393,9 +414,6 @@ export async function authenticate(email: string, password: string) {
 
   if (!account || account.passwordHash !== (await hashPassword(password))) {
     throw new Error('Email ou mot de passe incorrect.')
-  }
-  if (account.status === 'pending') {
-    throw new Error('Votre accès attend encore la validation administrateur.')
   }
   if (account.status === 'rejected' || account.status === 'suspended') {
     throw new Error("Votre accès professionnel n'est pas actif.")
