@@ -22,23 +22,23 @@ const env = process.env
 export const PLANS: Record<Exclude<PlanCode, 'reseau'>, { pricing: Record<BillingPeriod, { priceId?: string }> }> = {
   solo: {
     pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_SOLO_MONTHLY   ?? 'price_1TdbAYQ1xoNYTIlA2mVk56fx' },
-      quarterly: { priceId: env.STRIPE_PRICE_SOLO_QUARTERLY ?? 'price_1TdbAYQ1xoNYTIlAFsUV6Mr5' },
-      annual:    { priceId: env.STRIPE_PRICE_SOLO_ANNUAL    ?? 'price_1TdbAZQ1xoNYTIlAp36t2Hml' },
+      monthly:   { priceId: env.STRIPE_PRICE_SOLO_MONTHLY   ?? 'price_1TizUGIWqycqHBP2HgzpiLUF' },
+      quarterly: { priceId: env.STRIPE_PRICE_SOLO_QUARTERLY ?? 'price_1TizUGIWqycqHBP2qp6HWYvF' },
+      annual:    { priceId: env.STRIPE_PRICE_SOLO_ANNUAL    ?? 'price_1TizUHIWqycqHBP2Olz5tIOO' },
     },
   },
   agence: {
     pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_AGENCE_MONTHLY   ?? 'price_1TdbAaQ1xoNYTIlAgI5gfyFw' },
-      quarterly: { priceId: env.STRIPE_PRICE_AGENCE_QUARTERLY ?? 'price_1TdbAaQ1xoNYTIlAQMudC0vC' },
-      annual:    { priceId: env.STRIPE_PRICE_AGENCE_ANNUAL    ?? 'price_1TdbAbQ1xoNYTIlAU4Ykp1mp' },
+      monthly:   { priceId: env.STRIPE_PRICE_AGENCE_MONTHLY   ?? 'price_1TizUHIWqycqHBP2AGG8Cf7h' },
+      quarterly: { priceId: env.STRIPE_PRICE_AGENCE_QUARTERLY ?? 'price_1TizUIIWqycqHBP2vYfRTNOR' },
+      annual:    { priceId: env.STRIPE_PRICE_AGENCE_ANNUAL    ?? 'price_1TizUIIWqycqHBP2aA3DtW5K' },
     },
   },
   pro: {
     pricing: {
-      monthly:   { priceId: env.STRIPE_PRICE_PRO_MONTHLY   ?? 'price_1TdbAcQ1xoNYTIlAo0UtvKRI' },
-      quarterly: { priceId: env.STRIPE_PRICE_PRO_QUARTERLY ?? 'price_1TdbAcQ1xoNYTIlA8NZQHuyQ' },
-      annual:    { priceId: env.STRIPE_PRICE_PRO_ANNUAL    ?? 'price_1TdbAdQ1xoNYTIlAqbJf5lBD' },
+      monthly:   { priceId: env.STRIPE_PRICE_PRO_MONTHLY   ?? 'price_1TizUIIWqycqHBP29uipTFmz' },
+      quarterly: { priceId: env.STRIPE_PRICE_PRO_QUARTERLY ?? 'price_1TizUJIWqycqHBP2TFZFFFVu' },
+      annual:    { priceId: env.STRIPE_PRICE_PRO_ANNUAL    ?? 'price_1TizUJIWqycqHBP2Lfyzpon1' },
     },
   },
 }
