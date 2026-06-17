@@ -33,6 +33,7 @@ import { DynamicWaveBg } from '@/components/ui/dynamic-wave-bg'
 import { FAQSection } from '@/components/ui/faq-section'
 import { FranceMap } from '@/components/ui/france-map'
 import { UserAvatars } from '@/components/ui/user-avatars'
+import { IntegrationsStrip } from '@/components/ui/integrations-strip'
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import trouveLogo from '@/assets/trouve-logo.png'
 
@@ -502,10 +503,6 @@ export default function LandingPage({
                   <ArrowRight size={15} />
                 </button>
               </form>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                <LockKeyhole size={11} />
-                Conforme RGPD & CNIL · Résiliable à tout moment
-              </p>
             </div>
 
             {/* CTAs */}
@@ -644,43 +641,51 @@ export default function LandingPage({
         {/* ── Section Couverture France ─────────────────────────────────────── */}
         <section id="couverture" className="px-5 py-14 md:py-20">
           <div className="mx-auto max-w-5xl">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="mb-10 text-center"
-            >
-              <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-[#124bd2]">Couverture</p>
-              <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
-                Données disponibles partout en France
-              </h2>
-              <p className="mx-auto mt-4 max-w-xl text-base text-slate-500">
-                Retrouvez n'importe quel professionnel de l'immobilier, de Lille à Marseille, en moins d'une seconde.
-              </p>
-            </motion.div>
+            <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
 
-            <motion.div
-              initial={{ opacity: 0, y: 32 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.15, duration: 0.5 }}
-            >
-              <FranceMap
-                dots={[
-                  { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' } },
-                  { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 44.8378, lng: -0.5792, label: 'Bordeaux' } },
-                  { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 50.6292, lng: 3.0573,  label: 'Lille' } },
-                  { start: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' },       end: { lat: 43.2965, lng: 5.3698,  label: 'Marseille' } },
-                  { start: { lat: 47.2184, lng: -1.5536, label: 'Nantes' },     end: { lat: 48.8566, lng: 2.3522,  label: 'Paris' } },
-                  { start: { lat: 48.5734, lng: 7.7521,  label: 'Strasbourg' }, end: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' } },
-                ]}
-              />
-            </motion.div>
+              {/* Left — text */}
+              <motion.div
+                initial={{ opacity: 0, x: -24 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-[#124bd2]">Couverture</p>
+                <h2 className="text-3xl font-bold tracking-tight text-[#070f22] md:text-4xl">
+                  Données disponibles partout en France
+                </h2>
+                <p className="mt-4 text-base text-slate-500">
+                  Retrouvez n'importe quel professionnel, dans tout le territoire Français, en moins d'une seconde.
+                </p>
+              </motion.div>
+
+              {/* Right — map */}
+              <motion.div
+                initial={{ opacity: 0, x: 24 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.15, duration: 0.5 }}
+              >
+                <FranceMap
+                  dots={[
+                    { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' } },
+                    { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 44.8378, lng: -0.5792, label: 'Bordeaux' } },
+                    { start: { lat: 48.8566, lng: 2.3522,  label: 'Paris' },      end: { lat: 50.6292, lng: 3.0573,  label: 'Lille' } },
+                    { start: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' },       end: { lat: 43.2965, lng: 5.3698,  label: 'Marseille' } },
+                    { start: { lat: 47.2184, lng: -1.5536, label: 'Nantes' },     end: { lat: 48.8566, lng: 2.3522,  label: 'Paris' } },
+                    { start: { lat: 48.5734, lng: 7.7521,  label: 'Strasbourg' }, end: { lat: 45.764,  lng: 4.8357,  label: 'Lyon' } },
+                  ]}
+                />
+              </motion.div>
+
+            </div>
           </div>
         </section>
 
-                {/* ── Section Recherche avancée ────────────────────────────────────── */}
+        {/* ── Intégrations ─────────────────────────────────────────────────── */}
+        <IntegrationsStrip />
+
+        {/* ── Section Recherche avancée ────────────────────────────────────── */}
         <section id="criteres" className="px-5 py-14 md:py-20">
           {/* Heading */}
           <div className="mx-auto mb-10 max-w-4xl text-center">
@@ -886,7 +891,7 @@ export default function LandingPage({
 
         <AnimatedTestimonials
           title="Ce que disent nos clients"
-          subtitle="Plus de 2 400 professionnels de l'immobilier font confiance à trouvé! chaque mois."
+          subtitle="Plus de 2 400 professionnels font confiance à trouvé! chaque mois."
           badgeText="Ils nous font confiance"
           autoRotateInterval={5000}
           testimonials={TESTIMONIALS}

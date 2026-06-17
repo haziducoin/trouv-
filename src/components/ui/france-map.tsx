@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from "framer-motion"
 import DottedMap from "dotted-map"
 import { Globe } from "lucide-react"
 
-// DottedMap uses 198×100 coordinate space
-// These viewBoxes cover the same France region in each space
-const OVERLAY_VB = "376 76 60 45"  // 800×400 world Mercator
-const BG_VB      = "92 18.5 15 11.5"  // 198×100 world Mercator
+// DottedMap with countries:['FRA'] generates viewBox="0 0 60 60"
+// Projection derived empirically: x = 4.22*lng + 19.5 | y = -6.19*lat + 317.6
+const project = (lat: number, lng: number) => ({
+  x: 4.22 * lng + 19.5,
+  y: -6.19 * lat + 317.6,
+})
 
 interface FranceDot {
   start: { lat: number; lng: number; label?: string }
@@ -25,21 +27,18 @@ export function FranceMap({
   const [hovered, setHovered] = useState<string | null>(null)
 
   const bgSvg = useMemo(() => {
-    const map = new DottedMap({ height: 100, grid: "diagonal" })
-    return map
-      .getSVG({ radius: 0.28, color: "#124bd228", shape: "circle", backgroundColor: "transparent" })
-      .replace(/viewBox="[^"]*"/, `viewBox="${BG_VB}"`)
-      .replace(/style="background-color:[^"]*"/, 'style=""')
+    const map = new DottedMap({ height: 60, grid: "diagonal", countries: ["FRA"] })
+    return map.getSVG({
+      radius: 0.32,
+      color: "#124bd2",
+      shape: "circle",
+      backgroundColor: "transparent",
+    })
   }, [])
-
-  const project = (lat: number, lng: number) => ({
-    x: (lng + 180) * (800 / 360),
-    y: (90 - lat)  * (400 / 180),
-  })
 
   const arc = (s: { x: number; y: number }, e: { x: number; y: number }) => {
     const mx = (s.x + e.x) / 2
-    const my = Math.min(s.y, e.y) - 4
+    const my = Math.min(s.y, e.y) - 6
     return `M ${s.x} ${s.y} Q ${mx} ${my} ${e.x} ${e.y}`
   }
 
@@ -48,45 +47,62 @@ export function FranceMap({
   const total   = dots.length * stagger + dur
   const cycle   = total + 2.5
 
+  // Deduplicate city labels so each city dot appears once
+  const cities = useMemo(() => {
+    const seen = new Set<string>()
+    const result: { pt: { x: number; y: number }; label: string }[] = []
+    for (const dot of dots) {
+      for (const { lat, lng, label } of [dot.start, dot.end]) {
+        const key = `${lat},${lng}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          result.push({ pt: project(lat, lng), label: label ?? "" })
+        }
+      }
+    }
+    return result
+  }, [dots])
+
   return (
     <div
       className="relative w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
-      style={{ aspectRatio: "4/3" }}
+      style={{ aspectRatio: "1 / 1" }}
     >
-      {/* Background dots cropped to France */}
+      {/* Background — France territory dots only (inset 8% to add breathing room) */}
       <img
         src={`data:image/svg+xml;utf8,${encodeURIComponent(bgSvg)}`}
-        className="absolute inset-0 h-full w-full pointer-events-none select-none"
-        style={{ objectFit: "fill", opacity: 0.85 }}
+        className="absolute pointer-events-none select-none"
+        style={{ inset: "8%", width: "84%", height: "84%", objectFit: "fill", opacity: 0.18 }}
         alt=""
         aria-hidden
       />
 
-      {/* Edge fades */}
+      {/* Edge fades — subtle, only at the card edges */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 18%, transparent 82%, rgba(255,255,255,0.75) 100%)",
+            "linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, transparent 8%, transparent 92%, rgba(255,255,255,0.4) 100%)",
         }}
       />
 
-      {/* Interactive SVG overlay */}
+      {/* SVG overlay — same 60×60 space, inset to match background */}
       <svg
         ref={svgRef}
-        viewBox={OVERLAY_VB}
-        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 60 60"
+        className="absolute"
+        style={{ inset: "8%", width: "84%", height: "84%" }}
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
           <linearGradient id="fr-line" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%"   stopColor="white"     stopOpacity="0" />
-            <stop offset="8%"   stopColor={lineColor} stopOpacity="1" />
-            <stop offset="92%"  stopColor={lineColor} stopOpacity="1" />
+            <stop offset="10%"  stopColor={lineColor} stopOpacity="1" />
+            <stop offset="90%"  stopColor={lineColor} stopOpacity="1" />
             <stop offset="100%" stopColor="white"     stopOpacity="0" />
           </linearGradient>
           <filter id="fr-glow">
-            <feGaussianBlur stdDeviation="0.4" result="b" />
+            <feGaussianBlur stdDeviation="0.5" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
@@ -106,13 +122,13 @@ export function FranceMap({
                 d={path}
                 fill="none"
                 stroke="url(#fr-line)"
-                strokeWidth="0.4"
+                strokeWidth="0.5"
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: [0, 0, 1, 1, 0] }}
                 transition={{ duration: cycle, times: [0, t0, t1, tr, 1], ease: "easeInOut", repeat: Infinity }}
               />
               <motion.circle
-                r="0.9"
+                r="1.2"
                 fill={lineColor}
                 initial={{ opacity: 0 }}
                 animate={{
@@ -126,42 +142,37 @@ export function FranceMap({
           )
         })}
 
-        {/* City dots + labels */}
-        {dots.map((dot, i) =>
-          [
-            { pt: project(dot.start.lat, dot.start.lng), label: dot.start.label },
-            { pt: project(dot.end.lat,   dot.end.lng),   label: dot.end.label },
-          ].map(({ pt, label }, j) => (
-            <motion.g
-              key={`city-${i}-${j}`}
-              onHoverStart={() => label && setHovered(label)}
-              onHoverEnd={() => setHovered(null)}
-              whileHover={{ scale: 1.5 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
-              className="cursor-pointer"
-            >
-              <circle cx={pt.x} cy={pt.y} r="0.7" fill={lineColor} filter="url(#fr-glow)" />
-              <circle cx={pt.x} cy={pt.y} r="0.7" fill={lineColor} opacity="0.4">
-                <animate attributeName="r"       from="0.7" to="3.5" dur="2s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.5" to="0"   dur="2s" repeatCount="indefinite" />
-              </circle>
-              {label && (
-                <text
-                  x={pt.x}
-                  y={pt.y - 1.8}
-                  textAnchor="middle"
-                  fontSize="2.2"
-                  fontFamily="system-ui, sans-serif"
-                  fontWeight="700"
-                  fill="#1e293b"
-                  style={{ userSelect: "none", pointerEvents: "none" }}
-                >
-                  {label}
-                </text>
-              )}
-            </motion.g>
-          ))
-        )}
+        {/* City dots (deduplicated) */}
+        {cities.map(({ pt, label }, i) => (
+          <motion.g
+            key={`city-${i}`}
+            onHoverStart={() => label && setHovered(label)}
+            onHoverEnd={() => setHovered(null)}
+            whileHover={{ scale: 1.4 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            className="cursor-pointer"
+          >
+            <circle cx={pt.x} cy={pt.y} r="0.9" fill={lineColor} filter="url(#fr-glow)" />
+            <circle cx={pt.x} cy={pt.y} r="0.9" fill={lineColor} opacity="0.35">
+              <animate attributeName="r"       from="0.9" to="4"  dur="2s" repeatCount="indefinite" />
+              <animate attributeName="opacity" from="0.5" to="0"  dur="2s" repeatCount="indefinite" />
+            </circle>
+            {label && (
+              <text
+                x={pt.x}
+                y={pt.y - 2}
+                textAnchor="middle"
+                fontSize="2.4"
+                fontFamily="system-ui, sans-serif"
+                fontWeight="700"
+                fill="#1e293b"
+                style={{ userSelect: "none", pointerEvents: "none" }}
+              >
+                {label}
+              </text>
+            )}
+          </motion.g>
+        ))}
       </svg>
 
       {/* Europe coming soon badge */}
