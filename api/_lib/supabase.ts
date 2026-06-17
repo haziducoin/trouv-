@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import type { VercelRequest } from '@vercel/node'
 
+// On privilégie VITE_SUPABASE_URL (le projet utilisé par le front pour l'auth),
+// pour que la validation des tokens cible le bon projet.
 const SUPABASE_URL =
-  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
+  process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ''
+// SUPABASE_SECRET_KEY = variable dédiée (posée à la main, sans conflit avec
+// l'intégration Vercel↔Supabase). Fallback sur SUPABASE_SERVICE_ROLE_KEY.
 const SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
 // Client admin (service role) — bypass RLS, jamais exposé au client.
 export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
