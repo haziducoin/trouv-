@@ -69,7 +69,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
 
       {/* Toolbar inline (only in embedded mode) */}
       {embedded && (
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Historique des recherches</h2>
             <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Retrouvez et rejouez vos recherches précédentes.</p>
@@ -77,7 +77,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
           {entries.length > 0 && (
             <button
               onClick={handleClear}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:text-red-500 dark:border-slate-700 dark:text-slate-400"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:text-red-500 dark:border-slate-700 dark:text-slate-400"
             >
               <Trash2 size={12} /> Tout effacer
             </button>
@@ -155,7 +155,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
                 <button
                   onClick={() => handleReplay(e)}
                   title="Rejouer cette recherche"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-300 opacity-0 transition group-hover:opacity-100 hover:bg-blue-50 hover:text-[#124bd2] dark:text-slate-600 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-300 transition hover:bg-blue-50 hover:text-[#124bd2] sm:opacity-0 sm:group-hover:opacity-100 dark:text-slate-600 dark:hover:bg-blue-950 dark:hover:text-blue-400"
                 >
                   <RotateCcw size={14} />
                 </button>
