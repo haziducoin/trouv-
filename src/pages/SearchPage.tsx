@@ -9,14 +9,13 @@ import {
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu,
 } from 'lucide-react'
-import { searchDemoProspects, maskPhone, maskEmail } from '@/lib/demoData'
-
 type AppView = 'search' | 'history' | 'lists' | 'list-detail'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
   searchProspects, exportProspectsCSV,
-  type ProspectResult, type ProspectSearchParams,
+  unlockContactField, getCreditBalance, UnlockError,
+  type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
@@ -649,7 +648,8 @@ function ProspectionPanel({
 }
 
 // ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
-function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospect: ProspectResult; onClose: () => void; accessLevel?: AccessLevel }) {
+function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
+  const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
 
   useEffect(() => {
@@ -690,28 +690,9 @@ function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospe
           <section>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
             <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              {prospect.phone && (
-                accessLevel === 'demo'
-                  ? <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone)} locked muted />
-                  : <ContactChip icon={<Phone size={14} />} value={prospect.phone} href={`tel:${prospect.phone}`} />
-              )}
-              {prospect.phoneMobile && (
-                accessLevel === 'demo'
-                  ? <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phoneMobile)} locked muted />
-                  : <ContactChip icon={<Phone size={14} />} value={prospect.phoneMobile} href={`tel:${prospect.phoneMobile}`} />
-              )}
-              {prospect.email && (
-                accessLevel === 'demo'
-                  ? <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
-                  : <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} />
-              )}
-              {prospect.linkedinUrl && (
-                <div className="flex items-center gap-2.5">
-                  <ExternalLink size={13} className="shrink-0 text-slate-300" />
-                  <a href={prospect.linkedinUrl} target="_blank" rel="noopener" className="truncate text-xs text-[#124bd2] hover:underline">LinkedIn</a>
-                </div>
-              )}
-              {!prospect.phone && !prospect.email && !prospect.phoneMobile && (
+              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {!prospect.hasPhone && !prospect.hasEmail && (
                 <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
               )}
             </div>
@@ -819,8 +800,54 @@ function ContactChip({
 }
 
 // ─── Composant ProspectCard ────────────────────────────────────────────────────
+// ─── Champ de contact : masqué + bouton Débloquer, ou valeur complète ───────
+function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
+  prospect:  ProspectResult
+  kind:      'phone' | 'email'
+  canUnlock: boolean
+  onUnlock:  (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const has      = kind === 'phone' ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = kind === 'phone' ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value    = kind === 'phone' ? prospect.phone : prospect.email
+  const Icon     = kind === 'phone' ? Phone : Mail
+  if (!has) return null
+
+  if (unlocked && value) {
+    const href = kind === 'phone' ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    return (
+      <a href={href} onClick={e => e.stopPropagation()}
+        className="inline-flex max-w-full items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-[#124bd2] ring-1 ring-blue-100/80 transition hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60">
+        <Icon size={14} /> <span className="truncate">{value}</span>
+      </a>
+    )
+  }
+
+  const click = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try { await onUnlock(prospect, kind) } finally { setBusy(false) }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-1.5 text-xs ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700">
+      <Icon size={14} className="text-slate-300 dark:text-slate-600" />
+      <span className="font-semibold tabular-nums text-slate-400">{value}</span>
+      <button type="button" onClick={click} disabled={busy}
+        className="ml-1 inline-flex items-center gap-1 rounded-lg bg-[#124bd2] px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-[#0b3fbc] disabled:opacity-60">
+        {busy
+          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          : <Lock size={11} />}
+        {canUnlock ? (kind === 'phone' ? 'Débloquer le téléphone' : "Débloquer l'email") : 'Voir les offres'}
+      </button>
+    </span>
+  )
+}
+
 function ProspectCard({
-  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full',
+  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full', canUnlock = false, onUnlock,
 }: {
   prospect:          ProspectResult
   isFavorite:        boolean
@@ -828,13 +855,15 @@ function ProspectCard({
   viewMode:          'grid' | 'list'
   onDetail:          (p: ProspectResult) => void
   accessLevel?:      AccessLevel
+  canUnlock?:        boolean
+  onUnlock?:         (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
 }) {
+  const noop = async () => {}
   const initials = prospectInitials(prospect.fullName)
   const accent   = prospectAccent(prospect.jobTitle)
 
   if (viewMode === 'list') {
     const isLimited = accessLevel === 'limited'
-    const isDemo    = accessLevel === 'demo'
     return (
       <div className={`group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
@@ -862,26 +891,13 @@ function ProspectCard({
             </>
           )}
         </div>
-        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
           {isLimited ? (
             <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
-          ) : isDemo ? (
-            <>
-              {prospect.phone && (
-                <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone)} locked muted />
-              )}
-              {prospect.email && (
-                <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
-              )}
-            </>
           ) : (
             <>
-              {prospect.phone && (
-                <ContactChip icon={<Phone size={14} />} value={prospect.phone} href={`tel:${prospect.phone}`} onClick={e => e.stopPropagation()} />
-              )}
-              {prospect.email && (
-                <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()} />
-              )}
+              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
             </>
           )}
         </div>
@@ -906,7 +922,6 @@ function ProspectCard({
 
   // Vue grille
   const isLimited = accessLevel === 'limited'
-  const isDemo    = accessLevel === 'demo'
   return (
     <div
       className={`card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}
@@ -960,36 +975,15 @@ function ProspectCard({
         </div>
       ) : (
         <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Phone */}
-          {(prospect.phone || prospect.phoneMobile) ? (
-            <div>
-              {isDemo ? (
-                <ContactChip icon={<Phone size={14} />} value={maskPhone(prospect.phone ?? prospect.phoneMobile ?? '')} locked muted />
-              ) : (
-                <ContactChip
-                  icon={<Phone size={14} />}
-                  value={prospect.phone ?? prospect.phoneMobile ?? ''}
-                  href={`tel:${prospect.phone ?? prospect.phoneMobile}`}
-                  onClick={e => e.stopPropagation()}
-                />
-              )}
-            </div>
-          ) : (
-            <ContactChip icon={<Phone size={14} />} value="—" muted />
-          )}
+          {/* Téléphone */}
+          {prospect.hasPhone
+            ? <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
+            : <ContactChip icon={<Phone size={14} />} value="—" muted />}
 
           {/* Email */}
-          {prospect.email ? (
-            <div>
-              {isDemo ? (
-                <ContactChip icon={<Mail size={14} />} value={maskEmail(prospect.email)} locked muted />
-              ) : (
-                <ContactChip icon={<Mail size={14} />} value={prospect.email} href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()} />
-              )}
-            </div>
-          ) : (
-            <ContactChip icon={<Mail size={14} />} value="—" muted />
-          )}
+          {prospect.hasEmail
+            ? <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
+            : <ContactChip icon={<Mail size={14} />} value="—" muted />}
 
           {/* City */}
           {prospect.city && (
@@ -1646,7 +1640,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [activeListId, setActiveListId]       = useState<string | null>(null)
   const [addPopupProspect, setAddPopupProspect] = useState<ProspectResult | null>(null)
   const [appView, setAppView]                 = useState<AppView>('search')
-  const [usedQuota, setUsedQuota]             = useState(account.monthlyUsage)
+  const [usedQuota]                           = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
   const [showMobileMenu, setShowMobileMenu]   = useState(false)
 
@@ -1658,6 +1652,35 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   })
   const [showConversionModal, setShowConversionModal]     = useState(false)
   const [showDemoRequestModal, setShowDemoRequestModal]   = useState(false)
+  const [creditBalance, setCreditBalance]                 = useState<CreditBalance | null>(null)
+
+  // Solde de crédits (abonnés).
+  useEffect(() => {
+    if (accessLevel === 'full' || accessLevel === 'trial') {
+      getCreditBalance().then(setCreditBalance).catch(() => {})
+    }
+  }, [accessLevel])
+
+  // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
+  const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
+    try {
+      const value = await unlockContactField(prospect.id, field)
+      const patch = field === 'phone'
+        ? { phone: value, phoneUnlocked: true }
+        : { email: value, emailUnlocked: true }
+      setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
+      setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
+      getCreditBalance().then(setCreditBalance).catch(() => {})
+    } catch (e) {
+      if (e instanceof UnlockError &&
+          ['no_subscription', 'no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
+        window.location.assign('/?pricing=1')
+        return
+      }
+      setError('Déblocage impossible pour le moment. Réessayez.')
+    }
+  }, [accessLevel])
 
   // Sync dark mode with <html> class
   useEffect(() => {
@@ -1700,64 +1723,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
     setLoading(true); setError(null)
 
-    // ── Mode démo / limité → données fictives locales ───────────────────────
-    if (accessLevel === 'demo' || accessLevel === 'limited') {
-      await new Promise(r => setTimeout(r, 300 + Math.random() * 200))
-      const res = searchDemoProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
-      setResults(res.results)
-      setTotal(res.total)
-      setTotalPages(res.totalPages)
-      setPage(pg)
-      setHasSearched(true)
-      setLoading(false)
-
-      const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
-                      !params.zipCode && !params.employeeRange && !params.legalForm
-      if (!isEmpty && maxSearches !== undefined) {
-        setDemoSearchCount(prev => {
-          const next = prev + 1
-          localStorage.setItem(DEMO_COUNT_KEY, String(next))
-          if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
-          return next
-        })
-      }
-      return
-    }
-
-    // ── Mode trial → vraies données Supabase, compteur limité ───────────────
-    if (accessLevel === 'trial') {
-      const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
-                      !params.zipCode && !params.employeeRange && !params.legalForm
-      try {
-        const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
-        setResults(res.results)
-        setTotal(res.total)
-        setTotalPages(res.totalPages)
-        setPage(pg)
-        setHasSearched(true)
-        if (!isEmpty && maxSearches !== undefined) {
-          setDemoSearchCount(prev => {
-            const next = prev + 1
-            localStorage.setItem(DEMO_COUNT_KEY, String(next))
-            if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
-            return next
-          })
-        }
-      } catch (err: any) {
-        setError(err.message ?? 'Erreur lors de la recherche')
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-
-    // ── Mode complet → Supabase ──────────────────────────────────────────────
-    if (usedQuota >= account.quota && account.quota > 0) {
-      setError('Quota mensuel atteint — passez à un plan supérieur pour continuer.')
-      setLoading(false)
-      return
-    }
-
+    // Recherche unifiée : données réelles masquées côté serveur pour tous les
+    // niveaux. La recherche ne consomme jamais de crédit (seul l'unlock le fait).
+    const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
+                    !params.zipCode && !params.employeeRange && !params.legalForm
     try {
       const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
       setResults(res.results)
@@ -1766,22 +1735,31 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setPage(pg)
       setHasSearched(true)
 
-      const hasQuery = Boolean(params.query?.trim())
-      if (hasQuery) {
-        saveRecentSearch(params.query!.trim())
-        setRecentSearches(readRecentSearches())
-        setUsedQuota(q => q + 1)
-        recordSearch(params.query!, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
-      } else if (params.department || params.activityCode || params.zipCode || params.employeeRange || params.legalForm) {
-        setUsedQuota(q => q + 1)
-        recordSearch(`filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+      if (!isEmpty) {
+        if ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined) {
+          // Démo : compteur de recherches → CTA pricing après la limite.
+          setDemoSearchCount(prev => {
+            const next = prev + 1
+            localStorage.setItem(DEMO_COUNT_KEY, String(next))
+            if (next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+            return next
+          })
+        } else {
+          // Abonné : recherche illimitée, simple journalisation.
+          if (params.query?.trim()) {
+            saveRecentSearch(params.query.trim())
+            setRecentSearches(readRecentSearches())
+          }
+          const label = params.query?.trim() || `filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`
+          recordSearch(label, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+        }
       }
     } catch (err: any) {
       setError(err.message ?? 'Erreur lors de la recherche')
     } finally {
       setLoading(false)
     }
-  }, [accessLevel, usedQuota, account.quota, account.id, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
+  }, [accessLevel, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
 
   // Debounce search-as-you-type (barre principale uniquement)
   // Ferme l'overlay de transition quand la recherche se termine (minimum 650ms d'affichage)
@@ -1957,32 +1935,27 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           </button>
         </nav>
 
-        {/* Quota bar sidebar */}
-        {(accessLevel === 'full' || account.role === 'agent') && account.quota > 0 && (
-          <div className="border-t border-white/8 px-4 py-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                {account.role === 'agent' ? 'Recherches restantes' : 'Quota mensuel'}
-              </span>
-              <span className={`text-[10px] font-bold tabular-nums ${
-                usedQuota / account.quota >= 0.9 ? 'text-red-400' :
-                usedQuota / account.quota >= 0.7 ? 'text-amber-400' : 'text-white/50'
-              }`}>
-                {account.role === 'agent'
-                  ? `${Math.max(0, account.quota - usedQuota)} / ${account.quota}`
-                  : `${usedQuota.toLocaleString('fr-FR')} / ${account.quota.toLocaleString('fr-FR')}`
-                }
-              </span>
-            </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  usedQuota / account.quota >= 0.9 ? 'bg-red-400' :
-                  usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#1B54FF]'
-                }`}
-                style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
-              />
-            </div>
+        {/* Solde de crédits (abonnés) / recherches démo */}
+        {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
+          <div className="space-y-2.5 border-t border-white/8 px-4 py-4">
+            {creditBalance && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Phone size={12} /> Crédits téléphone</span>
+                  <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Mail size={12} /> Crédits email</span>
+                  <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
+                </div>
+              </>
+            )}
+            {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Search size={12} /> Recherches démo</span>
+                <span className="text-xs font-bold tabular-nums text-white">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -2358,7 +2331,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel} />
+                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
                 ) : (
@@ -2366,7 +2340,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel} />
+                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
                 )}
@@ -2413,7 +2388,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
       {/* Slide-over détail prospect */}
       {selectedCompany && accessLevel !== 'limited' && (
-        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} accessLevel={accessLevel} />
+        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
       )}
 
       {/* Modal de conversion (fin de quota démo/limité) */}

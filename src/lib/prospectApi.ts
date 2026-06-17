@@ -1,10 +1,7 @@
-// ─── API Prospects — interroge la table Supabase "contacts" ───────────────────
-import { extractBirthCity, extractBirthYear, stripSensitiveFields } from '@/lib/privacy'
+// ─── API Prospects — recherche sécurisée (masquage serveur) + déblocage crédits ─
 import { getSupabaseClient } from '@/lib/supabase'
 
 function fixMojibake(str: string): string {
-  // Répare l'encodage Latin-1 mal interprété en UTF-8
-  // ex: "SÃ©bastien" → "Sébastien"
   if (!/[Ã\xC0-\xC5]/.test(str)) return str
   try {
     const bytes = new Uint8Array([...str].map(c => c.charCodeAt(0)))
@@ -17,30 +14,24 @@ function fixMojibake(str: string): string {
 function toTitleCase(str: string | null | undefined): string | null {
   if (!str) return null
   const fixed = fixMojibake(str)
-  // Capitalise la 1re lettre après début, espace, tiret ou apostrophe
-  // \b ne fonctionne pas avec les accents en JS → on évite
   return fixed.toLowerCase().replace(/(^|[ \-'])(\p{L})/gu, (_, sep, letter) => sep + letter.toUpperCase())
 }
 
-function formatPhone(phone: string | null | undefined): string | null {
+export function formatPhone(phone: string | null | undefined): string | null {
   if (!phone) return null
   const clean = phone.replace(/[^\d+]/g, '')
   let digits: string
 
-  if (clean.startsWith('+33') && clean.length === 12) {
-    digits = clean.slice(3)
-  } else if (clean.startsWith('0033') && clean.length === 13) {
-    digits = clean.slice(4)
-  } else if (clean.startsWith('0') && clean.length === 10) {
-    digits = clean.slice(1)
-  } else if (clean.length === 9 && /^[1-9]/.test(clean)) {
-    digits = clean
-  } else {
-    return phone
-  }
+  if (clean.startsWith('+33') && clean.length === 12) digits = clean.slice(3)
+  else if (clean.startsWith('0033') && clean.length === 13) digits = clean.slice(4)
+  else if (clean.startsWith('0') && clean.length === 10) digits = clean.slice(1)
+  else if (clean.length === 9 && /^[1-9]/.test(clean)) digits = clean
+  else return phone
 
   return `+33 ${digits[0]} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`
 }
+
+export type UnlockField = 'phone' | 'email'
 
 export interface ProspectResult {
   id:            string
@@ -54,9 +45,14 @@ export interface ProspectResult {
   activityLabel: string | null
   companySize:   string | null
   companyType:   string | null
-  email:         string | null
+  // Contacts — valeur affichée (masquée si verrouillée, complète si débloquée)
+  hasPhone:      boolean
+  phoneUnlocked: boolean
   phone:         string | null
   phoneMobile:   string | null
+  hasEmail:      boolean
+  emailUnlocked: boolean
+  email:         string | null
   linkedinUrl:   string | null
   website:       string | null
   address:       string | null
@@ -97,39 +93,43 @@ export interface ProspectSearchResponse {
 }
 
 function mapRow(row: Record<string, any>): ProspectResult {
-  const clean = stripSensitiveFields(row)
-
-  const firstName = toTitleCase(clean.prenom ?? clean.first_name ?? clean.firstName) ?? ''
-  const lastName  = toTitleCase(clean.nom    ?? clean.last_name  ?? clean.lastName)  ?? ''
-  const companyName = toTitleCase(clean.organisme ?? clean.company_name ?? clean.companyName) ?? null
+  const firstName   = toTitleCase(row.prenom) ?? ''
+  const lastName    = toTitleCase(row.nom) ?? ''
+  const companyName = toTitleCase(row.societe) ?? null
+  const phoneUnlocked = !!row.phone_unlocked
+  const emailUnlocked = !!row.email_unlocked
 
   return {
-    id:            String(clean.id ?? crypto.randomUUID()),
+    id:            String(row.id),
     firstName,
     lastName,
     fullName:      `${firstName} ${lastName}`.trim() || companyName || 'Inconnu',
-    jobTitle:      clean.situation    ?? clean.job_title   ?? clean.jobTitle   ?? null,
+    jobTitle:      null,
     companyName,
     companySiren:  null,
     activityCode:  null,
     activityLabel: null,
     companySize:   null,
     companyType:   null,
-    email:         clean.email        ?? null,
-    phone:         formatPhone(clean.telephone ?? clean.phone),
-    phoneMobile:   formatPhone(clean.mobile ?? clean.phoneMobile ?? clean.phone_mobile),
-    linkedinUrl:   clean.linkedin_url ?? clean.linkedinUrl  ?? null,
+    hasPhone:      !!row.has_phone,
+    phoneUnlocked,
+    phone:         phoneUnlocked ? formatPhone(row.phone_value) : (row.phone_masked ?? null),
+    phoneMobile:   null,
+    hasEmail:      !!row.has_email,
+    emailUnlocked,
+    email:         emailUnlocked ? (row.email_value ?? null) : (row.email_masked ?? null),
+    linkedinUrl:   null,
     website:       null,
-    address:       clean.adresse      ?? clean.address      ?? null,
-    city:          clean.ville        ?? clean.city         ?? null,
-    zipCode:       clean.code_postal  ?? clean.zip_code     ?? clean.zipCode ?? null,
+    address:       row.adresse ?? null,
+    city:          row.ville ?? null,
+    zipCode:       row.code_postal ?? null,
     department:    null,
     region:        null,
-    country:       clean.country      ?? null,
-    birthYear:     clean.birthYear    ?? extractBirthYear(clean),
-    birthCity:     clean.birthCity    ?? extractBirthCity(clean),
+    country:       null,
+    birthYear:     null,
+    birthCity:     null,
     isActive:      true,
-    createdAt:     clean.created_at   ?? new Date().toISOString(),
+    createdAt:     new Date().toISOString(),
   }
 }
 
@@ -159,7 +159,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
 
   const timeoutMs = 10000
-  const rpcPromise = supabase.rpc('search_contacts', rpcParams)
+  const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
   const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>(
     (resolve) => setTimeout(() => resolve({ data: null, error: { message: 'Recherche trop longue — réessayez avec un nom exact', code: 'TIMEOUT' } }), timeoutMs)
   )
@@ -167,35 +167,23 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
 
   if (error) {
-    if (error.code === 'PGRST202') {
+    if ((error as any).code === 'PGRST202') {
       return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
     }
     throw new Error(`Recherche impossible : ${error.message}`)
   }
 
   const rows  = (data ?? []) as Array<Record<string, any>>
-  const total = rows.length > 0
-    ? (Number(rows[0].total_count) || rows.length)
-    : 0
+  const total = rows.length > 0 ? (Number(rows[0].total_count) || rows.length) : 0
 
-  const allResults = rows.map(mapRow)
-
-  // Déduplique par (nom + prenom + telephone/mobile + email)
+  // Déduplique par id de contact ; ne garde que les fiches avec au moins un contact.
   const seen = new Set<string>()
-  const results = allResults.filter(p => {
-    if (!p.phone && !p.phoneMobile && !p.email) return false
-    const key = [
-      p.lastName.toLowerCase(),
-      p.firstName.toLowerCase(),
-      p.phone ?? '',
-      p.phoneMobile ?? '',
-      p.email?.toLowerCase() ?? '',
-    ].join('|')
-    if (seen.has(key)) return false
-    seen.add(key)
+  const results = rows.map(mapRow).filter(p => {
+    if (!p.hasPhone && !p.hasEmail) return false
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
     return true
   })
-
 
   return {
     results,
@@ -206,18 +194,69 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   }
 }
 
+// ─── Déblocage d'un champ (consomme 1 crédit, idempotent) ───────────────────
+export class UnlockError extends Error {
+  public readonly code: string
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'UnlockError'
+    this.code = code
+  }
+}
+
+/** Débloque le téléphone ou l'email d'un contact. Renvoie la valeur complète. */
+export async function unlockContactField(contactId: string, field: UnlockField): Promise<string> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.rpc('unlock_contact_field', {
+    p_contact_id: Number(contactId),
+    p_field:      field,
+  })
+
+  if (error) {
+    // Le code métier est dans le message de l'exception PostgreSQL.
+    const raw = (error.message || '').toLowerCase()
+    let code = 'unknown'
+    if (raw.includes('no_subscription'))   code = 'no_subscription'
+    else if (raw.includes('no_phone_credits')) code = 'no_phone_credits'
+    else if (raw.includes('no_email_credits')) code = 'no_email_credits'
+    else if (raw.includes('no_credits'))    code = 'no_credits'
+    else if (raw.includes('not_approved'))  code = 'not_approved'
+    else if (raw.includes('no_data'))       code = 'no_data'
+    throw new UnlockError(code, error.message)
+  }
+
+  return field === 'phone' ? (formatPhone(data as string) ?? (data as string)) : (data as string)
+}
+
+// ─── Solde de crédits de l'organisation ─────────────────────────────────────
+export interface CreditBalance {
+  phoneCredits: number
+  emailCredits: number
+  unlimited:    boolean
+}
+
+export async function getCreditBalance(): Promise<CreditBalance | null> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('credit_balances')
+    .select('phone_credits, email_credits, unlimited')
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return {
+    phoneCredits: data.phone_credits ?? 0,
+    emailCredits: data.email_credits ?? 0,
+    unlimited:    !!data.unlimited,
+  }
+}
+
 export function exportProspectsCSV(results: ProspectResult[], query: string) {
-  const headers = [
-    'Prénom', 'Nom', 'Poste', 'Entreprise',
-    'Email', 'Téléphone fixe', 'Téléphone mobile', 'Réseau social public',
-    'Adresse', 'Ville', 'Code postal', 'Pays',
-    'Année de naissance', 'Ville de naissance',
-  ]
+  const headers = ['Prénom', 'Nom', 'Entreprise', 'Email', 'Téléphone', 'Adresse', 'Ville', 'Code postal']
   const rows = results.map(p => [
-    p.firstName, p.lastName, p.jobTitle ?? '', p.companyName ?? '',
-    p.email ?? '', p.phone ?? '', p.phoneMobile ?? '', p.linkedinUrl ?? '',
-    p.address ?? '', p.city ?? '', p.zipCode ?? '', p.country ?? '',
-    p.birthYear ?? '', p.birthCity ?? '',
+    p.firstName, p.lastName, p.companyName ?? '',
+    p.emailUnlocked ? (p.email ?? '') : '', p.phoneUnlocked ? (p.phone ?? '') : '',
+    p.address ?? '', p.city ?? '', p.zipCode ?? '',
   ])
   const csv = [headers, ...rows]
     .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))

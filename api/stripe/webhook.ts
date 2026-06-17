@@ -89,8 +89,11 @@ async function handleCheckoutCompleted(session: any) {
 
   await supabaseAdmin
     .from('profiles')
-    .update({ monthly_search_quota: PLAN_QUOTAS[plan_code] ?? 1500 })
+    .update({ monthly_search_quota: PLAN_QUOTAS[plan_code] ?? 999999 })
     .eq('organization_id', organization_id)
+
+  // Octroi des crédits téléphone / email selon l'offre.
+  await supabaseAdmin.rpc('grant_plan_credits', { p_org_id: organization_id, p_plan_code: plan_code ?? 'solo' })
   void period
 }
 
@@ -108,6 +111,11 @@ async function handleSubscriptionUpdated(sub: any) {
     renews_at: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
     canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
   })
+
+  // Réaligne les crédits sur l'offre (changement de plan inclus).
+  if (mapStripeStatus(sub.status) === 'active' || mapStripeStatus(sub.status) === 'trialing') {
+    await supabaseAdmin.rpc('grant_plan_credits', { p_org_id: organization_id, p_plan_code: plan_code ?? 'solo' })
+  }
 }
 
 async function handleSubscriptionDeleted(sub: any) {
@@ -119,6 +127,8 @@ async function handleSubscriptionDeleted(sub: any) {
   const { organization_id } = sub.metadata ?? {}
   if (organization_id) {
     await supabaseAdmin.from('profiles').update({ monthly_search_quota: 0 }).eq('organization_id', organization_id)
+    // Crédits remis à zéro (offre annulée).
+    await supabaseAdmin.rpc('grant_plan_credits', { p_org_id: organization_id, p_plan_code: 'canceled' })
   }
 }
 
@@ -128,6 +138,16 @@ async function handleInvoicePaid(invoice: any) {
     .from('subscriptions')
     .update({ status: 'active', updated_at: new Date().toISOString() })
     .eq('provider_subscription_id', invoice.subscription)
+
+  // Recharge mensuelle des crédits selon l'offre.
+  const { data: sub } = await supabaseAdmin
+    .from('subscriptions')
+    .select('organization_id, plan_code')
+    .eq('provider_subscription_id', invoice.subscription)
+    .single()
+  if (sub?.organization_id) {
+    await supabaseAdmin.rpc('grant_plan_credits', { p_org_id: sub.organization_id, p_plan_code: sub.plan_code ?? 'solo' })
+  }
 }
 
 async function handlePaymentFailed(invoice: any) {
