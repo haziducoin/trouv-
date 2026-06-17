@@ -544,9 +544,9 @@ function ProspectionPanel({
   const sector = PROSPECTION_SECTORS.find(s => s.id === activeSector)
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl dark:bg-slate-900" style={{ animation: 'slideInRight 0.2s ease' }}>
+    <div className="fixed inset-0 z-50 flex" style={{ touchAction: 'none' }}>
+      <div className="hidden flex-1 bg-black/30 backdrop-blur-sm sm:block" onClick={onClose} />
+      <div className="flex h-full w-full max-w-full flex-col overflow-y-auto bg-white shadow-2xl sm:max-w-md dark:bg-slate-900" style={{ animation: 'slideInRight 0.2s ease', touchAction: 'pan-y' }}>
 
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
@@ -659,9 +659,9 @@ function ProspectSlideOver({ prospect, onClose, accessLevel = 'full' }: { prospe
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
+    <div className="fixed inset-0 z-50 flex" style={{ touchAction: 'none' }}>
+      <div className="hidden flex-1 bg-black/30 backdrop-blur-sm sm:block" onClick={onClose} />
+      <div className="flex h-full w-full max-w-full flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 sm:max-w-md dark:bg-slate-900" style={{ touchAction: 'pan-y' }}>
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
           <div className="flex items-center gap-4">
@@ -886,7 +886,7 @@ function ProspectCard({
           )}
         </div>
         {!isLimited && (
-          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+          <div className="flex shrink-0 items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100">
             <button
               onClick={() => onToggleFavorite(prospect)}
               aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
@@ -1127,7 +1127,7 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Mes listes de prospects</h2>
           <p className="mt-0.5 text-xs text-slate-400">{lists.length} liste{lists.length !== 1 ? 's' : ''} · {lists.reduce((n, l) => n + l.contacts.length, 0)} contacts au total</p>
         </div>
-        <button onClick={onNewList} className="flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
+        <button onClick={onNewList} className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
           <Plus size={13} /> Nouvelle liste
         </button>
       </div>
@@ -1186,15 +1186,15 @@ function SingleListView({ list, onBack, onExport, onRemove }: {
 }) {
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 animate-fade-in">
-      <div className="mb-6 flex items-center gap-3 flex-wrap">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <button onClick={onBack} className="text-xs text-slate-400 hover:text-slate-600 transition">← Mes listes</button>
         <span className="text-slate-300">|</span>
         <span className="text-xl">{list.emoji}</span>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{list.name}</h2>
           <p className="text-xs text-slate-400">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={onExport} className="flex items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
+        <button onClick={onExport} className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-[#124bd2] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
           <Download size={13} /> Exporter CSV
         </button>
       </div>
@@ -1346,7 +1346,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
 
       {/* Dropdown */}
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
@@ -1868,7 +1868,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424] overflow-x-hidden">
 
       {/* ── Header mobile (visible < lg) ─────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-[#07113d] border-b border-white/[0.06]">
@@ -1989,7 +1989,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       </aside>
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
-      <div className="lg:ml-60 flex flex-1 flex-col pt-14 lg:pt-0 pb-16 lg:pb-0">
+      <div className="lg:ml-60 flex flex-1 flex-col pt-14 lg:pt-0 pb-20 lg:pb-0">
 
         {/* Vue Historique */}
         {appView === 'history' && (
@@ -2024,8 +2024,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           <div className="flex flex-1 flex-col px-4 py-4 lg:px-8 lg:py-8">
 
             {/* En-tête */}
-            <div className="mb-7 flex items-start justify-between">
-              <div>
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
                   Recherche professionnelle
                 </p>
@@ -2140,7 +2140,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 />
                 <button type="submit"
                   disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
-                  className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                  className="flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60 sm:w-auto">
                   {isLoading ? <RefreshCw size={15} className="animate-spin" /> : <><Search size={15} /> Rechercher</>}
                 </button>
               </div>
@@ -2249,10 +2249,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             )}
 
             {/* Toolbar résultats */}
-            <div className="mt-5 mb-3 flex items-center justify-between min-h-[28px]">
+            <div className="mt-5 mb-3 flex flex-wrap items-center justify-between gap-2 min-h-[28px]">
               <div>
                 {hasSearched && !isLoading && (
-                  <p className="flex items-baseline gap-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="flex flex-wrap items-baseline gap-1 text-sm text-slate-500 dark:text-slate-400">
                     <AnimateNumber
                       value={total}
                       duration={400}
@@ -2265,7 +2265,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 )}
               </div>
               {hasSearched && !isLoading && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-slate-400 dark:text-slate-500">Consultation journalisée</span>
                   <select value={perPage} onChange={e => { const pp = Number(e.target.value); setPerPage(pp); doSearch({ query: buildQuery(), department, activityCode, activeOnly, zipCode, employeeRange, legalForm, perPage: pp }, 1) }}
                     className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
@@ -2382,22 +2382,22 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-8 flex items-center justify-center gap-2">
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
                     <button onClick={() => handlePageChange(page - 1)} disabled={page <= 1}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                       <ChevronLeft size={16} />
                     </button>
-                    {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                      const pg = i + Math.max(1, Math.min(page - 3, totalPages - 6))
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const pg = i + Math.max(1, Math.min(page - 2, totalPages - 4))
                       return (
                         <button key={pg} onClick={() => handlePageChange(pg)}
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl border text-sm font-medium transition ${pg === page ? 'border-[#124bd2] bg-[#124bd2] text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
                           {pg}
                         </button>
                       )
                     })}
                     <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-300 hover:text-[#124bd2] disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                       <ChevronRight size={16} />
                     </button>
                     <span className="ml-2 hidden text-xs text-slate-400 sm:inline">
@@ -2517,7 +2517,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       )}
 
       {/* ── Bottom nav mobile ────────────────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1">
+      <nav
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] pt-1"
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+      >
         {([
           { key: 'search',  label: 'Recherche', icon: Search },
           { key: 'history', label: 'Historique', icon: History },
