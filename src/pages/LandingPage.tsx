@@ -304,7 +304,7 @@ export default function LandingPage({
   const [demoTransition, setDemoTransition]     = useState<'hidden' | 'visible' | 'leaving'>('hidden')
   const [titleNumber, setTitleNumber]           = useState(0)
   const heroTitles = useMemo(
-    () => ['Instantanément.', 'Rapidement.', 'Précisément.', 'Sûrement.', 'Légalement.'],
+    () => ['Instantanément.', 'Rapidement.', 'Précisément.', 'Sûrement.'],
     []
   )
   useEffect(() => {
