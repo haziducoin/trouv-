@@ -52,6 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       billing_address_collection: 'required',
       tax_id_collection: { enabled: true },
       automatic_tax: { enabled: true },
+      // Sauvegarde l'adresse saisie au checkout sur le client (requis par automatic_tax).
+      customer_update: { address: 'auto', name: 'auto' },
       allow_promotion_codes: true,
       success_url:
         process.env.STRIPE_SUCCESS_URL ??
