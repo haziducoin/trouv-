@@ -29,8 +29,10 @@ import { NavBar } from '@/components/ui/tubelight-navbar'
 import { PricingSection } from '@/components/ui/pricing'
 import { AnimatedTestimonials, type Testimonial } from '@/components/ui/animated-testimonials'
 import { ContainerScroll } from '@/components/ui/container-scroll-animation'
-import { AnimatedDemoButton } from '@/components/ui/animated-demo-button'
-import { HeroMeshGradient } from '@/components/ui/hero-mesh-gradient'
+import { DynamicWaveBg } from '@/components/ui/dynamic-wave-bg'
+import { FAQSection } from '@/components/ui/faq-section'
+import { UserAvatars } from '@/components/ui/user-avatars'
+import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import trouveLogo from '@/assets/trouve-logo.png'
 
 import { clearSession, restoreSession, type Account } from '@/lib/accountStore'
@@ -381,10 +383,9 @@ export default function LandingPage({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-[#081228] selection:bg-blue-600/20">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-[-16rem] h-[34rem] w-[54rem] -translate-x-1/2 rounded-full bg-blue-100/45 blur-[110px]" />
-      </div>
+    <div className="min-h-screen overflow-x-hidden bg-transparent text-[#081228] selection:bg-blue-600/20">
+      {/* Blobs bleus animés en fond fixe sur toute la page */}
+      <DynamicWaveBg />
 
       <header className="fixed inset-x-0 top-0 z-50 px-6 py-4">
         <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl bg-white/85 px-6 shadow-sm ring-1 ring-slate-100/80 backdrop-blur-md">
@@ -440,13 +441,10 @@ export default function LandingPage({
       </header>
 
       <main>
-        <section id="produit" className="relative flex min-h-[92vh] items-center overflow-hidden px-5 pb-20 pt-28 md:pb-28 md:pt-36">
-          {/* Mesh gradient background */}
-          <div className="pointer-events-none absolute inset-0 -z-10">
-            <HeroMeshGradient />
-            {/* Veil blanc pour conserver le contraste du texte sombre */}
-            <div className="absolute inset-0 bg-white/45" />
-          </div>
+        <section
+          id="produit"
+          className="relative flex min-h-[92vh] items-center overflow-hidden px-5 pb-20 pt-28 md:pb-28 md:pt-36"
+        >
 
           <div className="mx-auto flex max-w-5xl flex-col items-center gap-10 text-center">
 
@@ -510,31 +508,28 @@ export default function LandingPage({
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-col items-center gap-3 sm:flex-row">
-              <AnimatedDemoButton onClick={triggerDemoTransition} />
-              <button
-                type="button"
-                onClick={() => setAccountPanel('register')}
-                className="inline-flex h-14 cursor-pointer items-center gap-3 rounded-full border border-slate-200 bg-white px-8 text-base font-bold text-slate-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#124bd2]"
-              >
-                Créer un accès complet
-              </button>
+            <div className="flex flex-col items-center gap-4">
+              <LiquidButton size="xxxl" onClick={triggerDemoTransition} className="ring-1 ring-[#124bd2]/30">
+                Accèdez à la DEMO
+              </LiquidButton>
             </div>
 
             {/* Social proof */}
             <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
-              <span className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {[
-                    'bg-gradient-to-br from-blue-400 to-blue-600',
-                    'bg-gradient-to-br from-emerald-400 to-emerald-600',
-                    'bg-gradient-to-br from-purple-400 to-purple-600',
-                  ].map((cls, i) => (
-                    <div key={i} className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white text-[8px] font-bold text-white ${cls}`}>
-                      {['JD','ML','AS'][i]}
-                    </div>
-                  ))}
-                </div>
+              <span className="flex items-center gap-3">
+                <UserAvatars
+                  size={32}
+                  overlap={45}
+                  maxVisible={5}
+                  tooltipPlacement="top"
+                  users={[
+                    { id: 1, name: 'Julie Durand',   color: '#124bd2' },
+                    { id: 2, name: 'Marc Lefebvre',  color: '#0e9f6e' },
+                    { id: 3, name: 'Aline Sanchez',  color: '#7c3aed' },
+                    { id: 4, name: 'Thomas Roux',    color: '#db2777' },
+                    { id: 5, name: 'Sophie Martin',  color: '#d97706' },
+                  ]}
+                />
                 <span><span className="font-semibold text-slate-600">+2 400 professionnels</span> actifs</span>
               </span>
               <span className="flex items-center gap-1.5">
@@ -547,23 +542,6 @@ export default function LandingPage({
               </span>
             </div>
 
-            {/* Stats bar */}
-            <div className="w-full max-w-3xl">
-              <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-6 py-5 shadow-sm backdrop-blur-sm">
-                <div className="flex flex-col divide-y divide-slate-100 md:flex-row md:divide-x md:divide-y-0">
-                  {[
-                    { value: '267M+', label: 'Données\ndisponibles' },
-                    { value: '25+',   label: 'Critères\nde recherche' },
-                    { value: '<1s',   label: 'Pour obtenir\nun résultat' },
-                  ].map(({ value, label }) => (
-                    <div key={value} className="flex flex-1 flex-col items-center gap-1 py-4 md:py-2">
-                      <span className="text-3xl font-black tracking-tight text-[#124bd2]">{value}</span>
-                      <span className="whitespace-pre-line text-center text-xs font-semibold text-slate-500">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
 
           </div>
         </section>
@@ -978,6 +956,8 @@ export default function LandingPage({
 
           </div>
         </section>
+
+        <FAQSection />
 
       </main>
 

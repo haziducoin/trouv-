@@ -238,3 +238,112 @@
 @keyframes an-dissolve  { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(var(--an-blur,14px)); } }
 @media (prefers-reduced-motion: reduce) { .an-in { animation: none; } .an-out { animation: none; display: none; } }
 .an-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* ── Blue Flow Background ─────────────────────────────────────────────────── */
+.bfb-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bfb-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  will-change: transform;
+}
+.bfb-1 {
+  width: 65vw; height: 65vw;
+  background: radial-gradient(circle, rgba(18,75,210,0.28) 0%, transparent 70%);
+  top: -18%; left: -14%;
+  animation: bfb-float-1 18s ease-in-out infinite;
+}
+.bfb-2 {
+  width: 52vw; height: 52vw;
+  background: radial-gradient(circle, rgba(27,84,255,0.22) 0%, transparent 70%);
+  top: 5%; right: -12%;
+  animation: bfb-float-2 22s ease-in-out infinite;
+}
+.bfb-3 {
+  width: 42vw; height: 42vw;
+  background: radial-gradient(circle, rgba(59,142,255,0.18) 0%, transparent 70%);
+  bottom: -10%; left: 30%;
+  animation: bfb-float-3 16s ease-in-out infinite;
+}
+.bfb-4 {
+  width: 35vw; height: 35vw;
+  background: radial-gradient(circle, rgba(18,75,210,0.14) 0%, transparent 70%);
+  top: 40%; left: 55%;
+  animation: bfb-float-4 20s ease-in-out infinite;
+}
+@keyframes bfb-float-1 {
+  0%, 100% { transform: translate(0,    0)    scale(1);   }
+  33%       { transform: translate(5vw, -4vh)  scale(1.08); }
+  66%       { transform: translate(-3vw, 6vh)  scale(0.95); }
+}
+@keyframes bfb-float-2 {
+  0%, 100% { transform: translate(0,   0)   scale(1);   }
+  40%      { transform: translate(-6vw, 5vh) scale(1.1); }
+  75%      { transform: translate(3vw, -3vh) scale(0.92); }
+}
+@keyframes bfb-float-3 {
+  0%, 100% { transform: translate(0,    0)    scale(1);   }
+  50%      { transform: translate(-4vw, -5vh) scale(1.06); }
+}
+@keyframes bfb-float-4 {
+  0%, 100% { transform: translate(0,   0)   scale(1);   }
+  35%      { transform: translate(4vw, 4vh) scale(1.12); }
+  70%      { transform: translate(-2vw, -2vh) scale(0.9); }
+}
+
+/* ── Parallax Hero (ph-*) ──────────────────────────────────────────────────── */
+.ph-root {
+  position: relative;
+  height: 200vh;
+}
+.ph-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+.ph-layers {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.ph-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.ph-layer--content {
+  z-index: 10;
+  overflow: hidden;
+}
+.ph-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 22%;
+  background: linear-gradient(to bottom, transparent, white);
+  z-index: 20;
+  pointer-events: none;
+}
+.ph-fade-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22%;
+  background: linear-gradient(to top, transparent, white);
+  z-index: 20;
+  pointer-events: none;
+}
+.ph-divider {
+  position: relative;
+  height: 75vh;
+  overflow: hidden;
+}
