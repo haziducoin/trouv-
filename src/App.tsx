@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import SuccessPage from './pages/SuccessPage'
@@ -248,6 +249,7 @@ export default function App() {
     const demoAccount = demoView === 'admin' ? DEMO_ACCOUNT : DEMO_EMPLOYEE_ACCOUNT
     return (
       <>
+        <SpeedInsights />
         {/* Toggle flottant dirigeant ↔ salarié */}
         <div className="fixed bottom-20 lg:bottom-6 left-1/2 z-[999] -translate-x-1/2 flex items-center gap-0.5 rounded-2xl border border-white/20 bg-[#07113d]/95 p-1 shadow-2xl backdrop-blur-md">
           <span className="px-2 text-[9px] font-bold uppercase tracking-widest text-white/30">Démo</span>
@@ -294,6 +296,7 @@ export default function App() {
   if (account && account.status === 'approved') {
     return (
       <>
+        <SpeedInsights />
         <SearchPage
           account={account}
           accessLevel="full"
@@ -319,6 +322,7 @@ export default function App() {
   if (account && (account.status === 'pending' || account.status === 'trial')) {
     return (
       <>
+        <SpeedInsights />
         <SearchPage
           account={account}
           accessLevel="full"
@@ -357,6 +361,7 @@ export default function App() {
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />
+      <SpeedInsights />
     </>
   )
 }
