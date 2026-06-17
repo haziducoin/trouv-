@@ -44,6 +44,7 @@ import {
   getDemoRequests,
   isOAuthPreviewEnabled,
   PersonalEmailError,
+  restoreSession,
   reviewAccessRequest,
   reviewDemoRequest,
   usesRemoteDatabase,
@@ -54,6 +55,7 @@ import {
   type OAuthProvider,
   type UserRole,
 } from '@/lib/accountStore'
+import RegisterWizard from '@/components/auth/RegisterWizard'
 import { databaseModeLabel } from '@/lib/supabase'
 
 export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement' | 'dashboard' | 'parrainage'
@@ -332,68 +334,21 @@ export default function AccountPanel({
               </div>
               </>)}
 
-              {requestCreated ? (
-                <div className="rounded-[28px] border border-blue-100 bg-blue-50 p-6">
-                  <BadgeCheck className="text-[#124bd2]" size={34} />
-                  <h2 className="mt-5 text-xl font-bold text-[#07113d]">Demande transmise</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Le compte de {requestCreated.firstName} {requestCreated.lastName} est en attente
-                    de validation. Vous recevrez une confirmation après contrôle de la société.
-                  </p>
-                  <div className="mt-5 rounded-2xl bg-white p-4 text-sm text-slate-600">
-                    <p className="font-semibold text-[#07113d]">{requestCreated.email}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestCreated(null)
-                      setView('login')
+              {isRegister ? (
+                <div className="mt-5">
+                  <RegisterWizard
+                    onComplete={async () => {
+                      try {
+                        const account = await restoreSession()
+                        if (account) onAuthenticated(account)
+                        else setView('login')
+                      } catch {
+                        setView('login')
+                      }
                     }}
-                    className="mt-6 h-12 w-full rounded-xl bg-[#0757f8] text-sm font-semibold text-white transition hover:bg-[#0048dd]"
-                  >
-                    Aller à la connexion
-                  </button>
+                    onBackToLogin={() => setView('login')}
+                  />
                 </div>
-              ) : isRegister ? (
-                <form onSubmit={handleRegistration} className="mt-5 space-y-3.5">
-                  <div className="grid grid-cols-2 gap-3">
-                    <AuthInput
-                      id="register-first-name"
-                      label="Prénom"
-                      value={form.firstName}
-                      onChange={(value) => setForm({ ...form, firstName: value })}
-                    />
-                    <AuthInput
-                      id="register-last-name"
-                      label="Nom"
-                      value={form.lastName}
-                      onChange={(value) => setForm({ ...form, lastName: value })}
-                    />
-                  </div>
-                  <AuthInput
-                    id="register-email"
-                    label="Adresse e-mail professionnelle"
-                    type="email"
-                    icon={Mail}
-                    value={form.email}
-                    onChange={(value) => setForm({ ...form, email: value })}
-                  />
-                  <AuthInput
-                    id="register-password"
-                    label="Mot de passe"
-                    type="password"
-                    icon={KeyRound}
-                    value={form.password}
-                    minLength={8}
-                    onChange={(value) => setForm({ ...form, password: value })}
-                  />
-                  {registerError && (
-                    <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{registerError}</p>
-                  )}
-                  <button className="h-12 w-full rounded-xl bg-[#0757f8] text-sm font-semibold text-white shadow-[0_18px_42px_-20px_rgba(7,87,248,0.8)] transition hover:bg-[#0048dd]">
-                    Créer mon accès professionnel
-                  </button>
-                </form>
               ) : (
                 <form onSubmit={handleLogin} className="space-y-4">
                   <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />

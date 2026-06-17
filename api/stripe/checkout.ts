@@ -20,6 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(403).json({ error: 'Aucune organisation associée à ce compte.' })
     return
   }
+  if (!auth.cguAccepted) {
+    res.status(403).json({ error: 'Vous devez accepter les conditions générales avant de souscrire.', code: 'CGU_REQUIRED' })
+    return
+  }
 
   const planCode = req.body?.plan_code as string
   const period = (req.body?.period ?? 'monthly') as BillingPeriod

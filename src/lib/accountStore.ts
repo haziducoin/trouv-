@@ -48,6 +48,11 @@ export interface Account {
   createdAt: string
   lastLoginAt?: string
   passwordHash?: string
+  // Champs B2B conformité
+  functionTitle?: string
+  website?: string
+  cguAccepted?: boolean
+  cguAcceptedAt?: string
 }
 
 export interface AuditEvent {
@@ -245,6 +250,10 @@ function mapRemoteProfile(row: Record<string, any>): Account {
     monthlyUsage,
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at ?? undefined,
+    functionTitle: row.function_title ?? undefined,
+    website: row.website ?? undefined,
+    cguAccepted: row.cgu_accepted ?? false,
+    cguAcceptedAt: row.cgu_accepted_at ?? undefined,
   }
 }
 
@@ -253,7 +262,7 @@ async function fetchRemoteProfiles(accountId?: string) {
   let query = supabase
     .from('profiles')
     .select(
-      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, organizations ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
+      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
     )
     .order('created_at', { ascending: false })
 
@@ -814,6 +823,13 @@ export async function reviewAccessRequest(
     targetEmail: target.email,
   })
   return updatedAccounts
+}
+
+export async function acceptCgu(version = '1.0'): Promise<void> {
+  if (!usesRemoteDatabase) return
+  const ip = await getClientIP()
+  const { error } = await getSupabaseClient().rpc('accept_cgu', { p_version: version, p_ip: ip })
+  if (error) throw new Error(`CGU non enregistrées : ${error.message}`)
 }
 
 export async function recordSearch(queryLabel: string, filters: Record<string, unknown>, resultCount: number) {

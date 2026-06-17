@@ -22,6 +22,7 @@ export interface AuthContext {
   userId: string
   email: string
   organizationId: string | null
+  cguAccepted: boolean
 }
 
 /**
@@ -38,7 +39,7 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('organization_id')
+    .select('organization_id, cgu_accepted')
     .eq('id', user.id)
     .single()
 
@@ -46,5 +47,6 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
     userId: user.id,
     email: user.email ?? '',
     organizationId: profile?.organization_id ?? null,
+    cguAccepted: profile?.cgu_accepted ?? false,
   }
 }

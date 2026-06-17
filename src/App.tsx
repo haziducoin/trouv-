@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
+import CompliancePage from './pages/CompliancePage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
@@ -15,12 +16,13 @@ if (localStorage.getItem('trouve_dark') === '1') {
 }
 
 // ─── URL params ───────────────────────────────────────────────────────────────
-const _params       = new URLSearchParams(window.location.search)
-const isDemoMode    = _params.has('demo')
-const isSuccessPage = _params.has('success')
-const isPreviewPage = _params.has('preview')
-const successPlan   = _params.get('plan') ?? 'agence'
-const panelParam    = _params.get('panel') as AccountPanelView | null
+const _params          = new URLSearchParams(window.location.search)
+const isDemoMode       = _params.has('demo')
+const isSuccessPage    = _params.has('success')
+const isPreviewPage    = _params.has('preview')
+const isConformitePage = _params.has('conformite')
+const successPlan      = _params.get('plan') ?? 'agence'
+const panelParam       = _params.get('panel') as AccountPanelView | null
 
 function formatOAuthError(rawError: string) {
   const decoded = decodeURIComponent(rawError)
@@ -173,6 +175,11 @@ export default function App() {
     setAccount(null)
     setAccountPanel(null)
   }
+
+  // ── Page conformité ───────────────────────────────────────────────────────
+  if (isConformitePage) return (
+    <CompliancePage onClose={() => window.history.back()} />
+  )
 
   // ── Preview des composants UI ─────────────────────────────────────────────
   if (isPreviewPage) return (
