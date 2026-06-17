@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
@@ -174,7 +175,12 @@ export default function App() {
   }
 
   // ── Preview des composants UI ─────────────────────────────────────────────
-  if (isPreviewPage) return <PreviewPage />
+  if (isPreviewPage) return (
+    <>
+      <PreviewPage />
+      <Analytics />
+    </>
+  )
 
   // ── Email perso bloqué ────────────────────────────────────────────────────
   if (blockedEmail) {
@@ -201,6 +207,7 @@ export default function App() {
             Réessayer avec un email pro
           </button>
         </div>
+        <Analytics />
       </div>
     )
   }
@@ -208,14 +215,17 @@ export default function App() {
   // ── Page succès Stripe ────────────────────────────────────────────────────
   if (isSuccessPage) {
     return (
-      <SuccessPage
-        plan={successPlan}
-        onGoToApp={() => {
-          // Nettoyer l'URL et recharger pour restaurer la session
-          window.history.replaceState({}, '', '/')
-          window.location.reload()
-        }}
-      />
+      <>
+        <SuccessPage
+          plan={successPlan}
+          onGoToApp={() => {
+            // Nettoyer l'URL et recharger pour restaurer la session
+            window.history.replaceState({}, '', '/')
+            window.location.reload()
+          }}
+        />
+        <Analytics />
+      </>
     )
   }
 
@@ -240,6 +250,7 @@ export default function App() {
             </button>
           </div>
         )}
+        <Analytics />
       </div>
     )
   }
@@ -288,6 +299,7 @@ export default function App() {
             />
           </div>
         )}
+        <Analytics />
       </>
     )
   }
@@ -314,6 +326,7 @@ export default function App() {
             />
           </div>
         )}
+        <Analytics />
       </>
     )
   }
@@ -340,6 +353,7 @@ export default function App() {
             />
           </div>
         )}
+        <Analytics />
       </>
     )
   }
@@ -361,6 +375,7 @@ export default function App() {
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />
+      <Analytics />
       <SpeedInsights />
     </>
   )
