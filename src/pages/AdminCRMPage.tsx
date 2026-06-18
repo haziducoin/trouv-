@@ -1,46 +1,39 @@
 /**
- * AdminCRMPage — Back-office trouvé!
- * Route : trouvé.fr?crm (role=admin requis)
- * Données réelles : Supabase (via /api/admin/*) + Stripe (via /api/admin/stripe)
+ * Super Admin CRM — trouvé!
+ * Accessible via trouvé.fr?crm (role=admin uniquement)
+ * 100% données réelles : Supabase + Stripe — zéro mock data.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  LayoutDashboard, Users, CreditCard, Activity, Search,
-  LogOut, RefreshCw, Check, X, Ban, Shield, Clock,
-  ArrowUpRight, ArrowDownRight, Minus, Phone, Mail,
-  Building2, MapPin, ChevronRight, ChevronDown, ChevronUp,
-  Globe, ExternalLink, Zap, TrendingUp, AlertCircle,
-  UserCheck, UserX, SlidersHorizontal, Download, Eye,
-  Hash, Calendar, Wifi,
+  LayoutDashboard, Users, CreditCard, Activity, LogOut,
+  RefreshCw, X, Ban, ShieldCheck, Clock, TrendingUp,
+  AlertCircle, UserCheck, ChevronDown, ChevronUp,
+  Phone, Mail, Building2, Search, CheckCircle2, XCircle,
+  KeyRound, Eye, History as HistoryIcon, Zap, ArrowUp, ArrowDown,
+  Loader2,
 } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase'
-import { searchProspects, type ProspectResult, type ProspectSearchParams } from '@/lib/prospectApi'
-import { DEPARTMENTS } from '@/lib/searchApi'
 import type { Account } from '@/lib/accountStore'
 import trouveLogo from '@/assets/trouve-logo.png'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type CRMView = 'dashboard' | 'users' | 'finances' | 'logs'
 
 interface Metrics {
   users: { total: number; newThisMonth: number; pendingApprovals: number }
   activity: { searchesThisMonth: number; unlocksThisMonth: number }
   credits: { thisMonth: number; lastMonth: number; byType: { phone: number; email: number } }
   topOrgs: Array<{ organizationId: string; name: string; searchesUsed: number }>
-  recentSearches: Array<{
-    id: string; queryLabel: string; filters: Record<string, unknown>
-    resultCount: number; createdAt: string; userEmail: string
-  }>
+  recentSearches: Array<{ id: string; queryLabel: string; resultCount: number; createdAt: string; userEmail: string }>
 }
 
 interface StripeData {
   mrr: { euros: string }
   revenue: { thisMonthEuros: string }
-  subscriptions: { active: number; newThisMonth: number; newLastMonth: number; canceledThisMonth: number }
-  recentCharges: Array<{
-    id: string; amountEuros: string; currency: string
-    paid: boolean; refunded: boolean; description: string; createdAt: string
-  }>
+  subscriptions: { active: number; newThisMonth: number; canceledThisMonth: number }
+  recentCharges: Array<{ id: string; amountEuros: string; paid: boolean; refunded: boolean; description: string; createdAt: string }>
 }
 
 interface CRMUser {
@@ -48,483 +41,503 @@ interface CRMUser {
   functionTitle: string | null; role: string; status: string
   quota: number; monthlyUsage: number; createdAt: string; lastLoginAt: string | null
   cguAccepted: boolean
-  organization: { siren: string; name: string; legalForm: string; active: boolean } | null
+  organization: { siren: string; name: string; active: boolean } | null
 }
 
-type Section = 'dashboard' | 'users' | 'pending' | 'revenue' | 'activity' | 'search'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function getToken() {
-  const { data: { session } } = await getSupabaseClient().auth.getSession()
-  return session?.access_token ?? null
+interface LogEntry {
+  id: string; action: string; actorEmail: string
+  metadata: Record<string, unknown>; createdAt: string
 }
 
-async function apiFetch<T>(path: string, tok: string): Promise<T> {
-  const r = await fetch(path, { headers: { Authorization: `Bearer ${tok}` } })
-  if (!r.ok) throw new Error((await r.json()).error ?? r.statusText)
+interface UserHistory {
+  profile: CRMUser | null
+  searches: Array<{ id: string; query_label: string; result_count: number; created_at: string }>
+  unlocks: Array<{ id: string; field_type: string; prospect_id: string; created_at: string }>
+}
+
+// ─── Utilitaires ──────────────────────────────────────────────────────────────
+
+function fromNow(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60) return `il y a ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `il y a ${h} h`
+  const d = Math.floor(h / 24)
+  return `il y a ${d} j`
+}
+
+function fmt(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+async function getToken(): Promise<string> {
+  const { data } = await getSupabaseClient().auth.getSession()
+  return data.session?.access_token ?? ''
+}
+
+async function apiFetch<T>(path: string, token: string): Promise<T> {
+  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } })
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
   return r.json() as Promise<T>
 }
 
-async function apiPost(path: string, tok: string, body: unknown) {
-  const r = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
-    body: JSON.stringify(body),
-  })
-  if (!r.ok) throw new Error((await r.json()).error ?? r.statusText)
-  return r.json()
-}
+// ─── Composants UI ────────────────────────────────────────────────────────────
 
-function fromNow(iso: string) {
-  const d = Date.now() - new Date(iso).getTime()
-  const m = Math.floor(d / 60000)
-  if (m < 1) return 'À l\'instant'
-  if (m < 60) return `Il y a ${m} min`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `Il y a ${h}h`
-  const days = Math.floor(h / 24)
-  if (days < 30) return `Il y a ${days}j`
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
-}
-
-function deltaP(a: number, b: number): number | null {
-  if (b === 0) return null
-  return Math.round(((a - b) / b) * 100)
-}
-
-// ─── Atoms ────────────────────────────────────────────────────────────────────
-
-function Badge({ status }: { status: string }) {
-  const m: Record<string, string> = {
-    approved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-    pending:  'bg-amber-500/15 text-amber-400 border-amber-500/20',
-    blocked:  'bg-red-500/15 text-red-400 border-red-500/20',
-    rejected: 'bg-gray-700/50 text-gray-500 border-gray-700',
-    trial:    'bg-blue-500/15 text-blue-400 border-blue-500/20',
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    approved:  'bg-emerald-50 text-emerald-700 border-emerald-200',
+    trial:     'bg-amber-50 text-amber-700 border-amber-200',
+    pending:   'bg-blue-50 text-blue-700 border-blue-200',
+    blocked:   'bg-red-50 text-red-600 border-red-200',
+    rejected:  'bg-slate-100 text-slate-500 border-slate-200',
   }
   const labels: Record<string, string> = {
-    approved: 'Approuvé', pending: 'En attente', blocked: 'Bloqué', rejected: 'Refusé', trial: 'Trial',
+    approved: 'Approuvé', trial: 'Démo', pending: 'En attente',
+    blocked: 'Bloqué', rejected: 'Refusé',
   }
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${m[status] ?? m.rejected}`}>
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${styles[status] ?? styles.rejected}`}>
       {labels[status] ?? status}
     </span>
   )
 }
 
-function RoleBadge({ role }: { role: string }) {
-  const m: Record<string, string> = {
-    admin:  'bg-purple-500/15 text-purple-400',
-    agence: 'bg-blue-500/15 text-blue-400',
-    agent:  'bg-gray-700/50 text-gray-500',
-  }
-  return (
-    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${m[role] ?? m.agent}`}>
-      {role}
-    </span>
-  )
-}
-
-function KpiCard({
-  label, value, sub, trend, icon: Icon, accent = false
-}: {
+function KpiCard({ label, value, sub, trend, icon: Icon, accent }: {
   label: string; value: string | number; sub?: string
-  trend?: number | null; icon: React.ElementType; accent?: boolean
+  trend?: 'up' | 'down' | 'flat'; icon: React.ElementType; accent?: string
 }) {
   return (
-    <div className={`rounded-2xl border p-5 ${accent ? 'border-blue-500/30 bg-blue-500/10' : 'border-gray-800 bg-gray-900'}`}>
-      <div className="flex items-center justify-between">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${accent ? 'bg-blue-500/20' : 'bg-gray-800'}`}>
-          <Icon size={15} className={accent ? 'text-blue-400' : 'text-gray-400'} />
+    <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${accent ?? 'bg-slate-100'}`}>
+          <Icon size={15} className={accent ? 'text-white' : 'text-slate-500'} />
         </div>
-        {trend !== undefined && trend !== null && (
-          <span className={`flex items-center gap-0.5 text-xs font-semibold ${
-            trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-gray-600'
-          }`}>
-            {trend > 0 ? <ArrowUpRight size={12} /> : trend < 0 ? <ArrowDownRight size={12} /> : <Minus size={12} />}
-            {Math.abs(trend)}%
-          </span>
-        )}
       </div>
-      <p className="mt-3 text-2xl font-bold text-white">{value}</p>
-      <p className="mt-0.5 text-xs font-medium text-gray-500">{label}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-gray-600">{sub}</p>}
-    </div>
-  )
-}
-
-function UsageBar({ used, quota }: { used: number; quota: number }) {
-  const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-800">
-        <div
-          className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-amber-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-[11px] text-gray-600">{used}/{quota}</span>
-    </div>
-  )
-}
-
-// ─── Section : Dashboard ──────────────────────────────────────────────────────
-
-function DashboardSection({ metrics, stripe, onNavigate }: {
-  metrics: Metrics | null
-  stripe: StripeData | null
-  onNavigate: (s: Section) => void
-}) {
-  if (!metrics || !stripe) return (
-    <div className="flex h-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-    </div>
-  )
-
-  const credTrend = deltaP(metrics.credits.thisMonth, metrics.credits.lastMonth)
-
-  return (
-    <div className="space-y-8 p-8">
-      {/* Alert bandeau */}
-      {metrics.users.pendingApprovals > 0 && (
-        <button
-          onClick={() => onNavigate('pending')}
-          className="flex w-full items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-left transition hover:bg-amber-500/15"
-        >
-          <Clock size={18} className="shrink-0 text-amber-400" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-300">
-              {metrics.users.pendingApprovals} inscription{metrics.users.pendingApprovals > 1 ? 's' : ''} en attente de validation
-            </p>
-            <p className="text-xs text-amber-500/70">Cliquez pour gérer les demandes d'accès</p>
-          </div>
-          <ArrowUpRight size={16} className="shrink-0 text-amber-400" />
-        </button>
+      <p className="text-3xl font-extrabold text-slate-900 tabular-nums">{value}</p>
+      {sub && (
+        <div className="mt-1 flex items-center gap-1">
+          {trend === 'up' && <ArrowUp size={12} className="text-emerald-500" />}
+          {trend === 'down' && <ArrowDown size={12} className="text-red-400" />}
+          <p className="text-xs text-slate-400">{sub}</p>
+        </div>
       )}
-
-      {/* KPIs */}
-      <div>
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-500">Métriques clés</h2>
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <KpiCard label="MRR" value={`${stripe.mrr.euros} €`}
-            sub={`${stripe.subscriptions.active} abonnements actifs`}
-            icon={CreditCard} accent />
-          <KpiCard label="CA ce mois" value={`${stripe.revenue.thisMonthEuros} €`}
-            sub={`+${stripe.subscriptions.newThisMonth} nouveaux abonnements`}
-            icon={TrendingUp} />
-          <KpiCard label="Utilisateurs actifs" value={metrics.users.total}
-            sub={`+${metrics.users.newThisMonth} ce mois`}
-            icon={Users} />
-          <KpiCard label="Crédits débloqués" value={metrics.credits.thisMonth}
-            sub={`${metrics.credits.byType.phone} tél · ${metrics.credits.byType.email} email`}
-            trend={credTrend} icon={Zap} />
-        </div>
-      </div>
-
-      {/* Two columns */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-
-        {/* Stripe derniers paiements */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
-            <h3 className="text-sm font-semibold text-white">Derniers paiements Stripe</h3>
-            <button onClick={() => onNavigate('revenue')} className="text-xs text-blue-400 hover:text-blue-300 transition">
-              Voir tout →
-            </button>
-          </div>
-          <div className="divide-y divide-gray-800/50">
-            {stripe.recentCharges.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-600">Aucun paiement</p>
-            ) : stripe.recentCharges.slice(0, 6).map(c => (
-              <div key={c.id} className="flex items-center gap-3 px-5 py-3">
-                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${c.paid && !c.refunded ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
-                  <CreditCard size={12} className={c.paid && !c.refunded ? 'text-emerald-400' : 'text-red-400'} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-200">{c.description}</p>
-                  <p className="text-[11px] text-gray-600">{fromNow(c.createdAt)}</p>
-                </div>
-                <span className={`text-sm font-bold ${c.refunded ? 'text-gray-600 line-through' : c.paid ? 'text-white' : 'text-red-400'}`}>
-                  {c.amountEuros} €
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Activité récente */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
-            <h3 className="text-sm font-semibold text-white">Activité plateforme</h3>
-            <button onClick={() => onNavigate('activity')} className="text-xs text-blue-400 hover:text-blue-300 transition">
-              Voir tout →
-            </button>
-          </div>
-          <div className="divide-y divide-gray-800/50">
-            {metrics.recentSearches.slice(0, 6).map(s => (
-              <div key={s.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
-                  <Search size={11} className="text-blue-400" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-200">
-                    {s.queryLabel === 'secteur immobilier' ? 'Tous secteurs' : `"${s.queryLabel}"`}
-                  </p>
-                  <p className="text-[11px] text-gray-600">{s.userEmail}</p>
-                </div>
-                <span className="text-xs font-semibold text-blue-400">
-                  {s.resultCount.toLocaleString('fr-FR')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top orgs */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900">
-          <div className="border-b border-gray-800 px-5 py-4">
-            <h3 className="text-sm font-semibold text-white">Top organisations ce mois</h3>
-          </div>
-          <div className="divide-y divide-gray-800/50">
-            {metrics.topOrgs.slice(0, 6).map((o, i) => (
-              <div key={o.organizationId} className="flex items-center gap-3 px-5 py-3">
-                <span className="w-5 text-right text-xs font-bold text-gray-700">{i + 1}</span>
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-800">
-                  <Building2 size={11} className="text-gray-500" />
-                </div>
-                <p className="flex-1 truncate text-sm text-gray-200">{o.name}</p>
-                <span className="text-sm font-bold text-white">{o.searchesUsed.toLocaleString('fr-FR')}</span>
-                <span className="text-[11px] text-gray-600">rech.</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Abonnements */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900">
-          <div className="border-b border-gray-800 px-5 py-4">
-            <h3 className="text-sm font-semibold text-white">Abonnements Stripe</h3>
-          </div>
-          <div className="divide-y divide-gray-800/50">
-            {[
-              { label: 'Actifs', value: stripe.subscriptions.active, color: 'text-emerald-400' },
-              { label: 'Nouveaux ce mois', value: stripe.subscriptions.newThisMonth, color: 'text-blue-400' },
-              { label: 'Nouveaux mois précédent', value: stripe.subscriptions.newLastMonth, color: 'text-gray-400' },
-              { label: 'Annulations ce mois', value: stripe.subscriptions.canceledThisMonth, color: stripe.subscriptions.canceledThisMonth > 0 ? 'text-red-400' : 'text-gray-600' },
-              { label: 'Recherches ce mois', value: metrics.activity.searchesThisMonth.toLocaleString('fr-FR'), color: 'text-white' },
-              { label: 'Déblocages ce mois', value: metrics.activity.unlocksThisMonth.toLocaleString('fr-FR'), color: 'text-white' },
-            ].map(row => (
-              <div key={row.label} className="flex items-center justify-between px-5 py-3">
-                <p className="text-sm text-gray-400">{row.label}</p>
-                <p className={`text-sm font-bold ${row.color}`}>{row.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
 
-// ─── Section : Utilisateurs ───────────────────────────────────────────────────
+function Spinner() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-3">
+      <Loader2 size={28} className="animate-spin text-blue-500" />
+      <p className="text-sm text-slate-400">Chargement des données…</p>
+    </div>
+  )
+}
 
-function UsersSection({ token, statusFilter, onCountUpdate }: {
-  token: string
-  statusFilter?: string
-  onCountUpdate?: (n: number) => void
-}) {
-  const [users, setUsers]       = useState<CRMUser[]>([])
-  const [total, setTotal]       = useState(0)
-  const [page, setPage]         = useState(1)
-  const [filter, setFilter]     = useState<string>(statusFilter ?? 'all')
-  const [search, setSearch]     = useState('')
-  const [loading, setLoading]   = useState(true)
-  const [busy, setBusy]         = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-4">
+      <AlertCircle size={32} className="text-red-400" />
+      <p className="text-sm text-red-500">{message}</p>
+      <button onClick={onRetry} className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium hover:bg-slate-200">
+        <RefreshCw size={13} /> Réessayer
+      </button>
+    </div>
+  )
+}
+
+// ─── Vue Dashboard ────────────────────────────────────────────────────────────
+
+function DashboardView({ token }: { token: string }) {
+  const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [stripe, setStripe]   = useState<StripeData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true); setError(null)
     try {
-      const p = new URLSearchParams({ page: String(page), limit: '50' })
-      if (filter !== 'all') p.set('status', filter)
-      if (search.trim()) p.set('search', search.trim())
-      const d = await apiFetch<{ users: CRMUser[]; total: number }>(`/api/admin/users?${p}`, token)
-      setUsers(d.users)
-      setTotal(d.total)
-      onCountUpdate?.(d.total)
-    } catch { /* silent */ }
-    finally { setLoading(false) }
-  }, [token, page, filter, search, onCountUpdate])
+      const [m, s] = await Promise.all([
+        apiFetch<Metrics>('/api/admin/metrics', token),
+        apiFetch<StripeData>('/api/admin/stripe', token),
+      ])
+      setMetrics(m); setStripe(s)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
 
   useEffect(() => { void load() }, [load])
 
-  const act = async (userId: string, action: string, value?: string | number) => {
-    setBusy(userId)
-    try {
-      await apiPost('/api/admin/users', token, { userId, action, value })
-      await load()
-    } catch { /* silent */ }
-    finally { setBusy(null) }
-  }
+  if (loading) return <Spinner />
+  if (error) return <ErrorState message={error} onRetry={load} />
+  if (!metrics || !stripe) return null
+
+  const creditTrend = metrics.credits.lastMonth > 0
+    ? metrics.credits.thisMonth > metrics.credits.lastMonth ? 'up' : 'down'
+    : 'flat'
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Toolbar */}
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-800 bg-gray-950 px-8 py-4">
-        <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-          <input
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Rechercher email, nom…"
-            className="h-9 w-56 rounded-lg border border-gray-800 bg-gray-900 pl-9 pr-3 text-sm text-white placeholder-gray-600 focus:border-blue-600 focus:outline-none transition"
-          />
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900">Vue d'ensemble</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Données en temps réel — {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
-        <div className="flex gap-0.5 rounded-xl border border-gray-800 bg-gray-900 p-0.5">
-          {(['all', 'pending', 'approved', 'blocked', 'rejected'] as const).map(f => (
-            <button key={f} onClick={() => { setFilter(f); setPage(1) }}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
-                filter === f ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-              }`}>
-              {{ all: 'Tous', pending: 'En attente', approved: 'Approuvés', blocked: 'Bloqués', rejected: 'Refusés' }[f]}
-            </button>
-          ))}
-        </div>
-        <span className="ml-auto text-xs text-gray-600">{total} utilisateur{total > 1 ? 's' : ''}</span>
-        <button onClick={load} className="rounded-lg border border-gray-800 p-2 text-gray-600 hover:text-gray-300 transition">
-          <RefreshCw size={13} />
+        <button onClick={load} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+          <RefreshCw size={13} /> Actualiser
         </button>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard label="MRR" value={stripe.mrr.euros} icon={CreditCard} accent="bg-emerald-500" trend="up" sub="Abonnements actifs" />
+        <KpiCard label="CA ce mois" value={stripe.revenue.thisMonthEuros} icon={TrendingUp} accent="bg-blue-500" />
+        <KpiCard label="Utilisateurs" value={metrics.users.total} icon={Users} accent="bg-violet-500"
+          sub={`+${metrics.users.newThisMonth} ce mois`} trend={metrics.users.newThisMonth > 0 ? 'up' : 'flat'} />
+        <KpiCard label="En attente" value={metrics.users.pendingApprovals} icon={Clock}
+          accent={metrics.users.pendingApprovals > 0 ? 'bg-amber-500' : 'bg-slate-300'}
+          sub="Comptes à valider" />
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard label="Recherches / mois" value={metrics.activity.searchesThisMonth.toLocaleString('fr-FR')} icon={Search} />
+        <KpiCard label="Déblocages / mois" value={metrics.activity.unlocksThisMonth} icon={KeyRound}
+          sub={`📞 ${metrics.credits.byType.phone} tél · ✉️ ${metrics.credits.byType.email} email`} />
+        <KpiCard label="Abonnements actifs" value={stripe.subscriptions.active} icon={CheckCircle2}
+          sub={`+${stripe.subscriptions.newThisMonth} ce mois`} trend={stripe.subscriptions.newThisMonth > 0 ? 'up' : 'flat'} />
+        <KpiCard label="Crédits débloqués" value={metrics.credits.thisMonth} icon={Zap}
+          sub={`vs ${metrics.credits.lastMonth} le mois dernier`} trend={creditTrend} />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Derniers paiements Stripe */}
+        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h2 className="font-bold text-slate-800">Derniers paiements Stripe</h2>
+            <CreditCard size={15} className="text-slate-400" />
           </div>
-        ) : users.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-            <Users size={32} className="text-gray-700" />
-            <p className="text-sm text-gray-500">Aucun utilisateur pour ces filtres</p>
+          <div className="divide-y divide-slate-50">
+            {stripe.recentCharges.slice(0, 8).map(c => (
+              <div key={c.id} className="flex items-center justify-between px-6 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{c.amountEuros}</p>
+                  <p className="text-[11px] text-slate-400">{c.description || 'Paiement'} · {fromNow(c.createdAt)}</p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  c.refunded ? 'bg-orange-50 text-orange-600' :
+                  c.paid ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'
+                }`}>
+                  {c.refunded ? 'Remboursé' : c.paid ? 'Payé' : 'Échoué'}
+                </span>
+              </div>
+            ))}
           </div>
-        ) : (
+        </div>
+
+        {/* Dernières recherches plateforme */}
+        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h2 className="font-bold text-slate-800">Activité récente</h2>
+            <Activity size={15} className="text-slate-400" />
+          </div>
+          <div className="divide-y divide-slate-50">
+            {metrics.recentSearches.slice(0, 8).map(s => (
+              <div key={s.id} className="flex items-center justify-between px-6 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 truncate max-w-[200px]">{s.queryLabel || '—'}</p>
+                  <p className="text-[11px] text-slate-400">{s.userEmail} · {fromNow(s.createdAt)}</p>
+                </div>
+                <span className="text-[11px] text-slate-400">{s.resultCount} rés.</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Top orgs */}
+      {metrics.topOrgs.length > 0 && (
+        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h2 className="font-bold text-slate-800">Top organisations ce mois</h2>
+          </div>
+          <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+            {metrics.topOrgs.map((o, i) => (
+              <div key={o.organizationId} className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+                <p className="text-[10px] text-slate-400 mb-1">#{i + 1}</p>
+                <p className="text-sm font-bold text-slate-800 truncate">{o.name}</p>
+                <p className="text-lg font-extrabold text-blue-600 mt-1">{o.searchesUsed}</p>
+                <p className="text-[10px] text-slate-400">recherches</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Vue Utilisateurs ─────────────────────────────────────────────────────────
+
+function UsersView({ token }: { token: string }) {
+  const [users, setUsers]       = useState<CRMUser[]>([])
+  const [total, setTotal]       = useState(0)
+  const [page, setPage]         = useState(1)
+  const [filter, setFilter]     = useState('all')
+  const [search, setSearch]     = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [busy, setBusy]         = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [history, setHistory]   = useState<Record<string, UserHistory>>({})
+  const [histLoading, setHistLoading] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const p = new URLSearchParams({ page: String(page), limit: '50' })
+      if (filter !== 'all') p.set('status', filter)
+      if (search) p.set('search', search)
+      const d = await apiFetch<{ users: CRMUser[]; total: number }>(`/api/admin/users?${p}`, token)
+      setUsers(d.users); setTotal(d.total)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setLoading(false)
+    }
+  }, [token, page, filter, search])
+
+  useEffect(() => { void load() }, [load])
+
+  const action = async (userId: string, act: string, value?: string | number) => {
+    setBusy(userId)
+    try {
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: act, value }),
+      })
+      await load()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const openHistory = async (userId: string) => {
+    if (expanded === userId) { setExpanded(null); return }
+    setExpanded(userId)
+    if (history[userId]) return
+    setHistLoading(userId)
+    try {
+      const h = await apiFetch<UserHistory>(`/api/admin/user-history?userId=${userId}`, token)
+      setHistory(prev => ({ ...prev, [userId]: h }))
+    } finally {
+      setHistLoading(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900">Gestion des clients</h1>
+          <p className="text-sm text-slate-400">{total} compte{total > 1 ? 's' : ''} au total</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+              placeholder="Email, nom…"
+              className="rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-52"
+            />
+          </div>
+          <button onClick={load} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            <RefreshCw size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* Filtres */}
+      <div className="flex gap-2 flex-wrap">
+        {[['all','Tous'], ['pending','En attente'], ['trial','Démo'], ['approved','Approuvés'], ['blocked','Bloqués'], ['rejected','Refusés']].map(([k, l]) => (
+          <button key={k} onClick={() => { setFilter(k); setPage(1) }}
+            className={`rounded-full px-3 py-1 text-xs font-semibold border transition ${filter === k ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <Spinner /> : error ? <ErrorState message={error} onRetry={load} /> : (
+        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-950">
-              <tr className="border-b border-gray-800">
-                {['Utilisateur', 'Organisation', 'Rôle', 'Statut', 'Usage', 'Inscrit', 'Actions'].map(h => (
-                  <th key={h} className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
-                    {h}
-                  </th>
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                {['Utilisateur', 'Organisation', 'Statut', 'Usage', 'Inscrit', 'Actions'].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-slate-50">
               {users.map(u => (
                 <>
-                  <tr key={u.id}
-                    className={`group transition hover:bg-gray-900/60 ${expanded === u.id ? 'bg-gray-900/40' : ''}`}>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-semibold text-white">{u.firstName} {u.lastName}</p>
-                        <p className="text-[12px] text-gray-500">{u.email}</p>
-                        {u.functionTitle && <p className="text-[11px] text-gray-600">{u.functionTitle}</p>}
+                  <tr key={u.id} className={`hover:bg-slate-50 transition ${expanded === u.id ? 'bg-blue-50/30' : ''}`}>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+                          {(u.firstName?.[0] ?? u.email[0]).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800">{u.firstName} {u.lastName}</p>
+                          <p className="text-[11px] text-slate-400">{u.email}</p>
+                          {u.functionTitle && <p className="text-[11px] text-slate-400">{u.functionTitle}</p>}
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4">
                       {u.organization ? (
                         <div>
-                          <p className="font-medium text-gray-200">{u.organization.name}</p>
-                          <p className="text-[11px] text-gray-600">{u.organization.siren}</p>
-                          {!u.organization.active && (
-                            <span className="text-[11px] text-red-400">Radiée</span>
-                          )}
+                          <p className="font-medium text-slate-700">{u.organization.name}</p>
+                          <p className="text-[11px] text-slate-400">{u.organization.siren}</p>
+                          {!u.organization.active && <span className="text-[10px] text-red-400">Radiée</span>}
                         </div>
-                      ) : <span className="text-gray-700">—</span>}
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="px-6 py-4"><RoleBadge role={u.role} /></td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <Badge status={u.status} />
-                        {!u.cguAccepted && (
-                          <p className="text-[10px] text-amber-500">CGU non signées</p>
-                        )}
+                    <td className="px-5 py-4">
+                      <StatusBadge status={u.status} />
+                      {!u.cguAccepted && <p className="mt-1 text-[10px] text-amber-500">CGU non signées</p>}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="w-28">
+                        <div className="mb-1 flex justify-between text-[11px]">
+                          <span className="font-semibold text-slate-700">{u.monthlyUsage}</span>
+                          <span className="text-slate-400">/{u.quota}</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-1.5 rounded-full bg-blue-500 transition-all"
+                            style={{ width: `${Math.min(100, Math.round(u.monthlyUsage / (u.quota || 1) * 100))}%` }} />
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <UsageBar used={u.monthlyUsage} quota={u.quota} />
-                      {u.lastLoginAt && (
-                        <p className="mt-1 text-[11px] text-gray-600">{fromNow(u.lastLoginAt)}</p>
-                      )}
+                    <td className="px-5 py-4">
+                      <p className="text-[12px] text-slate-600">{fmt(u.createdAt)}</p>
+                      <p className="text-[11px] text-slate-400">{fromNow(u.lastLoginAt)}</p>
                     </td>
-                    <td className="px-6 py-4 text-[12px] text-gray-500">
-                      {fromNow(u.createdAt)}
-                    </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
+                        <button onClick={() => openHistory(u.id)}
+                          className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200"
+                          title="Voir l'historique">
+                          <Eye size={12} />
+                          {expanded === u.id ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                        </button>
                         {u.status === 'pending' && (
-                          <>
-                            <button onClick={() => act(u.id, 'approve')} disabled={busy === u.id} title="Approuver"
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 transition hover:bg-emerald-500/25 disabled:opacity-40">
-                              {busy === u.id ? <div className="h-3 w-3 animate-spin rounded-full border border-emerald-400 border-t-transparent" /> : <Check size={13} />}
-                            </button>
-                            <button onClick={() => act(u.id, 'reject')} disabled={busy === u.id} title="Refuser"
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/15 text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
-                              <X size={13} />
-                            </button>
-                          </>
+                          <button onClick={() => action(u.id, 'approve')} disabled={busy === u.id}
+                            className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
+                            {busy === u.id ? <Loader2 size={11} className="animate-spin" /> : <UserCheck size={12} />}
+                          </button>
                         )}
-                        {u.status === 'approved' && (
-                          <button onClick={() => act(u.id, 'block')} disabled={busy === u.id} title="Bloquer"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 text-gray-500 transition hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40">
-                            <Ban size={13} />
+                        {u.status !== 'blocked' && (
+                          <button onClick={() => action(u.id, 'block')} disabled={busy === u.id}
+                            className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                            title="Bloquer">
+                            <Ban size={12} />
                           </button>
                         )}
                         {u.status === 'blocked' && (
-                          <button onClick={() => act(u.id, 'approve')} disabled={busy === u.id} title="Débloquer"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 transition hover:bg-emerald-500/25 disabled:opacity-40">
-                            <Check size={13} />
+                          <button onClick={() => action(u.id, 'approve')} disabled={busy === u.id}
+                            className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100"
+                            title="Réactiver">
+                            <ShieldCheck size={12} />
                           </button>
                         )}
-                        <button onClick={() => setExpanded(expanded === u.id ? null : u.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 text-gray-500 transition hover:text-gray-300">
-                          {expanded === u.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                        </button>
                       </div>
                     </td>
                   </tr>
+
+                  {/* Fiche détail client */}
                   {expanded === u.id && (
-                    <tr key={`${u.id}-exp`} className="bg-gray-900/30">
-                      <td colSpan={7} className="px-6 py-4">
-                        <div className="flex flex-wrap gap-6 text-xs">
-                          <div>
-                            <p className="mb-1 font-semibold uppercase tracking-wide text-gray-600">Actions rapides</p>
-                            <div className="flex gap-2">
-                              {u.role !== 'agence' && (
-                                <button onClick={() => act(u.id, 'set_role', 'agence')}
-                                  className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-blue-400 transition hover:bg-blue-500/20">
-                                  Passer Agence
-                                </button>
-                              )}
-                              {u.role !== 'agent' && (
-                                <button onClick={() => act(u.id, 'set_role', 'agent')}
-                                  className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-gray-400 transition hover:bg-gray-700">
-                                  Passer Agent
-                                </button>
-                              )}
-                              <button onClick={() => {
-                                const v = prompt('Nouveau quota mensuel :', String(u.quota))
-                                if (v !== null && !isNaN(parseInt(v))) act(u.id, 'set_quota', parseInt(v))
-                              }}
-                                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-gray-400 transition hover:bg-gray-700">
-                                Modifier quota
-                              </button>
+                    <tr key={`${u.id}-detail`}>
+                      <td colSpan={6} className="bg-blue-50/30 px-6 py-4 border-b border-blue-100">
+                        {histLoading === u.id ? (
+                          <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+                            <Loader2 size={14} className="animate-spin" /> Chargement…
+                          </div>
+                        ) : history[u.id] ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Dernières recherches */}
+                            <div>
+                              <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                <Search size={12} /> Historique de recherche ({history[u.id].searches.length})
+                              </p>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {history[u.id].searches.length === 0 ? (
+                                  <p className="text-xs text-slate-400">Aucune recherche</p>
+                                ) : history[u.id].searches.map(s => (
+                                  <div key={s.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2">
+                                    <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]">{s.query_label || '—'}</p>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="text-[10px] text-slate-400">{s.result_count} rés.</span>
+                                      <span className="text-[10px] text-slate-300">{fromNow(s.created_at)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Déblocages */}
+                            <div>
+                              <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                <KeyRound size={12} /> Déblocages ({history[u.id].unlocks.length})
+                              </p>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                {history[u.id].unlocks.length === 0 ? (
+                                  <p className="text-xs text-slate-400">Aucun déblocage</p>
+                                ) : history[u.id].unlocks.map(k => (
+                                  <div key={k.id} className="flex items-center justify-between rounded-lg bg-white border border-slate-100 px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      {k.field_type === 'phone' ? <Phone size={11} className="text-blue-500" /> : <Mail size={11} className="text-emerald-500" />}
+                                      <span className="text-xs font-medium text-slate-700">{k.field_type === 'phone' ? 'Téléphone' : 'Email'}</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400">{fromNow(k.created_at)}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <p className="mb-1 font-semibold uppercase tracking-wide text-gray-600">Détails compte</p>
-                            <p className="text-gray-400">ID : <span className="font-mono text-gray-500 text-[11px]">{u.id}</span></p>
-                            <p className="text-gray-400">CGU : <span className={u.cguAccepted ? 'text-emerald-400' : 'text-amber-400'}>{u.cguAccepted ? 'Acceptées' : 'Non signées'}</span></p>
-                          </div>
+                        ) : null}
+
+                        {/* Actions manuelles */}
+                        <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-blue-100">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-2">Actions :</span>
+                          {u.status === 'pending' && (
+                            <button onClick={() => action(u.id, 'approve')}
+                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                              <UserCheck size={12} /> Approuver
+                            </button>
+                          )}
+                          {u.status !== 'blocked' ? (
+                            <button onClick={() => action(u.id, 'block')}
+                              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
+                              <Ban size={12} /> Bannir
+                            </button>
+                          ) : (
+                            <button onClick={() => action(u.id, 'approve')}
+                              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700">
+                              <ShieldCheck size={12} /> Réactiver
+                            </button>
+                          )}
+                          <button onClick={() => {
+                            const q = prompt('Nouveau quota mensuel (recherches) :')
+                            if (q && !isNaN(parseInt(q))) action(u.id, 'set_quota', parseInt(q))
+                          }}
+                            className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
+                            <Zap size={12} /> Modifier quota
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -533,528 +546,287 @@ function UsersSection({ token, statusFilter, onCountUpdate }: {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
 
-      {/* Pagination */}
-      {total > 50 && (
-        <div className="flex shrink-0 items-center justify-between border-t border-gray-800 px-8 py-3">
-          <span className="text-xs text-gray-600">Page {page} / {Math.ceil(total / 50)}</span>
-          <div className="flex gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="rounded-lg border border-gray-800 px-3 py-1.5 text-xs text-gray-400 transition hover:bg-gray-800 disabled:opacity-40">
-              Précédent
-            </button>
-            <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 50)}
-              className="rounded-lg border border-gray-800 px-3 py-1.5 text-xs text-gray-400 transition hover:bg-gray-800 disabled:opacity-40">
-              Suivant
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Section : Revenus ────────────────────────────────────────────────────────
-
-function RevenueSection({ stripe }: { stripe: StripeData | null }) {
-  if (!stripe) return (
-    <div className="flex h-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-    </div>
-  )
-  const subTrend = deltaP(stripe.subscriptions.newThisMonth, stripe.subscriptions.newLastMonth)
-
-  return (
-    <div className="space-y-8 p-8">
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiCard label="MRR" value={`${stripe.mrr.euros} €`} icon={CreditCard} accent />
-        <KpiCard label="CA encaissé ce mois" value={`${stripe.revenue.thisMonthEuros} €`} icon={TrendingUp} />
-        <KpiCard label="Abonnements actifs" value={stripe.subscriptions.active} icon={Users} />
-        <KpiCard label="Nouveaux ce mois" value={stripe.subscriptions.newThisMonth}
-          trend={subTrend} sub={`${stripe.subscriptions.newLastMonth} le mois précédent`} icon={ArrowUpRight} />
-      </div>
-
-      {stripe.subscriptions.canceledThisMonth > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4">
-          <ArrowDownRight size={18} className="text-red-400 shrink-0" />
-          <p className="text-sm text-red-300 font-medium">
-            {stripe.subscriptions.canceledThisMonth} annulation{stripe.subscriptions.canceledThisMonth > 1 ? 's' : ''} ce mois — à surveiller
-          </p>
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-gray-800 bg-gray-900">
-        <div className="border-b border-gray-800 px-6 py-4">
-          <h3 className="text-sm font-semibold text-white">Historique des paiements</h3>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800">
-              {['Description', 'Montant', 'Statut', 'Date'].map(h => (
-                <th key={h} className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/50">
-            {stripe.recentCharges.map(c => (
-              <tr key={c.id} className="hover:bg-gray-800/30 transition">
-                <td className="px-6 py-4 text-gray-200">{c.description}</td>
-                <td className="px-6 py-4">
-                  <span className={`font-bold ${c.refunded ? 'text-gray-600 line-through' : c.paid ? 'text-white' : 'text-red-400'}`}>
-                    {c.amountEuros} {c.currency.toUpperCase()}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {c.refunded
-                    ? <Badge status="rejected" />
-                    : c.paid
-                    ? <Badge status="approved" />
-                    : <Badge status="blocked" />}
-                </td>
-                <td className="px-6 py-4 text-gray-500">{fromNow(c.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-// ─── Section : Activité ───────────────────────────────────────────────────────
-
-function ActivitySection({ metrics }: { metrics: Metrics | null }) {
-  if (!metrics) return (
-    <div className="flex h-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-    </div>
-  )
-  return (
-    <div className="space-y-6 p-8">
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-        <KpiCard label="Recherches ce mois" value={metrics.activity.searchesThisMonth.toLocaleString('fr-FR')} icon={Search} />
-        <KpiCard label="Déblocages ce mois" value={metrics.activity.unlocksThisMonth.toLocaleString('fr-FR')} icon={Zap} />
-        <KpiCard label="Crédits tél / email"
-          value={`${metrics.credits.byType.phone} / ${metrics.credits.byType.email}`}
-          icon={Phone} />
-      </div>
-
-      <div className="rounded-2xl border border-gray-800 bg-gray-900">
-        <div className="border-b border-gray-800 px-6 py-4">
-          <h3 className="text-sm font-semibold text-white">20 dernières recherches plateforme</h3>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800">
-              {['Requête', 'Filtres', 'Résultats', 'Utilisateur', 'Date'].map(h => (
-                <th key={h} className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/50">
-            {metrics.recentSearches.map(s => (
-              <tr key={s.id} className="hover:bg-gray-800/30 transition">
-                <td className="px-6 py-4 font-medium text-gray-200">
-                  {s.queryLabel === 'secteur immobilier' ? 'Tous secteurs' : `"${s.queryLabel}"`}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-1.5 flex-wrap">
-                    {s.filters?.department && (
-                      <span className="rounded-md bg-gray-800 px-2 py-0.5 text-[11px] text-gray-400">
-                        Dép. {s.filters.department as string}
-                      </span>
-                    )}
-                    {s.filters?.activityCode && (
-                      <span className="rounded-md bg-gray-800 px-2 py-0.5 text-[11px] text-gray-400">
-                        {s.filters.activityCode as string}
-                      </span>
-                    )}
-                    {!s.filters?.department && !s.filters?.activityCode && (
-                      <span className="text-gray-700">—</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="font-bold text-blue-400">{s.resultCount.toLocaleString('fr-FR')}</span>
-                </td>
-                <td className="px-6 py-4 text-gray-500">{s.userEmail}</td>
-                <td className="px-6 py-4 text-gray-500">{fromNow(s.createdAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-// ─── Section : Recherche prospects ───────────────────────────────────────────
-
-function SearchSection() {
-  const [query,     setQuery]     = useState('')
-  const [dept,      setDept]      = useState('')
-  const [results,   setResults]   = useState<ProspectResult[]>([])
-  const [total,     setTotal]     = useState(0)
-  const [loading,   setLoading]   = useState(false)
-  const [searched,  setSearched]  = useState(false)
-  const [selected,  setSelected]  = useState<ProspectResult | null>(null)
-
-  const doSearch = async (overrides: Partial<ProspectSearchParams> = {}) => {
-    const q = overrides.query ?? query
-    const d = overrides.department ?? dept
-    if (!q.trim() && !d) return
-    setLoading(true); setSearched(true); setSelected(null)
-    try {
-      const r = await searchProspects({ query: q || 'secteur immobilier', department: d, page: 1, perPage: 50 })
-      setResults(r.results); setTotal(r.total)
-    } catch { setResults([]); setTotal(0) }
-    finally { setLoading(false) }
-  }
-
-  return (
-    <div className="flex h-full overflow-hidden">
-      {/* Search + results */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-gray-800 px-8 py-4">
-          <form onSubmit={e => { e.preventDefault(); void doSearch() }} className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-              <input value={query} onChange={e => setQuery(e.target.value)}
-                placeholder="Nom, prénom, ville, SIREN, téléphone…"
-                className="h-10 w-full rounded-xl border border-gray-800 bg-gray-900 pl-9 pr-3 text-sm text-white placeholder-gray-600 focus:border-blue-600 focus:outline-none transition" />
-            </div>
-            <select value={dept} onChange={e => { setDept(e.target.value); void doSearch({ department: e.target.value }) }}
-              className="h-10 rounded-xl border border-gray-800 bg-gray-900 px-3 text-sm text-gray-300 focus:border-blue-600 focus:outline-none transition">
-              <option value="">Tous les départements</option>
-              {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.label}</option>)}
-            </select>
-            <button type="submit" disabled={loading}
-              className="flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
-              {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Search size={14} />}
-              Rechercher
-            </button>
-          </form>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-8 py-4">
-          {!searched ? (
-            <div className="flex h-full flex-col items-center justify-center gap-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-800 bg-gray-900">
-                <Search size={26} className="text-gray-600" />
-              </div>
-              <div>
-                <p className="text-base font-semibold text-gray-400">Recherche de contacts professionnels</p>
-                <p className="mt-1 text-sm text-gray-600">Accès direct à toute la base — résultats en temps réel</p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {['Paris 16', 'Cabinet Rivoli', 'ORPI', 'Marseille', 'Lyon agence'].map(s => (
-                  <button key={s} onClick={() => { setQuery(s); void doSearch({ query: s }) }}
-                    className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-2 text-sm text-gray-500 transition hover:border-gray-700 hover:text-gray-300">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : loading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm text-gray-500">
-                  <span className="font-bold text-white">{total.toLocaleString('fr-FR')}</span> contact{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}
-                </p>
-                <button onClick={() => { setSearched(false); setResults([]); setQuery('') }}
-                  className="text-xs text-gray-600 hover:text-gray-400 transition">Effacer</button>
-              </div>
-              <div className="space-y-2">
-                {results.map(r => (
-                  <button key={r.id} onClick={() => setSelected(selected?.id === r.id ? null : r)}
-                    className={`group w-full rounded-xl border p-4 text-left transition ${
-                      selected?.id === r.id ? 'border-blue-600 bg-blue-600/10' : 'border-gray-800 bg-gray-900 hover:border-gray-700'
-                    }`}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-white">{r.fullName}</p>
-                          {r.jobTitle && <span className="text-xs text-gray-500">· {r.jobTitle}</span>}
-                          <div className={`ml-auto h-2 w-2 shrink-0 rounded-full ${r.isActive ? 'bg-emerald-400' : 'bg-red-600'}`} />
-                        </div>
-                        {r.companyName && <p className="mt-0.5 text-sm text-gray-400">{r.companyName}</p>}
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                          {r.city && <span className="flex items-center gap-1 text-xs text-gray-600"><MapPin size={10} />{r.city}</span>}
-                          {r.hasPhone && <span className="flex items-center gap-1 text-xs text-blue-500"><Phone size={10} />{r.phoneUnlocked ? r.phone : 'Tél. disponible'}</span>}
-                          {r.hasEmail && <span className="flex items-center gap-1 text-xs text-blue-500"><Mail size={10} />{r.emailUnlocked ? r.email : 'Email disponible'}</span>}
-                        </div>
-                      </div>
-                      <ChevronRight size={15} className={`mt-1 shrink-0 transition ${selected?.id === r.id ? 'text-blue-400 rotate-90' : 'text-gray-700 group-hover:text-gray-500'}`} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Detail panel */}
-      {selected && (
-        <div className="w-96 shrink-0 overflow-y-auto border-l border-gray-800 bg-gray-900">
-          <div className="border-b border-gray-800 p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold text-white text-base">{selected.fullName}</p>
-                {selected.jobTitle && <p className="mt-0.5 text-sm text-gray-400">{selected.jobTitle}</p>}
-              </div>
-              <button onClick={() => setSelected(null)} className="rounded-lg p-1 text-gray-600 hover:bg-gray-800 hover:text-gray-300 transition">
-                <X size={15} />
-              </button>
-            </div>
-            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${selected.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-              <div className={`h-1.5 w-1.5 rounded-full ${selected.isActive ? 'bg-emerald-400' : 'bg-red-400'}`} />
-              Société {selected.isActive ? 'active' : 'radiée'}
-            </div>
-          </div>
-          <div className="space-y-4 p-5">
-            {selected.companyName && (
-              <div className="rounded-xl border border-gray-800 p-4 space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Entreprise</p>
-                <div className="flex items-center gap-2">
-                  <Building2 size={13} className="text-gray-500" />
-                  <p className="font-semibold text-gray-200">{selected.companyName}</p>
-                </div>
-                {selected.companySiren && <p className="text-xs text-gray-600">SIREN : {selected.companySiren}</p>}
-                {selected.activityLabel && <p className="text-xs text-gray-500">{selected.activityLabel}</p>}
-                {selected.companySize && <p className="text-xs text-gray-500">{selected.companySize} salariés</p>}
-              </div>
-            )}
-            {(selected.address || selected.city) && (
-              <div className="rounded-xl border border-gray-800 p-4 space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Localisation</p>
-                {selected.address && <p className="text-xs text-gray-400"><MapPin size={11} className="inline mr-1" />{selected.address}</p>}
-                {selected.city && <p className="text-xs text-gray-400">{selected.zipCode} {selected.city} · {selected.department}</p>}
-              </div>
-            )}
-            <div className="rounded-xl border border-gray-800 p-4 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Coordonnées</p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Phone size={13} className={selected.hasPhone ? 'text-blue-400' : 'text-gray-700'} />
-                  <span className="text-sm text-gray-300">
-                    {selected.phoneUnlocked && selected.phone ? selected.phone : selected.hasPhone ? '•••••••••' : 'Non disponible'}
-                  </span>
-                </div>
-                {!selected.phoneUnlocked && selected.hasPhone && (
-                  <span className="rounded-md bg-blue-600/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">Crédit requis</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mail size={13} className={selected.hasEmail ? 'text-blue-400' : 'text-gray-700'} />
-                  <span className="text-sm text-gray-300">
-                    {selected.emailUnlocked && selected.email ? selected.email : selected.hasEmail ? '•••••••••' : 'Non disponible'}
-                  </span>
-                </div>
-                {!selected.emailUnlocked && selected.hasEmail && (
-                  <span className="rounded-md bg-blue-600/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">Crédit requis</span>
-                )}
-              </div>
-              {selected.linkedinUrl && (
-                <a href={selected.linkedinUrl} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition">
-                  <ExternalLink size={12} /> LinkedIn
-                </a>
-              )}
-              {selected.website && (
-                <a href={selected.website.startsWith('http') ? selected.website : `https://${selected.website}`}
-                  target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition">
-                  <Globe size={12} /> {selected.website}
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-const NAV_ITEMS: Array<{ id: Section; icon: React.ElementType; label: string; badge?: boolean }> = [
-  { id: 'dashboard', icon: LayoutDashboard, label: 'Vue d\'ensemble'     },
-  { id: 'pending',   icon: UserCheck,       label: 'En attente', badge: true },
-  { id: 'users',     icon: Users,           label: 'Utilisateurs'        },
-  { id: 'revenue',   icon: CreditCard,      label: 'Revenus'             },
-  { id: 'activity',  icon: Activity,        label: 'Activité'            },
-  { id: 'search',    icon: Search,          label: 'Recherche'           },
-]
-
-export default function AdminCRMPage({ account, onLogout }: { account: Account; onLogout: () => void }) {
-  const [section,   setSection]  = useState<Section>('dashboard')
-  const [token,     setToken]    = useState<string | null>(null)
-  const [metrics,   setMetrics]  = useState<Metrics | null>(null)
-  const [stripe,    setStripe]   = useState<StripeData | null>(null)
-  const [loading,   setLoading]  = useState(true)
-  const [error,     setError]    = useState<string | null>(null)
-  const [pending,   setPending]  = useState(0)
-  const [lastSync,  setLastSync] = useState<Date | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => { getToken().then(setToken) }, [])
-
-  const loadData = useCallback(async (tok: string, silent = false) => {
-    if (!silent) setLoading(true)
-    setError(null)
-    try {
-      const [m, s] = await Promise.all([
-        apiFetch<Metrics>('/api/admin/metrics', tok),
-        apiFetch<StripeData>('/api/admin/stripe', tok),
-      ])
-      setMetrics(m); setStripe(s)
-      setPending(m.users.pendingApprovals)
-      setLastSync(new Date())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement')
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!token) return
-    void loadData(token)
-    // Auto-refresh toutes les 60 s
-    intervalRef.current = setInterval(() => void loadData(token, true), 60000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [token, loadData])
-
-  const sectionTitle: Record<Section, string> = {
-    dashboard: 'Vue d\'ensemble',
-    pending:   'Inscriptions en attente',
-    users:     'Utilisateurs',
-    revenue:   'Revenus',
-    activity:  'Activité plateforme',
-    search:    'Recherche contacts',
-  }
-
-  return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-950 text-white">
-
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-800 bg-gray-950 px-6">
-        <div className="flex items-center gap-4">
-          <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
-          <div className="h-4 w-px bg-gray-800" />
-          <div className="flex items-center gap-2">
-            <Shield size={12} className="text-purple-400" />
-            <span className="text-xs font-bold uppercase tracking-widest text-purple-400">CRM Admin</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {lastSync && (
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
-              <Wifi size={10} className="text-emerald-500" />
-              Sync {lastSync.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
-          <button onClick={() => { if (token) void loadData(token) }}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-800 px-3 py-1.5 text-xs text-gray-500 transition hover:border-gray-700 hover:text-gray-300">
-            <RefreshCw size={12} /> Actualiser
-          </button>
-          <span className="text-xs text-gray-600">{account.email}</span>
-          <button onClick={onLogout}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-800 px-3 py-1.5 text-xs text-gray-500 transition hover:border-red-900 hover:text-red-400">
-            <LogOut size={12} /> Quitter le CRM
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* ── Left sidebar ─────────────────────────────────────────────────── */}
-        <nav className="flex w-56 shrink-0 flex-col border-r border-gray-800 bg-gray-950 py-4">
-          <div className="space-y-0.5 px-3">
-            {NAV_ITEMS.map(({ id, icon: Icon, label, badge }) => (
-              <button
-                key={id}
-                onClick={() => setSection(id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  section === id
-                    ? 'bg-blue-600/15 text-blue-400'
-                    : 'text-gray-500 hover:bg-gray-900 hover:text-gray-300'
-                }`}
-              >
-                <Icon size={15} className={section === id ? 'text-blue-400' : ''} />
-                <span className="flex-1 text-left">{label}</span>
-                {badge && pending > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                    {pending > 9 ? '9+' : pending}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Bottom info */}
-          <div className="mt-auto border-t border-gray-800 px-5 pt-4">
-            <p className="text-[11px] text-gray-700">trouvé! Back-office</p>
-            <p className="text-[11px] text-gray-700">Connecté : {account.email}</p>
-          </div>
-        </nav>
-
-        {/* ── Main content ──────────────────────────────────────────────────── */}
-        <main className="flex flex-1 flex-col overflow-hidden">
-
-          {/* Page header */}
-          <div className="flex h-12 shrink-0 items-center border-b border-gray-800 px-8">
-            <h1 className="text-sm font-semibold text-gray-200">{sectionTitle[section]}</h1>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-hidden">
-            {loading && section !== 'search' ? (
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center">
-                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  <p className="mt-3 text-xs text-gray-600">Chargement des données…</p>
-                </div>
-              </div>
-            ) : error ? (
-              <div className="flex h-full flex-col items-center justify-center gap-4">
-                <AlertCircle size={28} className="text-red-500" />
-                <p className="text-sm font-semibold text-gray-300">Accès refusé ou erreur réseau</p>
-                <p className="text-xs text-gray-600">{error}</p>
-                <button onClick={() => { if (token) void loadData(token) }}
-                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
-                  <RefreshCw size={13} /> Réessayer
+          {/* Pagination */}
+          {total > 50 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3">
+              <p className="text-xs text-slate-400">Page {page} · {total} résultats</p>
+              <div className="flex gap-2">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-slate-50">
+                  Précédent
+                </button>
+                <button disabled={page * 50 >= total} onClick={() => setPage(p => p + 1)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-slate-50">
+                  Suivant
                 </button>
               </div>
-            ) : (
-              <div className="h-full overflow-y-auto">
-                {section === 'dashboard' && (
-                  <DashboardSection metrics={metrics} stripe={stripe} onNavigate={setSection} />
-                )}
-                {(section === 'users' || section === 'pending') && token && (
-                  <UsersSection
-                    key={section}
-                    token={token}
-                    statusFilter={section === 'pending' ? 'pending' : undefined}
-                    onCountUpdate={n => { if (section === 'pending') setPending(n) }}
-                  />
-                )}
-                {section === 'revenue' && <RevenueSection stripe={stripe} />}
-                {section === 'activity' && <ActivitySection metrics={metrics} />}
-                {section === 'search' && <SearchSection />}
-              </div>
-            )}
-          </div>
-        </main>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Vue Finances ─────────────────────────────────────────────────────────────
+
+function FinancesView({ token }: { token: string }) {
+  const [stripe, setStripe] = useState<StripeData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]    = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try { setStripe(await apiFetch<StripeData>('/api/admin/stripe', token)) }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur') }
+    finally { setLoading(false) }
+  }, [token])
+
+  useEffect(() => { void load() }, [load])
+
+  if (loading) return <Spinner />
+  if (error) return <ErrorState message={error} onRetry={load} />
+  if (!stripe) return null
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900">Finances & Paiements</h1>
+          <p className="text-sm text-slate-400">Données Stripe en temps réel</p>
+        </div>
+        <button onClick={load} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <RefreshCw size={13} /> Actualiser
+        </button>
       </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KpiCard label="MRR" value={stripe.mrr.euros} icon={TrendingUp} accent="bg-emerald-500" />
+        <KpiCard label="CA ce mois" value={stripe.revenue.thisMonthEuros} icon={CreditCard} accent="bg-blue-500" />
+        <KpiCard label="Abonnements actifs" value={stripe.subscriptions.active} icon={CheckCircle2} />
+        <KpiCard label="Résiliations" value={stripe.subscriptions.canceledThisMonth} icon={XCircle}
+          accent={stripe.subscriptions.canceledThisMonth > 0 ? 'bg-red-400' : 'bg-slate-200'} />
+      </div>
+
+      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="font-bold text-slate-800">Transactions récentes</h2>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              {['Montant', 'Description', 'Statut', 'Date'].map(h => (
+                <th key={h} className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {stripe.recentCharges.map(c => (
+              <tr key={c.id} className="hover:bg-slate-50">
+                <td className="px-6 py-3 font-extrabold text-slate-900">{c.amountEuros}</td>
+                <td className="px-6 py-3 text-slate-600 max-w-[300px] truncate">{c.description || 'Paiement trouvé!'}</td>
+                <td className="px-6 py-3">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    c.refunded ? 'bg-orange-50 text-orange-600' :
+                    c.paid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                  }`}>
+                    {c.refunded ? 'Remboursé' : c.paid ? 'Payé' : 'Échoué'}
+                  </span>
+                </td>
+                <td className="px-6 py-3 text-[12px] text-slate-400">{fromNow(c.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Vue Logs / Santé système ─────────────────────────────────────────────────
+
+interface LogsResponse {
+  logs: LogEntry[]
+  health: { searchesToday: number; unlocksToday: number; errorsToday: number }
+}
+
+function LogsView({ token }: { token: string }) {
+  const [data, setData]       = useState<LogsResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [filter, setFilter]   = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try { setData(await apiFetch<LogsResponse>('/api/admin/logs', token)) }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur') }
+    finally { setLoading(false) }
+  }, [token])
+
+  useEffect(() => { void load() }, [load])
+
+  const logs = data?.logs.filter(l => !filter || l.action.includes(filter)) ?? []
+
+  if (loading) return <Spinner />
+  if (error) return <ErrorState message={error} onRetry={load} />
+  if (!data) return null
+
+  const { health } = data
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900">Santé du système</h1>
+          <p className="text-sm text-slate-400">Audit logs en temps réel depuis Supabase</p>
+        </div>
+        <button onClick={load} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <RefreshCw size={13} /> Actualiser
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="Recherches (24h)" value={health.searchesToday} icon={Search} accent="bg-blue-500" />
+        <KpiCard label="Déblocages (24h)" value={health.unlocksToday} icon={KeyRound} accent="bg-violet-500" />
+        <KpiCard label="Erreurs (24h)" value={health.errorsToday} icon={AlertCircle}
+          accent={health.errorsToday > 0 ? 'bg-red-500' : 'bg-emerald-500'} />
+      </div>
+
+      {/* Filtre */}
+      <div className="flex gap-2 flex-wrap">
+        {[['', 'Tous'], ['search', 'Recherches'], ['unlock', 'Déblocages'], ['admin_', 'Actions admin'], ['error', 'Erreurs']].map(([k, l]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold border transition ${filter === k ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              {['Action', 'Acteur', 'Détails', 'Date'].map(h => (
+                <th key={h} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {logs.length === 0 ? (
+              <tr><td colSpan={4} className="py-12 text-center text-sm text-slate-400">Aucun log trouvé</td></tr>
+            ) : logs.map(l => (
+              <tr key={l.id} className="hover:bg-slate-50">
+                <td className="px-5 py-3">
+                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    l.action.includes('error') ? 'bg-red-50 text-red-600' :
+                    l.action.startsWith('admin_') ? 'bg-violet-50 text-violet-700' :
+                    l.action === 'search' ? 'bg-blue-50 text-blue-600' :
+                    l.action === 'unlock' ? 'bg-amber-50 text-amber-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>
+                    {l.action}
+                  </span>
+                </td>
+                <td className="px-5 py-3 text-[12px] text-slate-600 max-w-[180px] truncate">{String(l.actorEmail)}</td>
+                <td className="px-5 py-3 text-[11px] text-slate-400 max-w-[240px] truncate">
+                  {l.metadata ? JSON.stringify(l.metadata).slice(0, 80) : '—'}
+                </td>
+                <td className="px-5 py-3 text-[11px] text-slate-400">{fromNow(l.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Layout principal ─────────────────────────────────────────────────────────
+
+interface AdminCRMPageProps {
+  account: Account
+  onLogout: () => void
+}
+
+export default function AdminCRMPage({ account, onLogout }: AdminCRMPageProps) {
+  const [view, setView]     = useState<CRMView>('dashboard')
+  const [token, setToken]   = useState('')
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    getToken().then(setToken)
+  }, [])
+
+  // Compte "en attente" pour badge sidebar
+  useEffect(() => {
+    if (!token) return
+    apiFetch<{ users: CRMUser[]; total: number }>('/api/admin/users?status=pending&limit=1', token)
+      .then(d => setPendingCount(d.total))
+      .catch(() => {})
+  }, [token])
+
+  const nav: Array<{ key: CRMView; label: string; icon: React.ElementType }> = [
+    { key: 'dashboard', label: 'Vue d\'ensemble', icon: LayoutDashboard },
+    { key: 'users',     label: 'Clients',          icon: Users },
+    { key: 'finances',  label: 'Finances',          icon: CreditCard },
+    { key: 'logs',      label: 'Santé système',     icon: Activity },
+  ]
+
+  return (
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-white border-r border-slate-100 shadow-sm">
+        <div className="flex h-16 items-center gap-2 px-5 border-b border-slate-100">
+          <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto" />
+          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">ADMIN</span>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-3 pt-4 space-y-0.5">
+          {nav.map(({ key, label, icon: Icon }) => (
+            <button key={key} onClick={() => setView(key)}
+              className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                view === key ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}>
+              {view === key && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-blue-600" />}
+              <Icon size={15} className={view === key ? 'text-blue-600' : 'text-slate-400'} />
+              <span className="flex-1 text-left">{label}</span>
+              {key === 'users' && pendingCount !== null && pendingCount > 0 && (
+                <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Footer utilisateur */}
+        <div className="border-t border-slate-100 p-4">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+              {account.email[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 truncate">{account.email}</p>
+              <p className="text-[10px] text-slate-400">Super Admin</p>
+            </div>
+          </div>
+          <button onClick={onLogout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50">
+            <LogOut size={13} /> Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* Contenu principal */}
+      <main className="ml-56 flex-1 min-w-0 p-8">
+        {!token ? <Spinner /> : (
+          <>
+            {view === 'dashboard' && <DashboardView token={token} />}
+            {view === 'users'     && <UsersView     token={token} />}
+            {view === 'finances'  && <FinancesView  token={token} />}
+            {view === 'logs'      && <LogsView      token={token} />}
+          </>
+        )}
+      </main>
     </div>
   )
 }
