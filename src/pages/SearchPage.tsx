@@ -1869,14 +1869,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
       {/* ── Header mobile (visible < lg) ─────────────────────────────────── */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-[#1B54FF] border-b border-white/10">
-        <button onClick={() => setShowMobileMenu(true)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800">
+        <button onClick={() => setShowMobileMenu(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
           <Menu size={20} />
         </button>
         <button onClick={() => setAppView('search')} className="flex items-center">
-          <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+          <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto" />
         </button>
-        <button onClick={() => setDarkMode(d => !d)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
+        <button onClick={() => setDarkMode(d => !d)} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
         </button>
       </header>
@@ -1884,133 +1884,150 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       {/* ── Overlay mobile menu ───────────────────────────────────────────── */}
       {showMobileMenu && (
         <>
-          <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={() => setShowMobileMenu(false)} />
-          <aside className="fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-[#1B54FF] border-r border-white/10 lg:hidden">
-            <div className="flex h-14 items-center justify-between border-b border-white/[0.06] px-5">
+          <div className="fixed inset-0 z-50 bg-black/40 lg:hidden" onClick={() => setShowMobileMenu(false)} />
+          <aside className="fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800 lg:hidden">
+            <div className="flex h-14 items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5">
               <button onClick={() => { setAppView('search'); setShowMobileMenu(false) }} className="flex items-center">
-                <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+                <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto" />
               </button>
-              <button onClick={() => setShowMobileMenu(false)} className="text-white/50 hover:text-white"><X size={18} /></button>
+              <button onClick={() => setShowMobileMenu(false)} className="text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200"><X size={18} /></button>
             </div>
-            <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-2">
+            <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-3">
               {([{ key: 'search', label: 'Recherche', icon: Search }, { key: 'history', label: 'Historique', icon: History }] as const).map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => { setAppView(key); setShowMobileMenu(false) }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === key ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/8 hover:text-white/80'}`}>
-                  <Icon size={15} />{label}
+                  className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    appView === key ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}>
+                  {appView === key && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-blue-600" />}
+                  <Icon size={15} className={appView === key ? 'text-blue-600' : ''} />{label}
                 </button>
               ))}
-              <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-white/25">Mes listes</div>
+              <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Mes listes</p>
               <button onClick={() => { setAppView('lists'); setShowMobileMenu(false) }}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === 'lists' ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/8 hover:text-white/80'}`}>
-                <Plus size={15} /><span className="flex-1 text-left">Toutes les listes</span>
-                {lists.length > 0 && <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
+                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  appView === 'lists' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}>
+                {appView === 'lists' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-blue-600" />}
+                <List size={15} className={appView === 'lists' ? 'text-blue-600' : ''} />
+                <span className="flex-1 text-left">Toutes les listes</span>
+                {lists.length > 0 && <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">{lists.length}</span>}
               </button>
               <button onClick={() => { setShowMobileMenu(false); setAddPopupProspect({ id: '__new_list__' } as ProspectResult) }}
-                className="mt-2 flex w-full items-center gap-2 rounded-xl bg-[#124bd2]/20 border border-[#124bd2]/50 px-3 py-2.5 text-xs font-bold text-blue-300 transition hover:bg-[#124bd2]/30">
-                <Plus size={13} /> Nouvelle liste
+                className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
+                <Plus size={14} /> Nouvelle liste
               </button>
             </nav>
           </aside>
         </>
       )}
 
-      {/* ── Sidebar gauche (fixe, bleu vif) — desktop uniquement ────────── */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-[#1B54FF]">
+      {/* ── Sidebar gauche — blanc / gris clair ──────────────────────────── */}
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800">
 
         {/* Logo */}
-        <div className="flex h-16 items-center px-6 border-b border-white/10">
-          <button onClick={() => setAppView('search')} className="flex items-center transition opacity-95 hover:opacity-100">
-            <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
+        <div className="flex h-16 items-center px-6 border-b border-gray-100 dark:border-gray-800">
+          <button onClick={() => setAppView('search')} className="flex items-center transition">
+            <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto" />
           </button>
         </div>
 
-        {/* Icône clé décorative */}
-        <div className="flex items-center justify-center py-6 border-b border-white/10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-            <Key size={22} className="text-white" />
-          </div>
-        </div>
-
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-3">
+        <nav className="flex-1 overflow-y-auto px-3 pt-4 space-y-0.5">
           {([
             { key: 'search',  label: 'Recherche',  icon: Search },
             { key: 'history', label: 'Historique', icon: History },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setAppView(key)}
-              className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+              className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                 appView === key
-                  ? 'bg-white text-[#1B54FF] shadow-sm'
-                  : 'text-white/75 hover:bg-white/15 hover:text-white'
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
               }`}>
-              <Icon size={15} />{label}
+              {appView === key && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-blue-600" />
+              )}
+              <Icon size={15} className={appView === key ? 'text-blue-600' : ''} />
+              {label}
             </button>
           ))}
 
           {/* Section Mes listes */}
-          <p className="mt-5 mb-1 px-4 text-[10px] font-bold uppercase tracking-widest text-white/40">Mes listes</p>
+          <p className="mt-5 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Mes listes</p>
           <button onClick={() => setAppView('lists')}
-            className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
               appView === 'lists' || appView === 'list-detail'
-                ? 'bg-white text-[#1B54FF] shadow-sm'
-                : 'text-white/75 hover:bg-white/15 hover:text-white'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800'
             }`}>
-            <List size={15} />
+            {(appView === 'lists' || appView === 'list-detail') && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-blue-600" />
+            )}
+            <List size={15} className={appView === 'lists' || appView === 'list-detail' ? 'text-blue-600' : ''} />
             <span className="flex-1 text-left">Toutes les listes</span>
-            {lists.length > 0 && <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
+            {lists.length > 0 && (
+              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                {lists.length}
+              </span>
+            )}
           </button>
           {lists.map(list => (
             <button key={list.id} onClick={() => { setActiveListId(list.id); setAppView('list-detail') }}
-              className={`flex w-full items-center gap-2.5 rounded-xl px-4 py-2 text-sm font-medium transition ${
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
                 appView === 'list-detail' && activeListId === list.id
-                  ? 'bg-white/20 text-white'
-                  : 'text-white/60 hover:bg-white/10 hover:text-white/90'
+                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800'
               }`}>
               <span className="text-sm leading-none">{list.emoji}</span>
               <span className="flex-1 truncate text-left text-xs">{list.name}</span>
-              <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">{list.contacts.length}</span>
+              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">{list.contacts.length}</span>
             </button>
           ))}
           <button onClick={() => setAddPopupProspect({ id: '__new_list__' } as ProspectResult)}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-xs font-bold text-white/80 transition hover:bg-white/10 hover:text-white">
-            <Plus size={13} /> Nouvelle liste
+            className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">
+            <Plus size={14} /> Nouvelle liste
           </button>
         </nav>
 
         {/* Quota — bas de sidebar */}
-        <div className="border-t border-white/10 px-4 py-4 space-y-3">
+        <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-4 space-y-3">
           {creditBalance && (
             <>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/65"><Phone size={11} /> Crédits tél.</span>
-                <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-500"><Phone size={11} /> Crédits tél.</span>
+                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/65"><Mail size={11} /> Crédits email</span>
-                <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-500"><Mail size={11} /> Crédits email</span>
+                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
               </div>
             </>
           )}
           {account.quota > 0 && (
-            <div className="rounded-xl bg-white/10 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Recherches restantes</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-white">
-                {(account.quota - usedQuota).toLocaleString('fr-FR')}
-                <span className="text-xs font-medium text-white/50"> / {account.quota.toLocaleString('fr-FR')}</span>
-              </p>
-              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/20">
-                <div className="h-full rounded-full bg-white transition-all"
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-gray-500">Recherches restantes</span>
+                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                  {(account.quota - usedQuota).toLocaleString('fr-FR')} / {account.quota.toLocaleString('fr-FR')}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div className="h-full rounded-full bg-blue-600 transition-all"
                   style={{ width: `${Math.min(100, Math.round(((account.quota - usedQuota) / account.quota) * 100))}%` }} />
               </div>
             </div>
           )}
           {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
-            <div className="rounded-xl bg-white/10 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Recherches démo</p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-white">
-                {Math.max(0, maxSearches - demoSearchCount)}
-                <span className="text-xs font-medium text-white/50"> / {maxSearches}</span>
-              </p>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-gray-500">Recherches démo</span>
+                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                  {Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div className="h-full rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${Math.min(100, Math.round(((maxSearches - demoSearchCount) / maxSearches) * 100))}%` }} />
+              </div>
             </div>
           )}
         </div>
@@ -2055,67 +2072,37 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           <div className="flex flex-1 flex-col">
 
             {/* ── Topbar ── */}
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 dark:border-slate-800 dark:bg-slate-950">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1B54FF]">
-                  TROUVEZ LES MEILLEURS PROSPECTS
-                </p>
-                <h1 className="text-lg font-bold text-[#07113d] dark:text-slate-100 leading-tight">
-                  {hasSearched && query ? `"${query}"` : 'Recherchez vos prospects'}
-                </h1>
-              </div>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                {hasSearched && query ? `Résultats pour "${query}"` : 'Recherche de contacts'}
+              </h1>
               <div className="flex items-center gap-3">
                 <ThemeToggle size="sm" />
                 <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>
             </div>
 
-            <div className="flex flex-1 flex-col px-4 py-5 lg:px-8 lg:py-6">
+            <div className="flex flex-1 flex-col px-6 py-8 lg:px-10">
 
             {/* Bandeau accès restreint */}
             {accessLevel !== 'full' && maxSearches !== undefined && (
-              <DemoBanner
-                accessLevel={accessLevel}
-                used={demoSearchCount}
-                max={maxSearches}
-                onCta={() => setShowConversionModal(true)}
-              />
+              <div className="mb-6">
+                <DemoBanner
+                  accessLevel={accessLevel}
+                  used={demoSearchCount}
+                  max={maxSearches}
+                  onCta={() => setShowConversionModal(true)}
+                />
+              </div>
             )}
 
-            {/* Carte quota compte salarié */}
-            {account.role === 'agent' && account.quota > 0 && (() => {
-              const remaining = Math.max(0, account.quota - usedQuota)
-              const pct = usedQuota / account.quota
-              return (
-                <div className="mb-5 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-800/60">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1B54FF]/10">
-                    <Users size={15} className="text-[#1B54FF]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Compte Salarié</p>
-                    <p className="text-xs text-slate-400">{remaining} recherche{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''} sur {account.quota}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="hidden sm:block w-32 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-                      <div className={`h-full rounded-full transition-all ${
-                        pct >= 0.9 ? 'bg-red-500' : pct >= 0.7 ? 'bg-amber-400' : 'bg-[#1B54FF]'
-                      }`} style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }} />
-                    </div>
-                    <span className="text-base font-bold tabular-nums text-[#1B54FF]">
-                      {remaining.toLocaleString('fr-FR')} / {account.quota.toLocaleString('fr-FR')}
-                    </span>
-                  </div>
-                </div>
-              )
-            })()}
-
             {/* ── Carte de recherche ── */}
-            <div className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <form onSubmit={handleSearch} className="p-5 space-y-4">
-                {/* Ligne principale */}
+            <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <form onSubmit={handleSearch} className="p-6">
+                {/* Champs + bouton */}
                 <div className="flex gap-3 flex-wrap sm:flex-nowrap">
                   <div className="relative flex-1 min-w-[120px]">
-                    <UserCircle2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       ref={searchInputRef}
                       type="text"
@@ -2123,91 +2110,64 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                       onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
                       placeholder="Nom"
                       autoComplete="off"
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
                     />
                   </div>
                   <div className="relative flex-1 min-w-[120px]">
-                    <UserCircle2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       value={advFirstName}
                       onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
                       placeholder="Prénom"
                       autoComplete="off"
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
                     />
                   </div>
                   <div className="relative flex-1 min-w-[140px]">
-                    <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="tel"
                       value={searchTel}
                       onChange={e => { setSearchTel(e.target.value); setPage(1) }}
                       placeholder="Téléphone / Mobile"
                       autoComplete="off"
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
                     />
                   </div>
                   <button type="submit"
                     disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
-                    className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[#1B54FF] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                    className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-6 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50">
                     {isLoading ? <RefreshCw size={14} className="animate-spin" /> : <><Search size={14} /> Rechercher</>}
                   </button>
                 </div>
 
-                {/* Sélecteur de mode */}
-                <div className="flex gap-1.5 flex-wrap">
-                  {([
-                    { key: 'exact',       label: 'Exact' },
-                    { key: 'starts_with', label: 'Commence par' },
-                    { key: 'contains',    label: 'Contient' },
-                  ] as const).map(({ key, label }) => (
-                    <button key={key} type="button" onClick={() => setSearchMode(key)}
-                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition border ${
-                        searchMode === key
-                          ? 'bg-[#1B54FF] text-white border-[#1B54FF] shadow-sm'
-                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#1B54FF]/40 hover:text-[#1B54FF] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
-                      }`}>
-                      {label}
+                {/* Recherche avancée — ghost button */}
+                <div className="mt-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(v => !v)}
+                    className="flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-blue-600"
+                  >
+                    <SlidersHorizontal size={13} />
+                    <span>Recherche avancée</span>
+                    {activeFiltersCount > 0 && (
+                      <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                    {showFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+
+                  {results.length > 0 && (
+                    <button onClick={() => exportProspectsCSV(results, query)}
+                      className="flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200">
+                      <Download size={13} /> Exporter CSV
                     </button>
-                  ))}
+                  )}
                 </div>
               </form>
-
-              {/* Recherche avancée — toggle */}
-              <div className="border-t border-slate-100 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(v => !v)}
-                  className="flex w-full items-center gap-2 px-5 py-3 text-sm font-medium text-slate-500 transition hover:text-[#1B54FF] dark:text-slate-400"
-                >
-                  <SlidersHorizontal size={14} />
-                  <span className="flex-1 text-left">Recherche avancée</span>
-                  {activeFiltersCount > 0 && (
-                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#1B54FF] px-1.5 text-[9px] font-bold text-white">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                  {showFilters ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
-
-                {showFilters && (
-                  <div className="border-t border-slate-100 dark:border-slate-700">
-                    <p className="px-5 py-2 text-[11px] font-medium text-slate-400">Affinez vos critères pour des résultats plus précis.</p>
-                  </div>
-                )}
-              </div>
             </div>
-
-            {/* Export CSV (si résultats) */}
-            {results.length > 0 && (
-              <div className="mb-3 flex justify-end">
-                <button onClick={() => exportProspectsCSV(results, query)}
-                  className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-[#1B54FF]/40 hover:text-[#1B54FF] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  <Download size={12} /> Exporter CSV
-                </button>
-              </div>
-            )}
 
             {/* Panneau de recherche avancée (conservé) */}
             {showFilters && (
