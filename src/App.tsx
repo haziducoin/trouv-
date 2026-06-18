@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
+import AdminCRMPage from './pages/AdminCRMPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
 import CompliancePage from './pages/CompliancePage'
@@ -21,6 +22,7 @@ const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
+const isCRMMode        = _params.has('crm')
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
@@ -318,6 +320,16 @@ export default function App() {
             />
           </div>
         )}
+        <Analytics />
+      </>
+    )
+  }
+
+  // ── CRM Admin (?crm) — interface back-office sécurisée ───────────────────
+  if (isCRMMode && account && account.role === 'admin') {
+    return (
+      <>
+        <AdminCRMPage account={account} onLogout={handleLogout} />
         <Analytics />
       </>
     )
