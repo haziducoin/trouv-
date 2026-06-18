@@ -275,25 +275,27 @@ export default function App() {
     return (
       <>
         <SpeedInsights />
-        {/* Toggle flottant dirigeant ↔ salarié */}
-        <div className="fixed bottom-20 lg:bottom-6 left-1/2 z-[999] -translate-x-1/2 flex items-center gap-0.5 rounded-2xl border border-white/20 bg-[#07113d]/95 p-1 shadow-2xl backdrop-blur-md">
-          <span className="px-2 text-[9px] font-bold uppercase tracking-widest text-white/30">Démo</span>
-          <button
-            onClick={() => setDemoView('admin')}
-            className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
-              demoView === 'admin' ? 'bg-[#1B54FF] text-white shadow-lg' : 'text-white/50 hover:text-white/80'
-            }`}
-          >
-            Dirigeant
-          </button>
-          <button
-            onClick={() => setDemoView('employee')}
-            className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
-              demoView === 'employee' ? 'bg-emerald-600 text-white shadow-lg' : 'text-white/50 hover:text-white/80'
-            }`}
-          >
-            Salarié
-          </button>
+        {/* Bandeau démo — simuler un profil différent */}
+        <div className="fixed bottom-20 lg:bottom-6 left-1/2 z-[999] -translate-x-1/2 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#07113d]/95 px-3 py-1.5 shadow-2xl backdrop-blur-md">
+          <span className="text-[11px] text-white/40">Simuler le profil :</span>
+          <div className="flex items-center gap-0.5 rounded-xl bg-white/5 p-0.5">
+            <button
+              onClick={() => setDemoView('admin')}
+              className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
+                demoView === 'admin' ? 'bg-[#1B54FF] text-white shadow' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              Dirigeant
+            </button>
+            <button
+              onClick={() => setDemoView('employee')}
+              className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
+                demoView === 'employee' ? 'bg-emerald-600 text-white shadow' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              Salarié
+            </button>
+          </div>
         </div>
         <SearchPage
           key={demoView}
