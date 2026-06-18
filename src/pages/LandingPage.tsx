@@ -453,7 +453,7 @@ export default function LandingPage({
             {/* H1 + animated word */}
             <div className="flex flex-col gap-5">
               <h1 className="mx-auto max-w-3xl text-5xl font-bold tracking-tight text-[#070f22] md:text-7xl" style={{ lineHeight: 1.05 }}>
-                Identifiez le bon contact.
+                Retrouvez les bons contacts
                 <span className="relative mt-3 flex h-[1.2em] w-full items-center justify-center overflow-hidden">
                   &nbsp;
                   {heroTitles.map((title, index) => (
@@ -475,7 +475,7 @@ export default function LandingPage({
               </h1>
 
               <p className="mx-auto max-w-xl text-lg leading-relaxed text-slate-500 md:text-xl">
-                Le moteur de recherche pour identifier et contacter vos cibles qualifiées.
+                Retrouvez les bons contacts à partir d'une simple information.
               </p>
             </div>
 
