@@ -26,13 +26,12 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
     <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
       <DialogContent className="sm:max-w-[420px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
         <DialogHeader className="items-center text-center">
-          <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
+          <DialogTitle className="flex items-center gap-2 text-[1.6rem] font-bold text-slate-900 dark:text-white">
             <ShoppingCart className="h-5 w-5 text-[#124bd2]" />
             Recharger mes clés
           </DialogTitle>
           <p className="text-sm text-slate-500 dark:text-slate-400 pt-1 text-center">
-            Chaque pack de <strong>25 clés téléphone + 25 clés email</strong> coûte{' '}
-            <strong>15&nbsp;€</strong>.
+            Rechargez avec des Packs de 50 clés trouvé&nbsp;!
           </p>
         </DialogHeader>
 
@@ -40,14 +39,14 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
         <div className="flex items-center justify-center gap-10 py-2">
           <div className="flex flex-col items-center gap-1">
             <img src={keyBlueImg} alt="clé téléphone" style={{ height: '80px', width: 'auto' }} />
-            <span className="text-2xl font-black text-[#124bd2]">+{qty}</span>
-            <span className="text-[11px] text-slate-400">Téléphone</span>
+            <span className="text-2xl font-black" style={{ color: '#1a569f' }}>+{qty}</span>
+            <span className="text-[11px] text-slate-400">Téléphones</span>
           </div>
           <div className="text-xl font-light text-slate-300 dark:text-slate-600">+</div>
           <div className="flex flex-col items-center gap-1">
             <img src={keyGreenImg} alt="clé email" style={{ height: '80px', width: 'auto' }} />
-            <span className="text-2xl font-black text-emerald-500">+{qty}</span>
-            <span className="text-[11px] text-slate-400">Email</span>
+            <span className="text-2xl font-black" style={{ color: '#1d6a40' }}>+{qty}</span>
+            <span className="text-[11px] text-slate-400">Emails Directs</span>
           </div>
         </div>
 
