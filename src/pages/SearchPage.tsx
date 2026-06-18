@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail'
 import trouveLogo from '@/assets/trouve-logo.png'
+import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
   searchProspects, exportProspectsCSV,
@@ -836,11 +837,11 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
       <Icon size={14} className="text-slate-300 dark:text-slate-600" />
       <span className="font-semibold tabular-nums text-slate-400">{value}</span>
       <button type="button" onClick={click} disabled={busy}
-        className="ml-1 inline-flex items-center gap-1 rounded-lg bg-[#124bd2] px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-[#0b3fbc] disabled:opacity-60">
+        className="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
         {busy
           ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          : <Lock size={11} />}
-        {canUnlock ? (kind === 'phone' ? 'Débloquer le téléphone' : "Débloquer l'email") : 'Voir les offres'}
+          : <KeyIcon kind={kind} size={22} className="text-white" />}
+        {canUnlock ? (kind === 'phone' ? 'Débloquer' : 'Débloquer') : 'Voir les offres'}
       </button>
     </span>
   )
@@ -1991,16 +1992,26 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         {/* Quota — bas de sidebar */}
         <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-4 space-y-3">
           {creditBalance && (
-            <>
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-gray-500"><Phone size={11} /> Crédits tél.</span>
-                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
+                <span className="flex items-center gap-2 text-xs text-gray-500">
+                  <KeyIcon kind="phone" size={28} className="text-blue-600 opacity-80" />
+                  Tél.
+                </span>
+                <span className="text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
+                  {creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs text-gray-500"><Mail size={11} /> Crédits email</span>
-                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
+                <span className="flex items-center gap-2 text-xs text-gray-500">
+                  <KeyIcon kind="email" size={28} className="text-blue-600 opacity-80" />
+                  Email
+                </span>
+                <span className="text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
+                  {creditBalance.unlimited ? '∞' : creditBalance.emailCredits}
+                </span>
               </div>
-            </>
+            </div>
           )}
           {account.quota > 0 && (
             <div>
