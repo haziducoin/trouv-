@@ -1209,20 +1209,39 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
   )
 }
 
-const DEMO_ACTIVITY = [
-  { initials: 'TM', color: 'bg-blue-100 text-blue-700',   name: 'Thomas Martin',  sub: 'Directeur commercial · Paris 08',  time: 'Il y a 2 h' },
-  { initials: 'MF', color: 'bg-emerald-100 text-emerald-700', name: 'Marie Fontaine', sub: 'Responsable marketing · Lyon 02', time: 'Il y a 5 h' },
-  { initials: 'LD', color: 'bg-purple-100 text-purple-700',name: 'Laurent Dupuis', sub: 'Chef de chantier · Marseille 13',  time: 'Hier' },
-]
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 60) return `Il y a ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `Il y a ${h} h`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'Hier'
+  return `Il y a ${d} j`
+}
 
-const DEMO_TEAM = [
-  { initial: 'S', color: 'bg-[#1B54FF] text-white', name: 'Sophie Martin', isSelf: true,  usage: 412, pct: 60 },
-  { initial: 'P', color: 'bg-indigo-500 text-white', name: 'Pierre Dumont', isSelf: false, usage: 198, pct: 29 },
+const AVATAR_COLORS = [
+  'bg-blue-100 text-blue-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-purple-100 text-purple-700',
+  'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700',
 ]
 
 function DashboardSection({ account, onRequestAuth, onLogout }: { account: Account; onRequestAuth: () => void; onLogout: () => void | Promise<void> }) {
   const usagePct = Math.min(100, Math.round((account.monthlyUsage / account.quota) * 100))
   const remaining = account.quota - account.monthlyUsage
+
+  const [history, setHistory] = useState<Array<{ query: string; result_name?: string; result_company?: string; result_location?: string; created_at: string }>>([])
+
+  useEffect(() => {
+    if (!usesRemoteDatabase) return
+    import('@/lib/supabase').then(({ getSupabaseClient }) => {
+      getSupabaseClient().rpc('get_search_history', { p_limit: 5 }).then(({ data }) => {
+        if (data) setHistory(data as typeof history)
+      })
+    })
+  }, [])
 
   return (
     <div className="flex flex-col gap-4">
@@ -1235,8 +1254,8 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
             <p className="mt-1 text-sm opacity-80">recherches sur {account.quota.toLocaleString('fr-FR')} incluses</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">+12%</p>
-            <p className="text-xs opacity-75">vs mois précédent</p>
+            <p className="text-2xl font-bold">{usagePct}%</p>
+            <p className="text-xs opacity-75">du quota utilisé</p>
           </div>
         </div>
         <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
@@ -1248,12 +1267,11 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
         </div>
       </div>
 
-      {/* 3 mini stats */}
-      <div className="grid grid-cols-3 gap-2.5">
+      {/* 2 mini stats */}
+      <div className="grid grid-cols-2 gap-2.5">
         {[
-          { value: '12',                                       label: 'Favoris sauvegardés' },
-          { value: '3',                                        label: 'Licences actives' },
-          { value: remaining.toLocaleString('fr-FR'),          label: 'Recherches restantes', green: true },
+          { value: account.monthlyUsage.toString(),       label: 'Recherches ce mois' },
+          { value: remaining.toLocaleString('fr-FR'),     label: 'Recherches restantes', green: true },
         ].map(({ value, label, green }) => (
           <div key={label} className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3 text-center">
             <p className={`text-xl font-extrabold ${green ? 'text-emerald-600' : 'text-[#1B54FF]'}`}>{value}</p>
@@ -1262,58 +1280,59 @@ function DashboardSection({ account, onRequestAuth, onLogout }: { account: Accou
         ))}
       </div>
 
-      {/* Activité récente */}
+      {/* Activité récente — vraies données */}
       <div>
         <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          <History size={15} className="text-blue-700" /> Activité récente
+          <History size={15} className="text-blue-700" /> Dernières recherches
         </p>
-        <div className="flex flex-col gap-1.5">
-          {DEMO_ACTIVITY.map(({ initials, color, name, sub, time }) => (
-            <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initials}</div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}</p>
-                  <p className="text-[10px] text-slate-400">{sub}</p>
+        {history.length === 0 ? (
+          <p className="rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-center text-xs text-slate-400">
+            Aucune recherche ce mois
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {history.map((item, i) => {
+              const label = item.result_name || item.query
+              const sub = [item.result_company, item.result_location].filter(Boolean).join(' · ')
+              const initials = label.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+              return (
+                <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>{initials}</div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{label}</p>
+                      {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[10px] text-slate-400">{timeAgo(item.created_at)}</span>
                 </div>
-              </div>
-              <span className="shrink-0 text-[10px] text-slate-400">{time}</span>
-            </div>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Utilisation par licence */}
+      {/* Votre compte */}
       <div>
         <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          <UsersRound size={15} className="text-blue-700" /> Utilisation par licence
+          <UsersRound size={15} className="text-blue-700" /> Votre compte
         </p>
         <div className="flex flex-col gap-2">
-          {DEMO_TEAM.map(({ initial, color, name, isSelf, usage, pct }) => (
-            <div key={name} className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${color}`}>{initial}</div>
-                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{name}{isSelf && <span className="ml-1.5 text-[10px] text-slate-400">(vous)</span>}</span>
-                </div>
-                <span className="text-sm font-bold text-[#1B54FF]">{usage} rech.</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-600">
-                <div className="h-1.5 rounded-full bg-[#1B54FF]" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          ))}
-          {/* Licence libre */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 p-3">
-            <div className="flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-xs font-bold text-slate-400">+</div>
-                <span className="text-sm text-slate-400">Licence disponible</span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-xs font-bold text-white">
+                  {(account.firstName?.[0] || account.email[0]).toUpperCase()}
+                </div>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {account.firstName ? `${account.firstName} ${account.lastName || ''}`.trim() : account.email}
+                  <span className="ml-1.5 text-[10px] text-slate-400">(vous)</span>
+                </span>
               </div>
-              <button type="button" onClick={onRequestAuth}
-                className="rounded-lg bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 text-xs font-semibold text-[#1B54FF] dark:text-blue-400 transition hover:bg-blue-100 dark:hover:bg-blue-900/50">
-                Inviter →
-              </button>
+              <span className="text-sm font-bold text-[#1B54FF]">{account.monthlyUsage} rech.</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-600">
+              <div className="h-1.5 rounded-full bg-[#1B54FF]" style={{ width: `${usagePct}%` }} />
             </div>
           </div>
         </div>
