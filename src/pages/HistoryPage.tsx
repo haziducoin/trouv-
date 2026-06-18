@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock, Search, RotateCcw, Trash2, TrendingUp, X } from 'lucide-react'
+import { Clock, Search, RotateCcw, Trash2, TrendingUp, X, ChevronRight } from 'lucide-react'
 import type { Account } from '@/lib/accountStore'
 
 interface HistoryEntry {
@@ -15,6 +15,7 @@ interface HistoryPageProps {
   onClose?: () => void
   /** embedded=true → rendered inline inside the app shell (no fixed overlay) */
   embedded?: boolean
+  onGoSearch?: () => void
 }
 
 const HISTORY_KEY = 'trouve_searches_v1'
@@ -39,7 +40,7 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
-export default function HistoryPage({ account, onReplay, onClose, embedded = false }: HistoryPageProps) {
+export default function HistoryPage({ account, onReplay, onClose, embedded = false, onGoSearch }: HistoryPageProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>(loadHistory)
 
   const handleClear = () => {
@@ -66,6 +67,15 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
 
   const body = (
     <div className={embedded ? 'mx-auto max-w-3xl px-5 py-6' : 'mx-auto max-w-3xl px-5 py-8'}>
+
+      {/* Breadcrumb (embedded mode) */}
+      {embedded && onGoSearch && (
+        <nav className="mb-5 flex items-center gap-1.5 text-xs text-slate-400">
+          <button onClick={onGoSearch} className="hover:text-[#124bd2] transition font-medium">Recherche</button>
+          <ChevronRight size={12} className="text-slate-300" />
+          <span className="text-slate-600 dark:text-slate-300 font-medium">Historique</span>
+        </nav>
+      )}
 
       {/* Toolbar inline (only in embedded mode) */}
       {embedded && (

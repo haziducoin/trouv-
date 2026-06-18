@@ -7,7 +7,7 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail'
 import trouveLogo from '@/assets/trouve-logo.png'
@@ -1116,6 +1116,12 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
 }) {
   return (
     <div className="mx-auto max-w-4xl px-5 py-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <nav className="mb-5 flex items-center gap-1.5 text-xs text-slate-400">
+        <button onClick={onGoSearch} className="hover:text-[#124bd2] transition font-medium">Recherche</button>
+        <ChevronRight size={12} className="text-slate-300" />
+        <span className="text-slate-600 dark:text-slate-300 font-medium">Mes listes</span>
+      </nav>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Mes listes de prospects</h2>
@@ -1175,13 +1181,27 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
 }
 
 // ─── SingleListView ───────────────────────────────────────────────────────────
-function SingleListView({ list, onBack, onExport, onRemove }: {
-  list: ProspectList; onBack: () => void; onExport: () => void; onRemove: (id: string) => void
+function SingleListView({ list, onBack, onExport, onRemove, onGoSearch }: {
+  list: ProspectList; onBack: () => void; onExport: () => void; onRemove: (id: string) => void; onGoSearch?: () => void
 }) {
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <nav className="mb-5 flex items-center gap-1.5 text-xs text-slate-400">
+        {onGoSearch && (
+          <>
+            <button onClick={onGoSearch} className="hover:text-[#124bd2] transition font-medium">Recherche</button>
+            <ChevronRight size={12} className="text-slate-300" />
+          </>
+        )}
+        <button onClick={onBack} className="hover:text-[#124bd2] transition font-medium">Mes listes</button>
+        <ChevronRight size={12} className="text-slate-300" />
+        <span className="text-slate-600 dark:text-slate-300 font-medium truncate max-w-[180px]">{list.emoji} {list.name}</span>
+      </nav>
       <div className="mb-6 flex items-center gap-3 flex-wrap">
-        <button onClick={onBack} className="text-xs text-slate-400 hover:text-slate-600 transition">← Mes listes</button>
+        <button onClick={onBack} className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#124bd2] transition font-medium">
+          <ChevronLeft size={13} /> Mes listes
+        </button>
         <span className="text-slate-300">|</span>
         <span className="text-xl">{list.emoji}</span>
         <div className="flex-1">
@@ -1849,11 +1869,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
       {/* ── Header mobile (visible < lg) ─────────────────────────────────── */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-[#07113d] border-b border-white/[0.06]">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-[#1B54FF] border-b border-white/10">
         <button onClick={() => setShowMobileMenu(true)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
           <Menu size={20} />
         </button>
-        <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+        <button onClick={() => setAppView('search')} className="flex items-center">
+          <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+        </button>
         <button onClick={() => setDarkMode(d => !d)} className="flex h-9 w-9 items-center justify-center rounded-xl text-white/70 hover:bg-white/10">
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
         </button>
@@ -1863,9 +1885,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       {showMobileMenu && (
         <>
           <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={() => setShowMobileMenu(false)} />
-          <aside className="fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06] lg:hidden">
+          <aside className="fixed inset-y-0 left-0 z-[60] flex w-72 flex-col bg-[#1B54FF] border-r border-white/10 lg:hidden">
             <div className="flex h-14 items-center justify-between border-b border-white/[0.06] px-5">
-              <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+              <button onClick={() => { setAppView('search'); setShowMobileMenu(false) }} className="flex items-center">
+                <img src={trouveLogo} alt="trouvé!" className="h-6 w-auto brightness-0 invert" />
+              </button>
               <button onClick={() => setShowMobileMenu(false)} className="text-white/50 hover:text-white"><X size={18} /></button>
             </div>
             <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-2">
@@ -1890,74 +1914,106 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         </>
       )}
 
-      {/* ── Sidebar gauche (fixe, dark) — desktop uniquement ─────────────── */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-[#07113d] dark:bg-[#050911] border-r border-white/[0.06]">
+      {/* ── Sidebar gauche (fixe, bleu vif) — desktop uniquement ────────── */}
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-[#1B54FF]">
 
         {/* Logo */}
-        <div className="flex h-16 flex-col items-start justify-center border-b border-white/[0.06] px-6">
-          <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
-          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/30">
-            {account.role === 'agent' ? 'Accès Salarié' : account.role === 'admin' ? 'Accès Admin' : 'Accès Dirigeant'}
-          </p>
+        <div className="flex h-16 items-center px-6 border-b border-white/10">
+          <button onClick={() => setAppView('search')} className="flex items-center transition opacity-95 hover:opacity-100">
+            <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto brightness-0 invert" />
+          </button>
+        </div>
+
+        {/* Icône clé décorative */}
+        <div className="flex items-center justify-center py-6 border-b border-white/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+            <Key size={22} className="text-white" />
+          </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-2">
+        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pt-3">
           {([
             { key: 'search',  label: 'Recherche',  icon: Search },
             { key: 'history', label: 'Historique', icon: History },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setAppView(key)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === key ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
+              className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                appView === key
+                  ? 'bg-white text-[#1B54FF] shadow-sm'
+                  : 'text-white/75 hover:bg-white/15 hover:text-white'
+              }`}>
               <Icon size={15} />{label}
             </button>
           ))}
 
           {/* Section Mes listes */}
-          <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-white/25">Mes listes</div>
+          <p className="mt-5 mb-1 px-4 text-[10px] font-bold uppercase tracking-widest text-white/40">Mes listes</p>
           <button onClick={() => setAppView('lists')}
-            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${appView === 'lists' ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
-            <Plus size={15} />
+            className={`flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+              appView === 'lists' || appView === 'list-detail'
+                ? 'bg-white text-[#1B54FF] shadow-sm'
+                : 'text-white/75 hover:bg-white/15 hover:text-white'
+            }`}>
+            <List size={15} />
             <span className="flex-1 text-left">Toutes les listes</span>
-            {lists.length > 0 && <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
+            {lists.length > 0 && <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-bold">{lists.length}</span>}
           </button>
           {lists.map(list => (
             <button key={list.id} onClick={() => { setActiveListId(list.id); setAppView('list-detail') }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${appView === 'list-detail' && activeListId === list.id ? 'bg-white/12 text-white' : 'text-white/50 hover:bg-white/6 hover:text-white/80'}`}>
-              <span className="text-base leading-none">{list.emoji}</span>
+              className={`flex w-full items-center gap-2.5 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                appView === 'list-detail' && activeListId === list.id
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:bg-white/10 hover:text-white/90'
+              }`}>
+              <span className="text-sm leading-none">{list.emoji}</span>
               <span className="flex-1 truncate text-left text-xs">{list.name}</span>
-              <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">{list.contacts.length}</span>
+              <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">{list.contacts.length}</span>
             </button>
           ))}
           <button onClick={() => setAddPopupProspect({ id: '__new_list__' } as ProspectResult)}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl bg-[#124bd2]/20 border border-[#124bd2]/50 px-3 py-2.5 text-xs font-bold text-blue-300 transition hover:bg-[#124bd2]/30 hover:text-blue-200 hover:border-[#124bd2]">
+            className="mt-2 flex w-full items-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-xs font-bold text-white/80 transition hover:bg-white/10 hover:text-white">
             <Plus size={13} /> Nouvelle liste
           </button>
         </nav>
 
-        {/* Solde de crédits (abonnés) / recherches démo */}
-        {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
-          <div className="space-y-2.5 border-t border-white/8 px-4 py-4">
-            {creditBalance && (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Phone size={12} /> Crédits téléphone</span>
-                  <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Mail size={12} /> Crédits email</span>
-                  <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
-                </div>
-              </>
-            )}
-            {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
+        {/* Quota — bas de sidebar */}
+        <div className="border-t border-white/10 px-4 py-4 space-y-3">
+          {creditBalance && (
+            <>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/55"><Search size={12} /> Recherches démo</span>
-                <span className="text-xs font-bold tabular-nums text-white">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/65"><Phone size={11} /> Crédits tél.</span>
+                <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}</span>
               </div>
-            )}
-          </div>
-        )}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/65"><Mail size={11} /> Crédits email</span>
+                <span className="text-xs font-bold tabular-nums text-white">{creditBalance.unlimited ? '∞' : creditBalance.emailCredits}</span>
+              </div>
+            </>
+          )}
+          {account.quota > 0 && (
+            <div className="rounded-xl bg-white/10 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Recherches restantes</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-white">
+                {(account.quota - usedQuota).toLocaleString('fr-FR')}
+                <span className="text-xs font-medium text-white/50"> / {account.quota.toLocaleString('fr-FR')}</span>
+              </p>
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                <div className="h-full rounded-full bg-white transition-all"
+                  style={{ width: `${Math.min(100, Math.round(((account.quota - usedQuota) / account.quota) * 100))}%` }} />
+              </div>
+            </div>
+          )}
+          {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
+            <div className="rounded-xl bg-white/10 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Recherches démo</p>
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-white">
+                {Math.max(0, maxSearches - demoSearchCount)}
+                <span className="text-xs font-medium text-white/50"> / {maxSearches}</span>
+              </p>
+            </div>
+          )}
+        </div>
 
       </aside>
 
@@ -1969,6 +2025,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           <HistoryPage
             account={account}
             embedded
+            onGoSearch={() => setAppView('search')}
             onReplay={(q, dept, code) => {
               setAppView('search')
               setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
@@ -1989,56 +2046,31 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           const list = lists.find(l => l.id === activeListId)
           if (!list) return null
           return <SingleListView list={list} onBack={() => setAppView('lists')}
+            onGoSearch={() => setAppView('search')}
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
 
         {/* Vue Recherche */}
         {appView === 'search' && (
-          <div className="flex flex-1 flex-col px-4 py-4 lg:px-8 lg:py-8">
+          <div className="flex flex-1 flex-col">
 
-            {/* En-tête */}
-            <div className="mb-7 flex items-start justify-between">
+            {/* ── Topbar ── */}
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 dark:border-slate-800 dark:bg-slate-950">
               <div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
-                  Recherche professionnelle
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1B54FF]">
+                  TROUVEZ LES MEILLEURS PROSPECTS
                 </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
-                  {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
+                <h1 className="text-lg font-bold text-[#07113d] dark:text-slate-100 leading-tight">
+                  {hasSearched && query ? `"${query}"` : 'Recherchez vos prospects'}
                 </h1>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Quota visuel (dirigeant uniquement — le salarié a son bandeau) */}
-                {accessLevel === 'full' && account.quota > 0 && account.role !== 'agent' && (
-                  <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-1.5 sm:flex dark:border-slate-700 dark:bg-slate-800">
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          usedQuota / account.quota >= 0.9 ? 'bg-red-500' :
-                          usedQuota / account.quota >= 0.7 ? 'bg-amber-400' : 'bg-[#124bd2]'
-                        }`}
-                        style={{ width: `${Math.min(100, Math.round((usedQuota / account.quota) * 100))}%` }}
-                      />
-                    </div>
-                    <span className={`text-xs font-medium tabular-nums ${
-                      usedQuota / account.quota >= 0.9 ? 'text-red-500' :
-                      usedQuota / account.quota >= 0.7 ? 'text-amber-600' : 'text-slate-500'
-                    }`}>
-                      <AnimateNumber value={usedQuota} duration={350} className="text-xs font-medium" />
-                      &thinsp;/&thinsp;{account.quota.toLocaleString('fr-FR')}
-                    </span>
-                  </div>
-                )}
-                {/* Dark mode toggle */}
+              <div className="flex items-center gap-3">
                 <ThemeToggle size="sm" />
-                {account.status === 'approved' && (
-                  <div className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 lg:flex">
-                    <ShieldCheck size={12} />
-                    Accès validé
-                  </div>
-                )}
                 <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>
             </div>
+
+            <div className="flex flex-1 flex-col px-4 py-5 lg:px-8 lg:py-6">
 
             {/* Bandeau accès restreint */}
             {accessLevel !== 'full' && maxSearches !== undefined && (
@@ -2050,138 +2082,134 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               />
             )}
 
-            {/* Bandeau salarié */}
+            {/* Carte quota compte salarié */}
             {account.role === 'agent' && account.quota > 0 && (() => {
               const remaining = Math.max(0, account.quota - usedQuota)
               const pct = usedQuota / account.quota
               return (
-                <div className="mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700">
-                    <Users size={13} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      Salarié · {account.companyName}
-                    </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
-                      {remaining} recherche{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''} sur {account.quota} · quota fixé par votre admin
-                    </p>
+                <div className="mb-5 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-800/60">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1B54FF]/10">
+                    <Users size={15} className="text-[#1B54FF]" />
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="hidden sm:flex h-1.5 w-20 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Compte Salarié</p>
+                    <p className="text-xs text-slate-400">{remaining} recherche{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''} sur {account.quota}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="hidden sm:block w-32 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                       <div className={`h-full rounded-full transition-all ${
-                        pct >= 0.9 ? 'bg-red-500' : pct >= 0.7 ? 'bg-amber-400' : 'bg-[#124bd2]'
+                        pct >= 0.9 ? 'bg-red-500' : pct >= 0.7 ? 'bg-amber-400' : 'bg-[#1B54FF]'
                       }`} style={{ width: `${Math.min(100, Math.round(pct * 100))}%` }} />
                     </div>
-                    <span className={`text-xs font-bold tabular-nums ${
-                      pct >= 0.9 ? 'text-red-500' : pct >= 0.7 ? 'text-amber-600' : 'text-slate-500'
-                    }`}>
-                      {usedQuota}/{account.quota}
+                    <span className="text-base font-bold tabular-nums text-[#1B54FF]">
+                      {remaining.toLocaleString('fr-FR')} / {account.quota.toLocaleString('fr-FR')}
                     </span>
                   </div>
                 </div>
               )
             })()}
 
-            {/* Barre de recherche Nom + Prénom + Téléphone */}
-            <form onSubmit={handleSearch} className="space-y-2">
-              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={advLastName}
-                  onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
-                  placeholder="Nom"
-                  autoComplete="off"
-                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
-                />
-                <input
-                  type="text"
-                  value={advFirstName}
-                  onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
-                  placeholder="Prénom"
-                  autoComplete="off"
-                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
-                />
-                <input
-                  type="tel"
-                  value={searchTel}
-                  onChange={e => { setSearchTel(e.target.value); setPage(1) }}
-                  placeholder="Téléphone / Mobile"
-                  autoComplete="off"
-                  className="h-12 flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm shadow-sm outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
-                />
-                <button type="submit"
-                  disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
-                  className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-[#124bd2] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
-                  {isLoading ? <RefreshCw size={15} className="animate-spin" /> : <><Search size={15} /> Rechercher</>}
-                </button>
-              </div>
-
-              {/* Sélecteur de mode */}
-              <div className="flex gap-1.5 flex-wrap">
-                {([
-                  { key: 'exact',       label: 'Exact' },
-                  { key: 'starts_with', label: 'Commence par' },
-                  { key: 'ends_with',   label: 'Finit par' },
-                  { key: 'contains',    label: 'Contient' },
-                ] as const).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSearchMode(key)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition border ${
-                      searchMode === key
-                        ? 'bg-[#124bd2] text-white border-[#124bd2]'
-                        : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-[#124bd2] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
-                    }`}
-                  >
-                    {label}
-                    {(key === 'contains' || key === 'ends_with') && (
-                      <span className="ml-1 opacity-60 text-[10px]">⚠️</span>
-                    )}
+            {/* ── Carte de recherche ── */}
+            <div className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <form onSubmit={handleSearch} className="p-5 space-y-4">
+                {/* Ligne principale */}
+                <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+                  <div className="relative flex-1 min-w-[120px]">
+                    <UserCircle2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={advLastName}
+                      onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
+                      placeholder="Nom"
+                      autoComplete="off"
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-[120px]">
+                    <UserCircle2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={advFirstName}
+                      onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
+                      placeholder="Prénom"
+                      autoComplete="off"
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-[140px]">
+                    <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="tel"
+                      value={searchTel}
+                      onChange={e => { setSearchTel(e.target.value); setPage(1) }}
+                      placeholder="Téléphone / Mobile"
+                      autoComplete="off"
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none transition focus:border-[#1B54FF] focus:bg-white focus:ring-2 focus:ring-[#1B54FF]/10 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                  <button type="submit"
+                    disabled={isLoading || (maxSearches !== undefined && demoSearchCount >= maxSearches)}
+                    className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-[#1B54FF] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3fbc] disabled:opacity-60">
+                    {isLoading ? <RefreshCw size={14} className="animate-spin" /> : <><Search size={14} /> Rechercher</>}
                   </button>
-                ))}
-                <span className="self-center text-[10px] text-slate-400 ml-1">
-                  {searchMode === 'contains' || searchMode === 'ends_with' ? '⚠️ Plus lent sans index trigram' : ''}
-                </span>
-              </div>
-            </form>
+                </div>
 
-            {/* Barre secondaire : Recherches avancées + export */}
-            <div className="mt-3 flex items-center gap-2">
-              {/* Bouton Recherches avancées */}
-              <button
-                type="button"
-                onClick={() => setShowFilters(v => !v)}
-                className={`flex h-9 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition ${
-                  showFilters || activeFiltersCount > 0
-                    ? 'border-[#124bd2] bg-[#124bd2]/8 text-[#124bd2]'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-              >
-                <SlidersHorizontal size={14} />
-                Recherches avancées
-                {activeFiltersCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#124bd2] text-[9px] font-bold text-white">
-                    {activeFiltersCount}
-                  </span>
-                )}
-                {showFilters
-                  ? <ChevronUp size={12} />
-                  : <ChevronDown size={12} />
-                }
-              </button>
+                {/* Sélecteur de mode */}
+                <div className="flex gap-1.5 flex-wrap">
+                  {([
+                    { key: 'exact',       label: 'Exact' },
+                    { key: 'starts_with', label: 'Commence par' },
+                    { key: 'contains',    label: 'Contient' },
+                  ] as const).map(({ key, label }) => (
+                    <button key={key} type="button" onClick={() => setSearchMode(key)}
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition border ${
+                        searchMode === key
+                          ? 'bg-[#1B54FF] text-white border-[#1B54FF] shadow-sm'
+                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-[#1B54FF]/40 hover:text-[#1B54FF] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </form>
 
-              {results.length > 0 && (
-                <button onClick={() => exportProspectsCSV(results, query)}
-                  className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  <Download size={12} /> CSV
+              {/* Recherche avancée — toggle */}
+              <div className="border-t border-slate-100 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(v => !v)}
+                  className="flex w-full items-center gap-2 px-5 py-3 text-sm font-medium text-slate-500 transition hover:text-[#1B54FF] dark:text-slate-400"
+                >
+                  <SlidersHorizontal size={14} />
+                  <span className="flex-1 text-left">Recherche avancée</span>
+                  {activeFiltersCount > 0 && (
+                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#1B54FF] px-1.5 text-[9px] font-bold text-white">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                  {showFilters ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
-              )}
+
+                {showFilters && (
+                  <div className="border-t border-slate-100 dark:border-slate-700">
+                    <p className="px-5 py-2 text-[11px] font-medium text-slate-400">Affinez vos critères pour des résultats plus précis.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Panneau de recherche avancée */}
+            {/* Export CSV (si résultats) */}
+            {results.length > 0 && (
+              <div className="mb-3 flex justify-end">
+                <button onClick={() => exportProspectsCSV(results, query)}
+                  className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-[#1B54FF]/40 hover:text-[#1B54FF] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  <Download size={12} /> Exporter CSV
+                </button>
+              </div>
+            )}
+
+            {/* Panneau de recherche avancée (conservé) */}
             {showFilters && (
               <AdvancedFilters
                 // Identité professionnelle
@@ -2382,6 +2410,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 )}
               </>
             )}
+          </div>
           </div>
         )}
       </div>

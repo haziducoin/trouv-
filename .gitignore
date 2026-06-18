@@ -33,3 +33,7 @@ dist-ssr
 
 # Local admin tools
 scripts/db.mjs
+
+# Sensitive / passation docs
+PASSATION.md
+.env.admin
