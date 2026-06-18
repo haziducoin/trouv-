@@ -30,6 +30,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import keyGreenImg from '@/assets/key-green.png'
 import keyBlueImg  from '@/assets/key-blue.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
+import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -1687,6 +1688,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [usedQuota]                           = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
   const [showMobileMenu, setShowMobileMenu]   = useState(false)
+  const [showBuyKeys, setShowBuyKeys]         = useState(false)
 
   // Compteur de recherches pour modes demo / limited
   const DEMO_COUNT_KEY = `trouve_demo_count_${account.id}`
@@ -2138,6 +2140,15 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     <p className="text-[10px] text-slate-400 dark:text-white/40">Email direct</p>
                   </div>
                 </div>
+                {!creditBalance.unlimited && (
+                  <button
+                    onClick={() => setShowBuyKeys(true)}
+                    className="w-full rounded-lg bg-[#124bd2] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc] active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Recharger des clés
+                  </button>
+                )}
               </>
             )}
             {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
@@ -2651,6 +2662,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           </button>
         ))}
       </nav>
+
+      <BuyKeysModal open={showBuyKeys} onClose={() => setShowBuyKeys(false)} />
     </div>
   )
 }
