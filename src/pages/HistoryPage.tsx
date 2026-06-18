@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, Search, RotateCcw, Trash2, TrendingUp, X, ChevronRight } from 'lucide-react'
 import type { Account } from '@/lib/accountStore'
+import { usesRemoteDatabase } from '@/lib/accountStore'
+import { getSupabaseClient } from '@/lib/supabase'
 
 interface HistoryEntry {
   queryLabel: string
@@ -42,6 +44,23 @@ function formatRelative(iso: string) {
 
 export default function HistoryPage({ account, onReplay, onClose, embedded = false, onGoSearch }: HistoryPageProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>(loadHistory)
+  const [loading, setLoading] = useState(usesRemoteDatabase)
+
+  useEffect(() => {
+    if (!usesRemoteDatabase) return
+    let cancelled = false
+    getSupabaseClient()
+      .rpc('get_search_history', { p_limit: 100, p_offset: 0 })
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return
+        setEntries(
+          (data as Array<{ query_label: string; filters: Record<string, unknown>; result_count: number; created_at: string }>)
+            .map(r => ({ queryLabel: r.query_label, filters: r.filters, resultCount: r.result_count, createdAt: r.created_at }))
+        )
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   const handleClear = () => {
     clearHistory()
@@ -96,7 +115,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
       )}
 
       {/* Stats bar */}
-      {entries.length > 0 && (
+      {!loading && entries.length > 0 && (
         <div className="mb-8 grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
             <p className="text-2xl font-bold text-[#124bd2]">{entries.length}</p>
@@ -117,8 +136,15 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
         </div>
       )}
 
+      {/* Loading state */}
+      {loading && (
+        <div className="flex items-center justify-center py-24">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        </div>
+      )}
+
       {/* Empty state */}
-      {entries.length === 0 && (
+      {!loading && entries.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 dark:bg-slate-800">
             <Clock size={26} className="text-slate-400" />
@@ -131,7 +157,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
       )}
 
       {/* Grouped list */}
-      {Object.entries(grouped).map(([date, items]) => (
+      {!loading && Object.entries(grouped).map(([date, items]) => (
         <div key={date} className="mb-7">
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             {date}
