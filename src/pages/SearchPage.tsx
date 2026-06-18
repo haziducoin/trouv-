@@ -9,7 +9,8 @@ import {
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
 } from 'lucide-react'
-type AppView = 'search' | 'history' | 'lists' | 'list-detail'
+type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin'
+import AdminPage from '@/pages/AdminPage'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
@@ -1917,6 +1918,19 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
                 <Plus size={14} /> Nouvelle liste
               </button>
+              {account.role === 'admin' && (
+                <>
+                  <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Admin</p>
+                  <button onClick={() => { setAppView('admin'); setShowMobileMenu(false) }}
+                    className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      appView === 'admin' ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`}>
+                    {appView === 'admin' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />}
+                    <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
+                    Dashboard
+                  </button>
+                </>
+              )}
             </nav>
           </aside>
         </>
@@ -1987,6 +2001,25 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">
             <Plus size={14} /> Nouvelle liste
           </button>
+
+          {/* Admin (role=admin uniquement) */}
+          {account.role === 'admin' && (
+            <>
+              <p className="mt-5 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Admin</p>
+              <button onClick={() => setAppView('admin')}
+                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  appView === 'admin'
+                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800'
+                }`}>
+                {appView === 'admin' && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />
+                )}
+                <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
+                Dashboard
+              </button>
+            </>
+          )}
         </nav>
 
         {/* Quota — bas de sidebar */}
@@ -2077,6 +2110,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             onGoSearch={() => setAppView('search')}
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
+
+        {/* Vue Admin */}
+        {appView === 'admin' && account.role === 'admin' && (
+          <div className="flex flex-1 flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
+              <div className="flex items-center gap-3">
+                <ThemeToggle size="sm" />
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
+              </div>
+            </div>
+            <AdminPage account={account} />
+          </div>
+        )}
 
         {/* Vue Recherche */}
         {appView === 'search' && (
