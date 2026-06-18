@@ -105,49 +105,47 @@ export default function App() {
 
     let mounted = true
 
-    // Timeout de sécurité : si Supabase tarde, on débloque l'UI sans déconnecter.
+    // Timeout de sécurité INDESTRUCTIBLE — n'est jamais annulé avant d'avoir résolu
+    // la session. Réduit à 5 s pour ne pas bloquer trop longtemps.
     const safetyTimeout = setTimeout(() => {
       if (mounted) {
         setSessionLoading(false)
         setLoadingTooLong(true)
       }
-    }, 8000)
+    }, 5000)
 
-    const hydrateSession = async () => {
-      try {
-        const a = await restoreSession()
-        if (mounted) setAccount(a)
-      } catch (err) {
-        if (err instanceof PersonalEmailError) {
-          if (mounted) setBlockedEmail((err as PersonalEmailError).email)
-        } else if (mounted) {
-          setAuthError(err instanceof Error ? err.message : 'Erreur de connexion inattendue.')
-        }
-      } finally {
-        clearTimeout(safetyTimeout)
-        if (mounted) setSessionLoading(false)
-      }
-    }
-
-    void hydrateSession()
-
+    // onAuthStateChange est la SEULE source de vérité pour la session.
+    // On ne lance plus hydrateSession() en parallèle (double appel + race condition).
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-          clearTimeout(safetyTimeout)
           if (!session) {
-            // Détecter un retour OAuth raté (code non échangé / URL config manquante)
+            // Retour OAuth raté
             const sp = new URLSearchParams(window.location.search)
             const hp = new URLSearchParams(window.location.hash.replace('#', '?'))
             const oauthErr = sp.get('error_description') || hp.get('error_description') || sp.get('error')
-            if (oauthErr) {
+            if (oauthErr && mounted) {
               setAuthError(formatOAuthError(oauthErr))
               window.history.replaceState({}, '', '/')
             }
-            setSessionLoading(false)
+            clearTimeout(safetyTimeout)
+            if (mounted) setSessionLoading(false)
             return
           }
-          await hydrateSession()
+          // Session présente → hydrate le profil
+          try {
+            const a = await restoreSession()
+            if (mounted) setAccount(a)
+          } catch (err) {
+            if (err instanceof PersonalEmailError) {
+              if (mounted) setBlockedEmail((err as PersonalEmailError).email)
+            } else if (mounted) {
+              setAuthError(err instanceof Error ? err.message : 'Erreur de connexion inattendue.')
+            }
+          } finally {
+            clearTimeout(safetyTimeout)
+            if (mounted) setSessionLoading(false)
+          }
         } else if (event === 'SIGNED_OUT') {
           clearTimeout(safetyTimeout)
           if (mounted) {
@@ -247,13 +245,22 @@ export default function App() {
           style={{ animationDuration: '1s', animationTimingFunction: 'linear' }}
         />
         {loadingTooLong && (
-          <div className="flex flex-col items-center gap-2 text-center">
+          <div className="flex flex-col items-center gap-3 text-center">
             <p className="text-xs text-slate-400">La connexion prend du temps…</p>
             <button
               onClick={() => window.location.reload()}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2]"
             >
               Actualiser
+            </button>
+            <button
+              onClick={async () => {
+                await getSupabaseClient().auth.signOut()
+                window.location.reload()
+              }}
+              className="text-xs text-slate-400 underline underline-offset-2 transition hover:text-slate-600"
+            >
+              Se déconnecter et réessayer
             </button>
           </div>
         )}

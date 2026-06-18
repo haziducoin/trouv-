@@ -270,7 +270,12 @@ async function fetchRemoteProfiles(accountId?: string) {
     query = query.eq('id', accountId)
   }
 
-  const { data, error } = await query
+  // Timeout 6 s — évite le blocage infini si Supabase ne répond pas
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Délai de connexion dépassé')), 6000)
+  )
+  const { data, error } = await Promise.race([query, timeout]) as Awaited<typeof query>
+
   if (error) {
     throw new Error(`Lecture des comptes impossible : ${error.message}`)
   }
