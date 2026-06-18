@@ -23,6 +23,7 @@ export interface AuthContext {
   email: string
   organizationId: string | null
   cguAccepted: boolean
+  role: string
 }
 
 /**
@@ -39,7 +40,7 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('organization_id, cgu_accepted')
+    .select('organization_id, cgu_accepted, role')
     .eq('id', user.id)
     .single()
 
@@ -48,5 +49,13 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
     email: user.email ?? '',
     organizationId: profile?.organization_id ?? null,
     cguAccepted: profile?.cgu_accepted ?? false,
+    role: profile?.role ?? 'agent',
   }
+}
+
+/** Retourne null si l'utilisateur est admin, sinon un objet { status, message } à renvoyer. */
+export function requireAdmin(auth: AuthContext | null): { status: number; message: string } | null {
+  if (!auth) return { status: 401, message: 'Authentification requise' }
+  if (auth.role !== 'admin') return { status: 403, message: 'Accès réservé aux administrateurs' }
+  return null
 }

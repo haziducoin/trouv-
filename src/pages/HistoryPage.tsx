@@ -52,13 +52,15 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
     getSupabaseClient()
       .rpc('get_search_history', { p_limit: 100, p_offset: 0 })
       .then(({ data, error }) => {
-        if (cancelled || error || !data) return
-        setEntries(
-          (data as Array<{ query_label: string; filters: Record<string, unknown>; result_count: number; created_at: string }>)
-            .map(r => ({ queryLabel: r.query_label, filters: r.filters, resultCount: r.result_count, createdAt: r.created_at }))
-        )
+        if (cancelled) return
+        if (!error && data) {
+          setEntries(
+            (data as Array<{ query_label: string; filters: Record<string, unknown>; result_count: number; created_at: string }>)
+              .map(r => ({ queryLabel: r.query_label, filters: r.filters, resultCount: r.result_count, createdAt: r.created_at }))
+          )
+        }
+        if (!cancelled) setLoading(false)
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
 
