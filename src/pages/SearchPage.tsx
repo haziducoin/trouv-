@@ -1,4 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import DemoLockModal from '@/components/demo/DemoLockModal'
+import DemoToast from '@/components/demo/DemoToast'
+import DemoCreditsBar from '@/components/demo/DemoCreditsBar'
+import { getDemoCredits, consumePhoneCredit, consumeEmailCredit, type DemoCredits } from '@/lib/demoStore'
 import {
   Search, SlidersHorizontal, Star, ChevronLeft, ChevronRight,
   Building2, MapPin, Hash, Users, LogOut, X,
@@ -819,7 +823,23 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   if (!has) return null
 
   if (unlocked && value) {
+    const isMasked = kind === 'phone' && (prospect as any).phoneDemoMasked
     const href = kind === 'phone' ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    if (isMasked) {
+      return (
+        <div className="group relative inline-flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/50">
+            <Icon size={14} /> <span className="truncate tabular-nums">{value}</span>
+          </span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+            Version démo · numéro partiellement masqué.{' '}
+            <button className="text-[#1B54FF] hover:underline font-medium" onClick={() => window.location.assign('/?pricing=1')}>
+              Abonnez-vous
+            </button>{' '}pour l'afficher.
+          </span>
+        </div>
+      )
+    }
     return (
       <a href={href} onClick={e => e.stopPropagation()}
         className="inline-flex max-w-full items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-[#124bd2] ring-1 ring-blue-100/80 transition hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60">
@@ -1678,6 +1698,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [showDemoRequestModal, setShowDemoRequestModal]   = useState(false)
   const [creditBalance, setCreditBalance]                 = useState<CreditBalance | null>(null)
 
+  // ── Crédits démo (trial) ────────────────────────────────────────────────────
+  const isTrialAccount = account.status === 'trial'
+  const [demoCredits, setDemoCredits] = useState<DemoCredits>(() =>
+    isTrialAccount ? getDemoCredits() : { phone: 5, email: 2 }
+  )
+  const [showDemoToast, setShowDemoToast] = useState(false)
+  const demoLocked = isTrialAccount && demoCredits.phone === 0
+
   // Solde de crédits (abonnés).
   useEffect(() => {
     if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-')) {
@@ -1702,6 +1730,30 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    // ── Mode trial : crédits locaux ──────────────────────────────────────────
+    if (isTrialAccount) {
+      if (field === 'phone') {
+        if (demoCredits.phone === 0) return
+        const next = consumePhoneCredit()
+        setDemoCredits(next)
+        if (next.phone === 3) setShowDemoToast(true)
+        // Masquage partiel : affiche seulement 6 chiffres
+        const raw = prospect.phone ?? '06 XX XX •• ••'
+        const digits = raw.replace(/\D/g, '')
+        const partial = digits.slice(0, 4).replace(/(\d{2})(\d{2})/, '$1 $2') + ' •• ••'
+        const patch = { phone: partial, phoneUnlocked: true, phoneDemoMasked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      } else {
+        if (demoCredits.email === 0) return
+        const next = consumeEmailCredit()
+        setDemoCredits(next)
+        const patch = { email: prospect.email ?? '', emailUnlocked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      }
+      return
+    }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
     try {
       const value = await unlockContactField(prospect.id, field)
@@ -1887,6 +1939,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
 
+      {/* Hard-lock démo : modal non-fermable quand crédits phone = 0 */}
+      {demoLocked && (
+        <DemoLockModal onCta={() => window.location.assign('/?pricing=1')} />
+      )}
+
+      {/* Toast upsell : déclenché quand phone passe à 3 */}
+      {showDemoToast && (
+        <DemoToast
+          remaining={demoCredits.phone}
+          onCta={() => { setShowDemoToast(false); window.location.assign('/?pricing=1') }}
+          onClose={() => setShowDemoToast(false)}
+        />
+      )}
+
       {/* ── Header mobile (visible < lg) ─────────────────────────────────── */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 h-14 bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800">
         <button onClick={() => setShowMobileMenu(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
@@ -1956,11 +2022,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       {/* ── Sidebar gauche — blanc / gris clair ──────────────────────────── */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex w-60 flex-col bg-white border-r border-gray-200 dark:bg-gray-950 dark:border-gray-800">
 
-        {/* Logo */}
-        <div className="flex h-16 items-center px-6 border-b border-gray-100 dark:border-gray-800">
+        {/* Logo + badge démo */}
+        <div className="flex h-16 items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800">
           <button onClick={() => setAppView('search')} className="flex items-center transition">
             <img src={trouveLogo} alt="trouvé!" className="h-7 w-auto" />
           </button>
+          {isTrialAccount && (
+            <span className="rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+              DÉMO
+            </span>
+          )}
         </div>
 
         {/* Navigation */}
@@ -2038,6 +2109,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             </>
           )}
         </nav>
+
+        {/* Jauge crédits démo */}
+        {isTrialAccount && (
+          <DemoCreditsBar phone={demoCredits.phone} email={demoCredits.email} />
+        )}
 
         {/* Solde de crédits (abonnés) / recherches démo */}
         {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
