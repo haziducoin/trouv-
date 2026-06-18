@@ -2044,23 +2044,19 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           <div className="space-y-3 border-t border-white/8 px-4 py-4">
             {creditBalance && (
               <>
-                <div className="flex items-center gap-3">
-                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
-                  <div>
-                    <p className="text-sm font-bold text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-white/40">Téléphone direct</p>
-                  </div>
+                <div className="flex flex-col items-center gap-1">
+                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '36px', width: 'auto' }} />
+                  <p className="text-xs font-bold text-white/90">
+                    {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
+                  </p>
+                  <p className="text-[10px] text-white/40">Téléphone direct</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
-                  <div>
-                    <p className="text-sm font-bold text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-white/40">Email direct</p>
-                  </div>
+                <div className="flex flex-col items-center gap-1">
+                  <img src={keyGreenImg} alt="clé email" style={{ height: '36px', width: 'auto' }} />
+                  <p className="text-xs font-bold text-white/90">
+                    {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
+                  </p>
+                  <p className="text-[10px] text-white/40">Email direct</p>
                 </div>
               </>
             )}
