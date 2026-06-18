@@ -210,7 +210,12 @@ export default function AccountPanel({
       } else {
         sessionStorage.setItem('trouve_session_only_v1', '1')
       }
-      const account = await authenticate(email, password)
+      // Filet de sécurité global : si authenticate() ne répond pas en 12 s,
+      // on débloque l'UI avec un message clair plutôt que de rester bloqué.
+      const deadline = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('La connexion a pris trop de temps. Vérifiez votre connexion internet et réessayez.')), 12000)
+      )
+      const account = await Promise.race([authenticate(email, password), deadline])
       onAuthenticated(account)
       setView('workspace')
     } catch (error) {

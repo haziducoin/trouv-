@@ -382,10 +382,16 @@ export async function authenticate(email: string, password: string) {
 
   if (usesRemoteDatabase) {
     const supabase = getSupabaseClient()
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    })
+
+    const authTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('La connexion a pris trop de temps. Vérifiez votre connexion et réessayez.')), 8000)
+    )
+    const authResult = await Promise.race([
+      supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
+      authTimeout,
+    ])
+    const { data, error } = authResult
+
     if (error || !data.user) {
       throw new Error(error?.message ?? 'Connexion impossible — utilisateur introuvable.')
     }

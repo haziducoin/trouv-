@@ -114,11 +114,13 @@ export default function App() {
       }
     }, 5000)
 
-    // onAuthStateChange est la SEULE source de vérité pour la session.
-    // On ne lance plus hydrateSession() en parallèle (double appel + race condition).
+    // onAuthStateChange gère uniquement la restauration automatique au chargement
+    // (INITIAL_SESSION) et la déconnexion (SIGNED_OUT).
+    // SIGNED_IN déclenché par un login manuel est déjà traité par AccountPanel →
+    // on l'ignore ici pour éviter le double appel fetchRemoteProfiles.
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        if (event === 'INITIAL_SESSION') {
           if (!session) {
             // Retour OAuth raté
             const sp = new URLSearchParams(window.location.search)
@@ -132,7 +134,7 @@ export default function App() {
             if (mounted) setSessionLoading(false)
             return
           }
-          // Session présente → hydrate le profil
+          // Session existante au chargement → restaure le profil
           try {
             const a = await restoreSession()
             if (mounted) setAccount(a)
@@ -153,6 +155,7 @@ export default function App() {
             setSessionLoading(false)
           }
         }
+        // SIGNED_IN intentionnel : géré par AccountPanel.handleLogin → onAuthenticated
       }
     )
 
