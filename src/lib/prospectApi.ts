@@ -230,9 +230,11 @@ export async function unlockContactField(contactId: string, field: UnlockField):
 
 // ─── Solde de crédits de l'organisation ─────────────────────────────────────
 export interface CreditBalance {
-  phoneCredits: number
-  emailCredits: number
-  unlimited:    boolean
+  phoneCredits:      number
+  emailCredits:      number
+  unlimited:         boolean
+  totalPhoneCredits?: number
+  totalEmailCredits?: number
 }
 
 export async function getCreditBalance(): Promise<CreditBalance | null> {

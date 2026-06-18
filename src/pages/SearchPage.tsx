@@ -23,6 +23,8 @@ import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import keyGreenImg from '@/assets/key-green.png'
+import keyBlueImg  from '@/assets/key-blue.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -1678,10 +1680,25 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Solde de crédits (abonnés).
   useEffect(() => {
-    if (accessLevel === 'full' || accessLevel === 'trial') {
-      getCreditBalance().then(setCreditBalance).catch(() => {})
+    if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-')) {
+      getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
     }
-  }, [accessLevel])
+  }, [accessLevel, account.id])
+
+  // Crédits clés simulés en mode démo
+  useEffect(() => {
+    if (account.id.startsWith('demo-')) {
+      const total = account.role === 'agent' ? 50 : 100
+      const used  = account.role === 'agent' ? 23 : 4
+      setCreditBalance({
+        phoneCredits:      total - used,
+        emailCredits:      total - used,
+        unlimited:         false,
+        totalPhoneCredits: total,
+        totalEmailCredits: total,
+      })
+    }
+  }, [account.id, account.role])
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
@@ -2022,59 +2039,39 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           )}
         </nav>
 
-        {/* Quota — bas de sidebar */}
-        <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-4 space-y-3">
-          {creditBalance && (
-            <div className="space-y-2">
+        {/* Solde de crédits (abonnés) / recherches démo */}
+        {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
+          <div className="space-y-3 border-t border-white/8 px-4 py-4">
+            {creditBalance && (
+              <>
+                <div className="flex items-center gap-3">
+                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
+                  <div>
+                    <p className="text-sm font-bold text-white/90">
+                      {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
+                    </p>
+                    <p className="text-[10px] text-white/40">Téléphone direct</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
+                  <div>
+                    <p className="text-sm font-bold text-white/90">
+                      {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
+                    </p>
+                    <p className="text-[10px] text-white/40">Email direct</p>
+                  </div>
+                </div>
+              </>
+            )}
+            {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs text-gray-500">
-                  <KeyIcon kind="phone" size={28} className="text-blue-600 opacity-80" />
-                  Tél.
-                </span>
-                <span className="text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
-                  {creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}
-                </span>
+                <span className="text-xs text-white/55">Recherches démo</span>
+                <span className="text-xs font-bold tabular-nums text-white">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs text-gray-500">
-                  <KeyIcon kind="email" size={28} className="text-blue-600 opacity-80" />
-                  Email
-                </span>
-                <span className="text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
-                  {creditBalance.unlimited ? '∞' : creditBalance.emailCredits}
-                </span>
-              </div>
-            </div>
-          )}
-          {account.quota > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-gray-500">Recherches restantes</span>
-                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">
-                  {(account.quota - usedQuota).toLocaleString('fr-FR')} / {account.quota.toLocaleString('fr-FR')}
-                </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                <div className="h-full rounded-full bg-blue-600 transition-all"
-                  style={{ width: `${Math.min(100, Math.round(((account.quota - usedQuota) / account.quota) * 100))}%` }} />
-              </div>
-            </div>
-          )}
-          {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs text-gray-500">Recherches démo</span>
-                <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-300">
-                  {Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}
-                </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                <div className="h-full rounded-full bg-blue-600 transition-all"
-                  style={{ width: `${Math.min(100, Math.round(((maxSearches - demoSearchCount) / maxSearches) * 100))}%` }} />
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
       </aside>
 
@@ -2129,12 +2126,38 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         {appView === 'search' && (
           <div className="flex flex-1 flex-col">
 
-            {/* ── Topbar ── */}
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                {hasSearched && query ? `Résultats pour "${query}"` : 'Recherche de contacts'}
-              </h1>
-              <div className="flex items-center gap-3">
+            {/* En-tête 3 colonnes */}
+            <div className="mb-7 flex items-center justify-between">
+              {/* Gauche — titre */}
+              <div>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
+                  Recherche professionnelle
+                </p>
+                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
+                  {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
+                </h1>
+              </div>
+
+              {/* Centre — compteur de clés */}
+              {accessLevel === 'full' && account.role !== 'agent' && (
+                <div className="hidden items-center gap-6 sm:flex">
+                  <div className="flex items-center gap-3">
+                    <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
+                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.phoneCredits} restantes`) : '— restantes'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
+                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.emailCredits} restantes`) : '— restantes'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Droite — contrôles */}
+              <div className="flex items-center gap-2">
                 <ThemeToggle size="sm" />
                 <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>

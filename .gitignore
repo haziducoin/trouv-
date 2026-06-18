@@ -30,6 +30,8 @@ dist-ssr
 *.png
 !public/*.png
 !src/assets/integrations/*.png
+!src/assets/key-*.png
+!src/assets/keys.png
 
 # Local admin tools
 scripts/db.mjs

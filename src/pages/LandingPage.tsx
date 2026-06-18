@@ -9,6 +9,7 @@ import {
   Check,
   Heart,
   History,
+  KeyRound,
   LockKeyhole,
   Mail,
   MapPin,
@@ -563,6 +564,17 @@ export default function LandingPage({
                   <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                   <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                   <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1 text-xs text-slate-400">www.xn--trouv-fsa.fr/recherche</div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-400">47 / 5 000</span>
+                    <div className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1">
+                      <KeyRound size={11} className="text-emerald-500" />
+                      <span className="text-[11px] font-bold text-emerald-600">47</span>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1">
+                      <KeyRound size={11} className="text-[#124bd2]" />
+                      <span className="text-[11px] font-bold text-[#124bd2]">23</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid min-h-0 flex-1 md:grid-cols-[200px_1fr]">
                   <aside className="hidden border-r border-slate-100 bg-[#0a1630] p-5 text-white md:block">
@@ -699,14 +711,28 @@ export default function LandingPage({
           </div>
 
           {/* Browser-chrome mockup */}
-          <div className="mx-auto max-w-4xl">
-            <div className="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_40px_100px_rgba(15,23,42,0.18)]">
+          <div className="mx-auto max-w-5xl">
+            <div className="flex flex-col items-start gap-6 lg:flex-row">
+
+            {/* Mockup */}
+            <div className="min-w-0 flex-1 overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_40px_100px_rgba(15,23,42,0.18)]">
               {/* Browser bar */}
               <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
                 <div className="ml-4 rounded-lg bg-slate-50 px-4 py-1.5 text-xs text-slate-400">www.xn--trouv-fsa.fr/recherche-avancee</div>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-400">47 / 5 000</span>
+                  <div className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1">
+                    <KeyRound size={11} className="text-emerald-500" />
+                    <span className="text-[11px] font-bold text-emerald-600">47</span>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1">
+                    <KeyRound size={11} className="text-[#124bd2]" />
+                    <span className="text-[11px] font-bold text-[#124bd2]">23</span>
+                  </div>
+                </div>
               </div>
 
               <div className="grid md:grid-cols-[230px_1fr]">
@@ -718,6 +744,30 @@ export default function LandingPage({
                     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><Heart size={16} /> Favoris</div>
                     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><History size={16} /> Historique</div>
                     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-white/50"><BarChart3 size={16} /> Usage</div>
+                  </div>
+                  {/* Compteur de clés */}
+                  <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <p className="mb-3 text-[9px] font-bold uppercase tracking-widest text-white/40">Mes clés restantes</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/20">
+                            <KeyRound size={12} className="text-emerald-400" />
+                          </div>
+                          <span className="text-xs text-white/60">Email</span>
+                        </div>
+                        <span className="text-sm font-bold text-emerald-400">47</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/20">
+                            <KeyRound size={12} className="text-blue-400" />
+                          </div>
+                          <span className="text-xs text-white/60">Téléphone</span>
+                        </div>
+                        <span className="text-sm font-bold text-blue-400">23</span>
+                      </div>
+                    </div>
                   </div>
                 </aside>
 
@@ -788,7 +838,41 @@ export default function LandingPage({
               </div>
             </div>
 
-          </div>
+            {/* Panneau légende des clés */}
+            <div className="w-full lg:w-64 lg:shrink-0">
+              <div className="sticky top-28 space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Comment débloquer</p>
+
+                {/* Clé verte — Email */}
+                <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                    <KeyRound size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-emerald-700">Clé verte</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-emerald-600/80">
+                      Débloque et affiche l'adresse email directe du prospect.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Clé bleue — Téléphone */}
+                <div className="flex items-start gap-3 rounded-xl bg-blue-50 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#124bd2] text-white shadow-sm">
+                    <KeyRound size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#124bd2]">Clé bleue</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#124bd2]/70">
+                      Débloque et affiche le numéro de téléphone direct du prospect.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>{/* flex row */}
+          </div>{/* max-w-5xl */}
         </section>
 
         <section id="securite" className="px-5 py-14 md:py-20">
