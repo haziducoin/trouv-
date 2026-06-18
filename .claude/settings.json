@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"/Users/matzer/Documents/TROUVE!/trouv-\" && git add -A && git diff --cached --quiet 2>/dev/null || (git commit -m \"auto: sync changes\" && git push origin main) 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Deploying to trouvé.fr..."
+          }
+        ]
+      }
+    ]
+  }
+}
