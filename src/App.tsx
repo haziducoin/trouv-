@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import AdminCRMPage from './pages/AdminCRMPage'
 import AdminUserPage from './pages/AdminUserPage'
+import CRMLoginPage from './pages/CRMLoginPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
 import CompliancePage from './pages/CompliancePage'
@@ -373,7 +374,12 @@ export default function App() {
     )
   }
 
-  // ── CRM Admin (?crm) — interface back-office sécurisée ───────────────────
+  // ── CRM : page de connexion si non authentifié ───────────────────────────
+  if (isCRMMode && !sessionLoading && (!account || account.role !== 'admin')) {
+    return <CRMLoginPage onLogin={handleAuthenticated} />
+  }
+
+  // ── CRM Admin — interface back-office sécurisée ───────────────────────────
   if (isCRMMode && account && account.role === 'admin') {
     return (
       <>
