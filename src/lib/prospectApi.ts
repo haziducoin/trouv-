@@ -150,40 +150,45 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const p_ville = params.city?.trim()    || null
   const p_cp    = params.zipCode?.trim() || null
   const p_tel   = params.tel?.trim()     || null
+  const p_mode  = params.searchMode ?? 'starts_with'
 
-  // Si seul le nom est fourni sans autre critère, on force le mode exact
-  // pour éviter un scan par préfixe sur 173M lignes (timeout garanti).
-  const hasSecondCriterion = !!(p_prenom || p_ville || p_cp || p_tel)
-  const requestedMode = params.searchMode ?? 'starts_with'
-  const effectiveMode = (requestedMode !== 'exact' && !hasSecondCriterion) ? 'exact' : requestedMode
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Session expirée, reconnectez-vous')
 
-  const rpcParams: Record<string, any> = {
+  const body = {
+    p_nom, p_prenom, p_ville, p_cp, p_tel,
+    p_mode,
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
-    p_mode:   effectiveMode,
-  }
-  if (p_nom)    rpcParams.p_nom    = p_nom
-  if (p_prenom) rpcParams.p_prenom = p_prenom
-  if (p_ville)  rpcParams.p_ville  = p_ville
-  if (p_cp)     rpcParams.p_cp     = p_cp
-  if (p_tel)    rpcParams.p_tel    = p_tel
-
-  const timeoutMs = 10000
-  const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
-  const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>(
-    (resolve) => setTimeout(() => resolve({ data: null, error: { message: 'Recherche trop longue — réessayez avec un nom exact', code: 'TIMEOUT' } }), timeoutMs)
-  )
-
-  const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
-
-  if (error) {
-    if ((error as any).code === 'PGRST202') {
-      return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
-    }
-    throw new Error(`Recherche impossible : ${error.message}`)
   }
 
-  const rows  = (data ?? []) as Array<Record<string, any>>
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10000)
+
+  let resp: Response
+  try {
+    resp = await fetch('/api/search', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body:   JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (err: any) {
+    clearTimeout(timer)
+    if (err.name === 'AbortError') throw new Error('Recherche trop longue — affinez avec un prénom ou une ville')
+    throw err
+  }
+  clearTimeout(timer)
+
+  if (!resp.ok) {
+    const { error } = await resp.json().catch(() => ({ error: resp.statusText }))
+    throw new Error(`Recherche impossible : ${error}`)
+  }
+
+  const { results: rows } = (await resp.json()) as { results: Array<Record<string, any>> }
   const total = rows.length > 0 ? (Number(rows[0].total_count) || rows.length) : 0
 
   // Déduplique par id de contact ; ne garde que les fiches avec au moins un contact.
