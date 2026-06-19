@@ -167,6 +167,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const quota = parseInt(String(value), 10)
         if (isNaN(quota) || quota < 0) { res.status(400).json({ error: 'Quota invalide' }); return }
         update = { monthly_search_quota: quota }
+      } else if (action === 'reset_password') {
+        const { data: au, error: auErr } = await supabaseAdmin.auth.admin.getUserById(userId)
+        if (auErr || !au.user?.email) { res.status(400).json({ error: 'Email introuvable' }); return }
+        const { error: rErr } = await supabaseAdmin.auth.resetPasswordForEmail(au.user.email, { redirectTo: 'https://www.xn--trouv-fsa.fr' })
+        if (rErr) { res.status(500).json({ error: rErr.message }); return }
+        await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_reset_password', metadata: { target_user: userId } })
+        res.json({ ok: true, message: `Email de réinitialisation envoyé à ${au.user.email}` }); return
+      } else if (action === 'magic_link') {
+        const { data: au, error: auErr } = await supabaseAdmin.auth.admin.getUserById(userId)
+        if (auErr || !au.user?.email) { res.status(400).json({ error: 'Email introuvable' }); return }
+        const { data: linkData, error: lErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: au.user.email, options: { redirectTo: 'https://www.xn--trouv-fsa.fr' } })
+        if (lErr) { res.status(500).json({ error: lErr.message }); return }
+        await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_magic_link', metadata: { target_user: userId } })
+        res.json({ ok: true, link: linkData.properties?.action_link ?? null }); return
       } else { res.status(400).json({ error: 'Action inconnue' }); return }
       const { error } = await supabaseAdmin.from('profiles').update(update).eq('id', userId)
       if (error) { res.status(500).json({ error: error.message }); return }
