@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Slider } from '@/components/ui/slider'
 import { ShoppingCart } from 'lucide-react'
@@ -16,7 +16,31 @@ interface BuyKeysModalProps {
 }
 
 export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
-  const [quantity, setQuantity] = useState([25])
+  const [quantity, setQuantity]   = useState([25])
+  const [animated, setAnimated]   = useState(false)
+
+  // Déclenche l'animation des clés à l'ouverture du modal
+  useEffect(() => {
+    if (open) {
+      setAnimated(false)
+      const t = setTimeout(() => setAnimated(true), 80)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  // Rejoue l'animation à chaque changement de quantité
+  const handleQuantityChange = (val: number[]) => {
+    setQuantity(val)
+    setAnimated(false)
+    requestAnimationFrame(() => requestAnimationFrame(() => setAnimated(true)))
+  }
+
+  const bounceOnHover = (e: React.MouseEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    el.classList.remove('key-animate')
+    void el.offsetWidth
+    el.classList.add('key-animate')
+  }
 
   const qty   = quantity[0]
   const packs = qty / STEP
@@ -38,13 +62,26 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
         {/* Aperçu clés */}
         <div className="flex items-center justify-center gap-10 py-2">
           <div className="flex flex-col items-center gap-1">
-            <img src={keyBlueImg} alt="clé téléphone" style={{ height: '80px', width: 'auto' }} />
+            <img
+              src={keyBlueImg}
+              alt="clé téléphone"
+              style={{ height: '80px', width: 'auto' }}
+              className={animated ? 'key-animate' : ''}
+              onAnimationEnd={() => setAnimated(false)}
+              onMouseEnter={bounceOnHover}
+            />
             <span className="text-2xl font-black" style={{ color: '#1a569f' }}>+{qty}</span>
             <span className="text-[11px] text-slate-400">Téléphones</span>
           </div>
           <div className="text-xl font-light text-slate-300 dark:text-slate-600">+</div>
           <div className="flex flex-col items-center gap-1">
-            <img src={keyGreenImg} alt="clé email" style={{ height: '80px', width: 'auto' }} />
+            <img
+              src={keyGreenImg}
+              alt="clé email"
+              style={{ height: '80px', width: 'auto' }}
+              className={animated ? 'key-animate' : ''}
+              onMouseEnter={bounceOnHover}
+            />
             <span className="text-2xl font-black" style={{ color: '#1d6a40' }}>+{qty}</span>
             <span className="text-[11px] text-slate-400">Emails Directs</span>
           </div>
@@ -64,7 +101,7 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
             max={MAX}
             step={STEP}
             value={quantity}
-            onValueChange={setQuantity}
+            onValueChange={handleQuantityChange}
             showTooltip
             tooltipContent={v => `${v} clés`}
             className="[--primary:#124bd2]"
@@ -75,9 +112,7 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
               <span
                 key={v}
                 className={`text-[10px] transition-colors ${
-                  v === qty
-                    ? 'text-[#124bd2] font-bold'
-                    : 'text-slate-300 dark:text-slate-600'
+                  v === qty ? 'text-[#124bd2] font-bold' : 'text-slate-300 dark:text-slate-600'
                 }`}
               >
                 {v}

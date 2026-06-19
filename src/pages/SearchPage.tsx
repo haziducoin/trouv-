@@ -13,7 +13,7 @@ import {
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
 } from 'lucide-react'
-type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin'
+type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
 import AdminPage from '@/pages/AdminPage'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
@@ -23,14 +23,18 @@ import {
   unlockContactField, getCreditBalance, UnlockError,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
+import { generateSearchDemoResults } from '@/lib/demoResults'
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import keyGreenImg from '@/assets/key-green.png'
-import keyBlueImg  from '@/assets/key-blue.png'
+import keyGreenImg  from '@/assets/key-green.png'
+import keyBlueImg   from '@/assets/key-blue.png'
+import lockBlueImg  from '@/assets/lock-blue.png'
+import lockGreenImg from '@/assets/lock-green.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
 import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
+import BulkSearchView from '@/pages/BulkSearchView'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -856,16 +860,17 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
     try { await onUnlock(prospect, kind) } finally { setBusy(false) }
   }
 
+  const isPhone = kind === 'phone'
   return (
-    <span className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-1.5 text-xs ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700">
-      <Icon size={14} className="text-slate-300 dark:text-slate-600" />
-      <span className="font-semibold tabular-nums text-slate-400">{value}</span>
+    <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'}`}>
+      <Icon size={14} className={isPhone ? 'text-[#124bd2]' : 'text-emerald-600'} />
+      <span className={`font-semibold tabular-nums ${isPhone ? 'text-[#124bd2]' : 'text-emerald-700'}`}>{value}</span>
       <button type="button" onClick={click} disabled={busy}
-        className="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+        className={`ml-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${isPhone ? 'bg-[#124bd2]/20 hover:bg-[#124bd2]/30 text-[#124bd2]' : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700'}`}>
         {busy
-          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          : <KeyIcon kind={kind} size={22} className="text-white" />}
-        {canUnlock ? (kind === 'phone' ? 'Débloquer' : 'Débloquer') : 'Voir les offres'}
+          ? <span className={`h-3 w-3 animate-spin rounded-full border-2 border-t-transparent ${isPhone ? 'border-[#124bd2]' : 'border-emerald-600'}`} />
+          : <img src={isPhone ? lockBlueImg : lockGreenImg} style={{ height: '28px', width: 'auto' }} alt="" />}
+        {canUnlock ? 'Débloquer' : 'Voir les offres'}
       </button>
     </span>
   )
@@ -1335,7 +1340,7 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
 }
 
 // ─── User Menu dropdown ────────────────────────────────────────────────────────
-function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void; onOpenProspection: () => void }) {
+function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection, placement = 'below' }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void; onOpenProspection: () => void; placement?: 'below' | 'above' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -1371,7 +1376,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
       {/* Trigger — initiale + nom complet + chevron */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
+        className={`flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800 ${placement === 'above' ? 'w-full' : ''}`}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold shrink-0">
           {initial}
@@ -1385,7 +1390,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
 
       {/* Dropdown */}
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <div className={`animate-scale-in absolute z-50 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 ${placement === 'above' ? 'bottom-full left-0 mb-2' : 'top-full right-0 mt-2'}`}>
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
@@ -1662,6 +1667,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
+  const bounceKey = (e: React.MouseEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    el.classList.remove('key-animate')
+    void el.offsetWidth
+    el.classList.add('key-animate')
+  }
+
   const [showFilters, setShowFilters]                   = useState(false)
   const [showProspectionPanel, setShowProspectionPanel] = useState(false)
   const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
@@ -1816,10 +1828,30 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
     setLoading(true); setError(null)
 
-    // Recherche unifiée : données réelles masquées côté serveur pour tous les
-    // niveaux. La recherche ne consomme jamais de crédit (seul l'unlock le fait).
     const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
                     !params.zipCode && !params.employeeRange && !params.legalForm
+
+    // Mode démo : résultats fictifs sans appel API
+    if (account.id.startsWith('demo-')) {
+      await new Promise(res => setTimeout(res, 500 + Math.random() * 400))
+      const res = generateSearchDemoResults({ ...params, page: pg }, perPage)
+      setResults(res.results)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
+      setPage(pg)
+      setHasSearched(true)
+      if (!isEmpty) {
+        setDemoSearchCount(prev => {
+          const next = prev + 1
+          localStorage.setItem(DEMO_COUNT_KEY, String(next))
+          if (maxSearches !== undefined && next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+          return next
+        })
+      }
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
       setResults(res.results)
@@ -2041,6 +2073,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           {([
             { key: 'search',  label: 'Recherche',  icon: Search },
             { key: 'history', label: 'Historique', icon: History },
+            { key: 'bulk',    label: 'Bulk',        icon: Users },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setAppView(key)}
               className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
@@ -2123,7 +2156,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             {creditBalance && (
               <>
                 <div className="flex items-center gap-3">
-                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
+                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
                   <div>
                     <p className="text-sm font-bold text-slate-700 dark:text-white/90">
                       {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
@@ -2132,7 +2165,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
+                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
                   <div>
                     <p className="text-sm font-bold text-slate-700 dark:text-white/90">
                       {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
@@ -2143,7 +2176,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 {!creditBalance.unlimited && (
                   <button
                     onClick={() => setShowBuyKeys(true)}
-                    className="w-full rounded-lg bg-[#124bd2] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3fbc] active:scale-95 flex items-center justify-center gap-1.5"
+                    className="w-full rounded-lg bg-[#124bd2] hover:bg-[#124bd2]/80 px-3 py-2 text-xs font-semibold text-white flex items-center justify-center gap-1.5 relative overflow-hidden before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.7)_50%,transparent_75%,transparent_100%)] before:bg-[length:250%_250%,100%_100%] before:bg-[position:200%_0,0_0] before:bg-no-repeat before:transition-[background-position_0s_ease] before:duration-1000 hover:before:bg-[position:-100%_0,0_0] cursor-pointer active:scale-95"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Recharger des clés
@@ -2159,6 +2192,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             )}
           </div>
         )}
+
+        {/* Compte — toujours visible en bas du sidebar */}
+        <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-3">
+          <UserMenu
+            account={account}
+            onLogout={onLogout}
+            onOpenAccount={onOpenAccount}
+            onOpenProspection={() => setShowProspectionPanel(true)}
+            placement="above"
+          />
+        </div>
 
       </aside>
 
@@ -2202,11 +2246,24 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
               <div className="flex items-center gap-3">
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>
             </div>
             <AdminPage account={account} />
           </div>
+        )}
+
+        {/* Vue Bulk */}
+        {appView === 'bulk' && (
+          <BulkSearchView
+            account={account}
+            creditBalance={creditBalance}
+            onCreditRefresh={() => {
+              if (!account.id.startsWith('demo-')) {
+                getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
+              }
+            }}
+            onOpenBuyKeys={() => setShowBuyKeys(true)}
+          />
         )}
 
         {/* Vue Recherche */}
@@ -2214,13 +2271,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           <div className="flex flex-1 flex-col">
 
             {/* En-tête 3 colonnes */}
-            <div className="mb-7 flex items-center justify-between">
+            <div className="mb-7 flex items-center justify-between px-6 pt-8 lg:px-10">
               {/* Gauche — titre */}
               <div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
+                <p className="font-mono text-[13px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
                   Recherche professionnelle
                 </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
+                <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
                   {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
                 </h1>
               </div>
@@ -2229,13 +2286,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               {accessLevel === 'full' && account.role !== 'agent' && (
                 <div className="hidden items-center gap-6 sm:flex">
                   <div className="flex items-center gap-3">
-                    <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
+                    <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
                     <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                       {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.phoneCredits} restantes`) : '— restantes'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
+                    <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
                     <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                       {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.emailCredits} restantes`) : '— restantes'}
                     </span>
@@ -2246,7 +2303,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               {/* Droite — contrôles */}
               <div className="flex items-center gap-2">
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
               </div>
             </div>
 
