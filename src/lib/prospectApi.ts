@@ -147,16 +147,26 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
   }
 
+  const p_ville = params.city?.trim()    || null
+  const p_cp    = params.zipCode?.trim() || null
+  const p_tel   = params.tel?.trim()     || null
+
+  // Si seul le nom est fourni sans autre critère, on force le mode exact
+  // pour éviter un scan par préfixe sur 173M lignes (timeout garanti).
+  const hasSecondCriterion = !!(p_prenom || p_ville || p_cp || p_tel)
+  const requestedMode = params.searchMode ?? 'starts_with'
+  const effectiveMode = (requestedMode !== 'exact' && !hasSecondCriterion) ? 'exact' : requestedMode
+
   const rpcParams: Record<string, any> = {
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
-    p_mode:   params.searchMode ?? 'starts_with',
+    p_mode:   effectiveMode,
   }
-  if (p_nom)                  rpcParams.p_nom    = p_nom
-  if (p_prenom)               rpcParams.p_prenom = p_prenom
-  if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
-  if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
-  if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
+  if (p_nom)    rpcParams.p_nom    = p_nom
+  if (p_prenom) rpcParams.p_prenom = p_prenom
+  if (p_ville)  rpcParams.p_ville  = p_ville
+  if (p_cp)     rpcParams.p_cp     = p_cp
+  if (p_tel)    rpcParams.p_tel    = p_tel
 
   const timeoutMs = 10000
   const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
