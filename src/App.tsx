@@ -46,7 +46,7 @@ function formatOAuthError(rawError: string) {
 
 // ─── Comptes démo (dev only) ──────────────────────────────────────────────────
 const DEMO_ACCOUNT: Account = {
-  id:             'demo-preview',
+  id:             'preview-live',
   organizationId: 'org-preview',
   firstName:      'Sophie',
   lastName:       'Martin',
@@ -61,7 +61,7 @@ const DEMO_ACCOUNT: Account = {
 }
 
 const DEMO_EMPLOYEE_ACCOUNT: Account = {
-  id:             'demo-employee',
+  id:             'preview-employee',
   organizationId: 'org-preview',
   firstName:      'Thomas',
   lastName:       'Moreau',
