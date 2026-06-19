@@ -1810,7 +1810,13 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   // Solde de crédits (abonnés).
   useEffect(() => {
     if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-')) {
-      getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
+      const fetchCredits = () =>
+        getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
+      fetchCredits()
+      // Rafraîchit quand l'utilisateur revient sur l'onglet (ex: après admin panel)
+      const onVisible = () => { if (document.visibilityState === 'visible') fetchCredits() }
+      document.addEventListener('visibilitychange', onVisible)
+      return () => document.removeEventListener('visibilitychange', onVisible)
     }
   }, [accessLevel, account.id])
 
