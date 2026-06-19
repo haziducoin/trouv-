@@ -21,16 +21,17 @@ if (localStorage.getItem('trouve_dark') === '1') {
 // ─── URL params ───────────────────────────────────────────────────────────────
 const _params          = new URLSearchParams(window.location.search)
 const _isCRMHostname   = window.location.hostname.startsWith('crm.')
+const _isLocalDev      = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
-// CRM mode: subdomain crm.* en prod, ou ?crm en dev local
+// CRM mode: subdomain crm.* en prod uniquement, ?crm autorisé seulement en dev local
 const isCRMMode        = _isCRMHostname
-                       || (_params.has('crm') && !_params.has('user'))
-// Fiche user : /user/UUID sur le subdomain, ou ?crm&user=UUID en dev
+                       || (_isLocalDev && _params.has('crm') && !_params.has('user'))
+// Fiche user : /user/UUID sur le subdomain, ou ?crm&user=UUID en dev local uniquement
 const isCRMUserPage    = (_isCRMHostname && window.location.pathname.startsWith('/user/'))
-                       || (_params.has('crm') && _params.has('user'))
+                       || (_isLocalDev && _params.has('crm') && _params.has('user'))
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
