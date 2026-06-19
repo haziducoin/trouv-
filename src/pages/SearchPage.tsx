@@ -1079,7 +1079,10 @@ function ProspectCard({
           </div>
         ) : (
           <>
-            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
+            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">
+              {prospect.fullName}
+              {prospect.birthYear && <span className="ml-1.5 text-xs font-normal text-slate-400">· {prospect.birthYear}</span>}
+            </p>
             {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
             {prospect.companyName && (
               <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
@@ -1535,9 +1538,10 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
 // ─── Recherche avancée (6 sections) ──────────────────────────────────────────
 interface AdvancedFiltersProps {
   // Identité professionnelle
-  firstName: string; setFirstName: (v: string) => void
-  lastName:  string; setLastName:  (v: string) => void
-  jobTitle:  string; setJobTitle:  (v: string) => void
+  firstName:  string; setFirstName:  (v: string) => void
+  lastName:   string; setLastName:   (v: string) => void
+  jobTitle:   string; setJobTitle:   (v: string) => void
+  birthYear:  string; setBirthYear:  (v: string) => void
   // Adresse
   city:       string; setCity:       (v: string) => void
   address:    string; setAddress:    (v: string) => void
@@ -1642,6 +1646,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
     phone, setPhone, email, setEmail,
     companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
     linkedin, setLinkedin,
+    birthYear, setBirthYear,
     onSearch, onReset,
   } = props
 
@@ -1657,6 +1662,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
           <AdvInput label="Nom" value={lastName} onChange={setLastName} onEnter={onSearch} placeholder="Dupont" />
+          <AdvInput label="Année de naissance" value={birthYear} onChange={v => setBirthYear(v.replace(/\D/g,'').slice(0,4))} onEnter={onSearch} placeholder="1985" />
           <AdvInput label="Poste / Titre" value={jobTitle} onChange={setJobTitle} onEnter={onSearch} placeholder="Directeur commercial" />
         </div>
       </AdvSection>
@@ -1751,6 +1757,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [employeeRange, setEmployeeRange] = useState('')
   const [legalForm, setLegalForm]       = useState('')
   // Filtres avancés — champs texte (libres)
+  const [identityInput, setIdentityInput]   = useState('')
+  const [advBirthYear, setAdvBirthYear]     = useState('')
   const [advFirstName, setAdvFirstName]     = useState('')
   const [advLastName, setAdvLastName]       = useState('')
   const [advJobTitle, setAdvJobTitle]       = useState('')
@@ -1891,7 +1899,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeFiltersCount = [
     department, activityCode, zipCode, employeeRange, legalForm,
-    advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
+    advFirstName, advLastName, advBirthYear, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
   ].filter(Boolean).length
 
   // Charger les recherches récentes
@@ -1912,9 +1920,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Construit la requête FTS en combinant la barre principale + tous les champs avancés texte
   const buildQuery = () =>
-    [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+    [identityInput, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
       .map(s => s.trim()).filter(Boolean).join(' ')
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
@@ -1976,15 +1983,24 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setQuery(advLastName || advFirstName)
+    const ident = identityInput.trim()
+    const label = ident || [advLastName, advFirstName].filter(Boolean).join(' ')
+    setQuery(label)
     setShowRecent(false)
-    const label = [advLastName, advFirstName].filter(Boolean).join(' ')
-    if (label.trim()) {
-      setTransitionQuery(label.trim())
+    if (label) {
+      setTransitionQuery(label)
       setSearchTransition('visible')
       transitionStartRef.current = Date.now()
     }
-    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({
+      query:    label,
+      identity: ident || undefined,
+      nom:      !ident ? advLastName  : undefined,
+      prenom:   !ident ? advFirstName : undefined,
+      birthYear: advBirthYear || undefined,
+      city: advCity, tel: searchTel || advPhone, searchMode,
+      department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+    })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -1994,7 +2010,16 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
 
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    const ident = identityInput.trim()
+    doSearch({
+      query:    buildQuery(),
+      identity: ident || undefined,
+      nom:      !ident ? advLastName  : undefined,
+      prenom:   !ident ? advFirstName : undefined,
+      birthYear: advBirthYear || undefined,
+      city: advCity, tel: searchTel || advPhone, searchMode,
+      department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+    }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2413,25 +2438,14 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
               <form onSubmit={handleSearch} className="p-6">
                 {/* Champs + bouton */}
                 <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-                  <div className="relative flex-1 min-w-[120px]">
+                  <div className="relative flex-[2] min-w-[200px]">
                     <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       ref={searchInputRef}
                       type="text"
-                      value={advLastName}
-                      onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
-                      placeholder="Nom"
-                      autoComplete="off"
-                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
-                    />
-                  </div>
-                  <div className="relative flex-1 min-w-[120px]">
-                    <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={advFirstName}
-                      onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
-                      placeholder="Prénom"
+                      value={identityInput}
+                      onChange={e => { setIdentityInput(e.target.value); setPage(1) }}
+                      placeholder="Jean Dupont ou Dupont Jean…"
                       autoComplete="off"
                       className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
                     />
@@ -2487,6 +2501,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 // Identité professionnelle
                 firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
                 lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
+                birthYear={advBirthYear}       setBirthYear={v => { setAdvBirthYear(v); setPage(1) }}
                 jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}
                 // Adresse
                 city={advCity}                 setCity={v => { setAdvCity(v); setPage(1) }}
@@ -2504,19 +2519,27 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 // Réseaux sociaux
                 linkedin={advLinkedin}         setLinkedin={v => { setAdvLinkedin(v); setPage(1) }}
                 onSearch={() => {
-                  const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
-                    .map(s => s.trim()).filter(Boolean).join(' ')
-                  setQuery(inputValue)
-                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                  const ident = identityInput.trim()
+                  const q = ident || [advLastName, advFirstName].filter(Boolean).join(' ')
+                  setQuery(q)
+                  doSearch({
+                    query: q, identity: ident || undefined,
+                    nom:    !ident ? advLastName  : undefined,
+                    prenom: !ident ? advFirstName : undefined,
+                    birthYear: advBirthYear || undefined,
+                    city: advCity, tel: searchTel || advPhone, searchMode,
+                    department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+                  })
                 }}
                 onReset={() => {
-                  setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                  setIdentityInput(''); setAdvFirstName(''); setAdvLastName('')
+                  setAdvBirthYear(''); setAdvJobTitle('')
                   setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
                   setAdvCompanyName(''); setAdvLinkedin('')
                   setDepartment(''); setActivityCode(''); setActiveOnly(true)
                   setZipCode(''); setEmployeeRange(''); setLegalForm('')
                   setPage(1)
-                  doSearch({ query: inputValue, department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+                  doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
                 }}
               />
             )}
@@ -2608,8 +2631,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 </p>
                 <button
                   onClick={() => {
-                    setInputValue(''); setQuery('')
-                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                    setInputValue(''); setQuery(''); setIdentityInput('')
+                    setAdvFirstName(''); setAdvLastName(''); setAdvBirthYear(''); setAdvJobTitle('')
                     setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
                     setAdvCompanyName(''); setAdvLinkedin('')
                     setDepartment(''); setActivityCode(''); setActiveOnly(true)

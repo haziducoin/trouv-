@@ -69,10 +69,12 @@ export interface ProspectResult {
 
 export interface ProspectSearchParams {
   query:           string
+  identity?:       string
   nom?:            string
   prenom?:         string
   city?:           string
   tel?:            string
+  birthYear?:      string
   searchMode?:     'exact' | 'starts_with' | 'ends_with' | 'contains'
   department?:     string
   activityCode?:   string
@@ -126,7 +128,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     department:    null,
     region:        null,
     country:       null,
-    birthYear:     null,
+    birthYear:     row.date_naissance ? String(row.date_naissance).substring(0, 4) : null,
     birthCity:     null,
     isActive:      true,
     createdAt:     new Date().toISOString(),
@@ -138,10 +140,11 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const pg = params.page    ?? 1
   const pp = params.perPage ?? 20
 
-  let p_nom    = params.nom?.trim()    || null
-  let p_prenom = params.prenom?.trim() || null
+  const p_identity = params.identity?.trim() || null
+  let p_nom    = p_identity ? null : (params.nom?.trim()    || null)
+  let p_prenom = p_identity ? null : (params.prenom?.trim() || null)
 
-  if (!p_nom && !p_prenom && params.query.trim()) {
+  if (!p_identity && !p_nom && !p_prenom && params.query.trim()) {
     const parts = params.query.trim().split(/\s+/)
     p_nom    = parts[0] || null
     p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
@@ -155,12 +158,17 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Session expirée, reconnectez-vous')
 
-  const body = {
-    p_nom, p_prenom, p_ville, p_cp, p_tel,
+  const body: Record<string, unknown> = {
+    p_identity: p_identity ?? null,
+    p_nom:      p_identity ? null : p_nom,
+    p_prenom:   p_identity ? null : p_prenom,
+    p_ville, p_cp, p_tel,
     p_mode,
     p_limit:  pp,
     p_offset: (pg - 1) * pp,
   }
+  if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
+    body.p_annee_naissance = params.birthYear.trim()
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
