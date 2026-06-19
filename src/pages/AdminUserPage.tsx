@@ -105,8 +105,10 @@ function DeviceIcon({ type }: { type: string }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 export default function AdminUserPage() {
-  const params = new URLSearchParams(window.location.search)
-  const userId = params.get('user') ?? ''
+  const _isCRMHostname = window.location.hostname.startsWith('crm.')
+  const userId = _isCRMHostname
+    ? (window.location.pathname.split('/user/')[1]?.split('/')[0] ?? '')
+    : (new URLSearchParams(window.location.search).get('user') ?? '')
 
   const [token, setToken] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -158,7 +160,7 @@ export default function AdminUserPage() {
     }
   }
 
-  const goBack = () => { window.location.href = '?crm' }
+  const goBack = () => { window.location.href = _isCRMHostname ? '/' : '?crm' }
 
   const profile = data?.profile as Record<string, unknown> | null
 

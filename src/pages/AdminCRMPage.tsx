@@ -951,7 +951,7 @@ function UsersView({ token }: { token: string }) {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => { window.location.href = `?crm&user=${u.id}` }}
+                      <button onClick={() => { window.location.href = window.location.hostname.startsWith('crm.') ? `/user/${u.id}` : `?crm&user=${u.id}` }}
                         className="flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">
                         <Eye size={12} /> Fiche
                       </button>
