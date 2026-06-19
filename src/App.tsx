@@ -4,12 +4,14 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import AdminCRMPage from './pages/AdminCRMPage'
+import AdminUserPage from './pages/AdminUserPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
 import CompliancePage from './pages/CompliancePage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
+import { getDeviceId } from './lib/deviceId'
 
 // ─── Restore dark mode preference immediately (before first paint) ────────────
 if (localStorage.getItem('trouve_dark') === '1') {
@@ -22,7 +24,8 @@ const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
-const isCRMMode        = _params.has('crm')
+const isCRMMode        = _params.has('crm') && !_params.has('user')
+const isCRMUserPage    = _params.has('crm') && _params.has('user')
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
@@ -136,10 +139,23 @@ export default function App() {
             if (mounted) setSessionLoading(false)
             return
           }
-          // Session existante au chargement → restaure le profil
+          // Session existante au chargement → restaure le profil + tracking IP + appareil
           try {
             const a = await restoreSession()
             if (mounted) setAccount(a)
+            // Tracking IP silencieux
+            fetch('/api/track-ip', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            }).catch(() => {})
+            // Enregistrement appareil silencieux
+            fetch('/api/devices', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                'X-Device-Id': getDeviceId(),
+              },
+            }).catch(() => {})
           } catch (err) {
             if (err instanceof PersonalEmailError) {
               if (mounted) setBlockedEmail((err as PersonalEmailError).email)
@@ -171,6 +187,24 @@ export default function App() {
   const handleAuthenticated = (a: Account) => {
     setAccount(a)
     setAccountPanel(null)
+    // Tracking IP + enregistrement appareil (silencieux, non bloquant)
+    getSupabaseClient().auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (token) {
+        const deviceId = getDeviceId()
+        fetch('/api/track-ip', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {})
+        fetch('/api/devices', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Device-Id': deviceId,
+          },
+        }).catch(() => {})
+      }
+    })
   }
 
   const handleLogout = async () => {
@@ -310,16 +344,24 @@ export default function App() {
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-            <AccountPanel
-              initialView={accountPanel}
-              currentAccount={demoAccount}
-              onAuthenticated={() => {}}
-              onClose={() => setAccountPanel(null)}
-              onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
-            />
-          </div>
+          <AccountPanel
+            initialView={accountPanel}
+            currentAccount={demoAccount}
+            onAuthenticated={() => {}}
+            onClose={() => setAccountPanel(null)}
+            onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
+          />
         )}
+        <Analytics />
+      </>
+    )
+  }
+
+  // ── CRM Admin fiche utilisateur (?crm&user=...) ──────────────────────────
+  if (isCRMUserPage) {
+    return (
+      <>
+        <AdminUserPage />
         <Analytics />
       </>
     )
@@ -347,42 +389,38 @@ export default function App() {
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-            <AccountPanel
-              initialView={accountPanel}
-              currentAccount={account}
-              onAuthenticated={handleAuthenticated}
-              onClose={() => setAccountPanel(null)}
-              onLogout={handleLogout}
-            />
-          </div>
+          <AccountPanel
+            initialView={accountPanel}
+            currentAccount={account}
+            onAuthenticated={handleAuthenticated}
+            onClose={() => setAccountPanel(null)}
+            onLogout={handleLogout}
+          />
         )}
         <Analytics />
       </>
     )
   }
 
-  // ── En attente ou trial → accès complet pour les tests ──────────────────
+  // ── En attente ou trial → accès limité, invite à payer ──────────────────
   if (account && (account.status === 'pending' || account.status === 'trial')) {
     return (
       <>
         <SpeedInsights />
         <SearchPage
           account={account}
-          accessLevel="full"
+          accessLevel="trial"
           onLogout={handleLogout}
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-            <AccountPanel
-              initialView={accountPanel}
-              currentAccount={account}
-              onAuthenticated={handleAuthenticated}
-              onClose={() => setAccountPanel(null)}
-              onLogout={handleLogout}
-            />
-          </div>
+          <AccountPanel
+            initialView={accountPanel}
+            currentAccount={account}
+            onAuthenticated={handleAuthenticated}
+            onClose={() => setAccountPanel(null)}
+            onLogout={handleLogout}
+          />
         )}
         <Analytics />
       </>

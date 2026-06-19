@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getSupabaseClient } from '@/lib/supabase'
 import DemoLockModal from '@/components/demo/DemoLockModal'
 import DemoToast from '@/components/demo/DemoToast'
 import DemoCreditsBar from '@/components/demo/DemoCreditsBar'
@@ -8,12 +9,12 @@ import {
   Building2, MapPin, Hash, Users, LogOut, X,
   Zap, RefreshCw, ExternalLink, LayoutGrid, List,
   ShieldCheck, AlertCircle, Download, Clock,
-  ArrowRight, Globe, FileText, Info,
+  ArrowRight, ArrowLeft, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
 } from 'lucide-react'
-type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin'
+type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'prospect' | 'prospection'
 import AdminPage from '@/pages/AdminPage'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
@@ -347,6 +348,25 @@ function DemoRequestModal({
 }
 
 // ─── ConversionModal — appel à l'action après épuisement ─────────────────────
+const CHECKOUT_PLANS = [
+  {
+    code: 'solo',
+    label: 'Solo',
+    monthly: 33,
+    annual: 26,
+    features: ['Recherches illimitées', '100 crédits téléphone / mois', '25 e-mails directs / mois', '1 compte utilisateur'],
+    popular: false,
+  },
+  {
+    code: 'agence',
+    label: 'Agence',
+    monthly: 79,
+    annual: 63,
+    features: ['Recherches illimitées', '250 crédits téléphone / mois', '250 e-mails directs / mois', 'Export CSV · Tableau équipe'],
+    popular: true,
+  },
+] as const
+
 function ConversionModal({
   accessLevel, account, onClose, onLogout, onRequestDemo,
 }: {
@@ -356,33 +376,123 @@ function ConversionModal({
   onLogout:       () => void
   onRequestDemo?: () => void
 }) {
-  // demo = 5 floues épuisées → proposer démo ou pricing
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError]     = useState<string | null>(null)
+  const [isAnnual, setIsAnnual]               = useState(false)
+
+  const handleCheckout = async (planCode: string) => {
+    setCheckoutLoading(planCode)
+    setCheckoutError(null)
+    try {
+      const { data: { session } } = await getSupabaseClient().auth.getSession()
+      if (!session?.access_token) { onLogout(); return }
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ plan_code: planCode, period: isAnnual ? 'annual' : 'monthly' }),
+      })
+      const data = await res.json()
+      if (data.url) { window.location.href = data.url }
+      else setCheckoutError(data.error ?? 'Une erreur est survenue.')
+    } catch {
+      setCheckoutError('Service momentanément indisponible. Réessayez.')
+    } finally {
+      setCheckoutLoading(null)
+    }
+  }
+
+  // Bloc plans réutilisable
+  const PlanCards = () => (
+    <div className="space-y-3">
+      {/* Toggle annuel */}
+      <div className="flex items-center justify-center gap-2 text-xs">
+        <button onClick={() => setIsAnnual(false)}
+          className={`rounded-lg px-3 py-1.5 font-semibold transition ${!isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
+          Mensuel
+        </button>
+        <button onClick={() => setIsAnnual(true)}
+          className={`rounded-lg px-3 py-1.5 font-semibold transition ${isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
+          Annuel <span className="font-bold text-emerald-500">−20 %</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {CHECKOUT_PLANS.map(plan => (
+          <div key={plan.code} className={`relative flex flex-col rounded-2xl border-2 p-4 ${plan.popular ? 'border-[#124bd2] bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
+            {plan.popular && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#124bd2] px-3 py-0.5 text-[10px] font-bold text-white">
+                Recommandé
+              </span>
+            )}
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{plan.label}</p>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-[#124bd2]">{isAnnual ? plan.annual : plan.monthly}</span>
+              <span className="text-xs text-slate-400">€/mois</span>
+            </div>
+            {isAnnual && (
+              <p className="text-[10px] text-emerald-600 font-medium">soit {plan.annual * 12} €/an</p>
+            )}
+            <ul className="mt-3 space-y-1.5">
+              {plan.features.map(f => (
+                <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                  <ShieldCheck size={11} className="mt-0.5 shrink-0 text-emerald-500" />{f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => handleCheckout(plan.code)}
+              disabled={checkoutLoading !== null}
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition disabled:opacity-60 ${
+                plan.popular
+                  ? 'bg-[#124bd2] text-white hover:bg-[#0b3fbc]'
+                  : 'border border-[#124bd2] text-[#124bd2] hover:bg-blue-50 dark:hover:bg-blue-950/20'
+              }`}>
+              {checkoutLoading === plan.code
+                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                : <>{plan.label} — Souscrire <ArrowRight size={12} /></>}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {checkoutError && (
+        <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-400">{checkoutError}</p>
+      )}
+
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-400">
+        {['Paiement sécurisé Stripe', 'Facture TVA auto', 'Résiliable à tout moment'].map(t => (
+          <span key={t} className="flex items-center gap-1"><ShieldCheck size={9} className="text-emerald-400" />{t}</span>
+        ))}
+      </div>
+
+      <button
+        onClick={() => window.open('mailto:contact@trouve.fr?subject=Offre Entreprise sur mesure', '_blank')}
+        className="mx-auto flex items-center gap-1.5 text-xs text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline">
+        Besoin de plus ? Offre Entreprise sur mesure →
+      </button>
+    </div>
+  )
+
+  // demo = 5 floues épuisées
   if (accessLevel === 'demo') {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
-            <Zap size={28} />
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-5 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+              <Zap size={26} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Vos 5 aperçus sont terminés</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Accédez aux coordonnées réelles en choisissant un plan :</p>
           </div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 5 aperçus sont terminés</h2>
-          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            Vous avez vu des résultats partiels. Pour accéder aux coordonnées complètes, choisissez une option :
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={onRequestDemo}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
-              <Zap size={15} /> Demander une démo gratuite <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">10 vraies recherches</span>
+          <PlanCards />
+          <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <button onClick={onRequestDemo}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+              <Zap size={14} /> Demander une démo gratuite (10 recherches)
             </button>
-            <button
-              onClick={() => window.location.replace('/?pricing=1')}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#124bd2] px-4 py-3 text-sm font-semibold text-[#124bd2] transition hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400">
-              <ArrowRight size={15} /> Voir les offres
-            </button>
-            <button
-              onClick={onClose}
-              className="text-xs text-slate-400 hover:text-slate-600 py-1">
-              Continuer à explorer (résultats floutés)
+            <button onClick={onClose} className="text-center text-xs text-slate-400 hover:text-slate-600 py-1">
+              Continuer avec résultats floutés
             </button>
           </div>
         </div>
@@ -390,28 +500,25 @@ function ConversionModal({
     )
   }
 
-  // trial = 10 vraies recherches épuisées → pricing obligatoire
+  // trial = quota épuisé → paiement obligatoire
   if (accessLevel === 'trial') {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
-            <Lock size={28} />
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-5 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+              <Lock size={26} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Quota d'essai atteint</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Choisissez un abonnement pour continuer à accéder aux contacts professionnels.
+            </p>
           </div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 10 recherches de démo sont terminées</h2>
-          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            Vous avez utilisé toutes vos recherches de démo. Passez à un abonnement pour continuer à accéder aux contacts professionnels.
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={() => window.location.replace('/?pricing=1')}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
-              <Zap size={15} /> Voir les offres et s'abonner
-            </button>
-            <button
-              onClick={onLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
-              <LogOut size={14} /> Se déconnecter
+          <PlanCards />
+          <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-slate-800">
+            <button onClick={onLogout}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
+              <LogOut size={12} /> Se déconnecter
             </button>
           </div>
         </div>
@@ -422,18 +529,23 @@ function ConversionModal({
   // limited (fallback)
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
-          <Lock size={28} />
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="mb-5 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+            <Lock size={26} />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Accès limité</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Souscrivez à un abonnement pour accéder à toutes les fonctionnalités.
+          </p>
         </div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Limite atteinte</h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-          Votre accès d'essai est épuisé. Contactez-nous pour continuer.
-        </p>
-        <button onClick={onLogout}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-          <LogOut size={14} /> Se déconnecter
-        </button>
+        <PlanCards />
+        <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-slate-800">
+          <button onClick={onLogout}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
+            <LogOut size={12} /> Se déconnecter
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -533,8 +645,8 @@ const PROSPECTION_TIPS = [
   },
 ]
 
-// ─── ProspectionPanel — slide-over aide à la prospection ─────────────────────
-function ProspectionPanel({
+// ─── ProspectionPage — page pleine aide à la prospection ─────────────────────
+function ProspectionPage({
   onClose, onApply,
 }: {
   onClose: () => void
@@ -542,32 +654,27 @@ function ProspectionPanel({
 }) {
   const [activeSector, setActiveSector] = useState<string | null>(null)
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
-
   const sector = PROSPECTION_SECTORS.find(s => s.id === activeSector)
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl dark:bg-slate-900" style={{ animation: 'slideInRight 0.2s ease' }}>
+    <div className="flex flex-1 flex-col overflow-y-auto bg-[#f5f7fc] dark:bg-slate-950">
 
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
-          <div>
-            <h2 className="font-bold text-slate-800 dark:text-slate-100">Aide à la prospection</h2>
-            <p className="mt-0.5 text-xs text-slate-400">Critères suggérés · Conseils pour affiner vos résultats</p>
-          </div>
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white/90 px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center gap-3">
           <button onClick={onClose}
-            className="rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
-            <X size={18} />
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+            <ArrowLeft size={14} /> Retour
           </button>
+          <span className="text-slate-200 dark:text-slate-700">/</span>
+          <div>
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Aide à la prospection</h2>
+            <p className="text-xs text-slate-400">Critères suggérés · Conseils pour affiner vos résultats</p>
+          </div>
         </div>
+      </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto p-6">
+      <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
 
           {/* ── Secteurs ── */}
           <section>
@@ -649,86 +756,81 @@ function ProspectionPanel({
               ))}
             </div>
           </section>
-        </div>
       </div>
     </div>
   )
 }
 
-// ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
-function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
+// ─── Prospect Detail Page ──────────────────────────────────────────────────────
+function ProspectPage({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
   const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
-          <div className="flex items-center gap-4">
-            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-bold ${prospectAccent(prospect.jobTitle)}`}>
-              {prospectInitials(prospect.fullName)}
-            </div>
-            <div>
-              <h2 className="font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
-              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
-              {prospect.companyName && (
-                <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
-                  <Building2 size={11} /> {prospect.companyName}
-                </p>
-              )}
-            </div>
+    <div className="flex flex-1 flex-col overflow-y-auto bg-[#f5f7fc] dark:bg-slate-950">
+      {/* Header */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200/60 bg-white/90 px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+          <ArrowLeft size={14} /> Retour
+        </button>
+        <span className="text-slate-200 dark:text-slate-700">/</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{prospect.fullName}</span>
+      </div>
+
+      {/* Corps */}
+      <div className="mx-auto w-full max-w-2xl space-y-5 px-6 py-8">
+
+        {/* Avatar + identité */}
+        <div className="flex items-center gap-5 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-lg font-bold ${prospectAccent(prospect.jobTitle)}`}>
+            {prospectInitials(prospect.fullName)}
           </div>
-          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
-            <X size={18} />
-          </button>
+          <div>
+            <h2 className="text-lg font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
+            {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
+            {prospect.companyName && (
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                <Building2 size={11} /> {prospect.companyName}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Corps */}
-        <div className="flex-1 space-y-5 p-6">
+        {/* Coordonnées */}
+        <section>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+            <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+            {!prospect.hasPhone && !prospect.hasEmail && (
+              <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+            )}
+          </div>
+        </section>
 
-          {/* Coordonnées */}
+        {/* Entreprise */}
+        {prospect.companyName && (
           <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {!prospect.hasPhone && !prospect.hasEmail && (
-                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
-              )}
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
+            <div className="space-y-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <Row icon={<Building2 size={13} className="text-slate-300" />} label="Employeur" value={prospect.companyName} />
             </div>
           </section>
+        )}
 
-          {/* Entreprise */}
-          {prospect.companyName && (
-            <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                <Row icon={<Building2 size={13} className="text-slate-300" />} label="Employeur" value={prospect.companyName} />
-              </div>
-            </section>
-          )}
-
-          {/* Localisation */}
-          {(prospect.address || prospect.city || prospect.country || birthContext) && (
-            <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
-                {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
-                {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
-                {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
-              </div>
-            </section>
-          )}
-        </div>
+        {/* Localisation */}
+        {(prospect.address || prospect.city || prospect.country || birthContext) && (
+          <section>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
+            <div className="space-y-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
+              {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+              {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
+              {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )
@@ -1662,8 +1764,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters]                   = useState(false)
-  const [showProspectionPanel, setShowProspectionPanel] = useState(false)
-  const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
+const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
   const [transitionQuery, setTransitionQuery]           = useState('')
   const transitionStartRef                              = useRef(0)
 
@@ -2149,6 +2250,21 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           </div>
         )}
 
+      {/* ── Bannière paiement pour comptes trial/pending ─────────────── */}
+      {(account.status === 'trial' || account.status === 'pending') && (
+        <div className="border-t border-amber-200/40 bg-gradient-to-b from-amber-500/10 to-amber-600/5 px-4 py-4">
+          <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">Accès d'essai actif</p>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+            Souscrivez pour un accès complet et illimité.
+          </p>
+          <button
+            onClick={() => setShowConversionModal(true)}
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#124bd2] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
+            <Zap size={11} /> Choisir un plan
+          </button>
+        </div>
+      )}
+
       </aside>
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
@@ -2184,6 +2300,39 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
 
+        {/* Vue Détail prospect */}
+        {appView === 'prospect' && selectedCompany && accessLevel !== 'limited' && (
+          <ProspectPage
+            prospect={selectedCompany}
+            onClose={() => { setAppView('search'); setSelectedCompany(null) }}
+            canUnlock={accessLevel === 'full'}
+            onUnlock={handleUnlock}
+          />
+        )}
+
+        {/* Vue Aide à la prospection */}
+        {appView === 'prospection' && (
+          <ProspectionPage
+            onClose={() => setAppView('search')}
+            onApply={(recipe) => {
+              setInputValue(recipe.query)
+              setQuery(recipe.query)
+              if (recipe.department) setDepartment(recipe.department)
+              if (recipe.activityCode) setActivityCode(recipe.activityCode)
+              setAppView('search')
+              doSearch({
+                query: recipe.query,
+                department: recipe.department ?? department,
+                activityCode: recipe.activityCode ?? activityCode,
+                activeOnly,
+                zipCode,
+                employeeRange,
+                legalForm,
+              })
+            }}
+          />
+        )}
+
         {/* Vue Admin */}
         {appView === 'admin' && account.role === 'admin' && (
           <div className="flex flex-1 flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
@@ -2191,7 +2340,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
               <div className="flex items-center gap-3">
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setAppView('prospection')} />
               </div>
             </div>
             <AdminPage account={account} />
@@ -2235,7 +2384,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               {/* Droite — contrôles */}
               <div className="flex items-center gap-2">
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setShowProspectionPanel(true)} />
+                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setAppView('prospection')} />
               </div>
             </div>
 
@@ -2476,7 +2625,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        viewMode="grid" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }} accessLevel={accessLevel}
                         canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
@@ -2485,7 +2634,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        viewMode="list" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }} accessLevel={accessLevel}
                         canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
@@ -2531,11 +2680,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           </div>
         )}
       </div>
-
-      {/* Slide-over détail prospect */}
-      {selectedCompany && accessLevel !== 'limited' && (
-        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
-      )}
 
       {/* Modal de conversion (fin de quota démo/limité) */}
       {showConversionModal && (
@@ -2611,30 +2755,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             </div>
           )}
         </div>
-      )}
-
-      {/* Aide à la prospection */}
-      {showProspectionPanel && (
-        <ProspectionPanel
-          onClose={() => setShowProspectionPanel(false)}
-          onApply={(recipe) => {
-            setInputValue(recipe.query)
-            setQuery(recipe.query)
-            if (recipe.department) setDepartment(recipe.department)
-            if (recipe.activityCode) setActivityCode(recipe.activityCode)
-            setShowProspectionPanel(false)
-            setAppView('search')
-            doSearch({
-              query: recipe.query,
-              department: recipe.department ?? department,
-              activityCode: recipe.activityCode ?? activityCode,
-              activeOnly,
-              zipCode,
-              employeeRange,
-              legalForm,
-            })
-          }}
-        />
       )}
 
       {/* ── Bottom nav mobile ────────────────────────────────────────────── */}

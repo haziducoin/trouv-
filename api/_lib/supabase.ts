@@ -33,10 +33,17 @@ export interface AuthContext {
 export async function authenticate(req: VercelRequest): Promise<AuthContext | null> {
   const header = req.headers.authorization
   const token = header?.startsWith('Bearer ') ? header.slice(7) : null
-  if (!token) return null
+  if (!token) {
+    console.error('[auth] no token — Authorization header:', header ?? 'absent')
+    return null
+  }
 
+  console.log('[auth] token preview:', token.slice(0, 20), '| len:', token.length)
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-  if (error || !user) return null
+  if (error || !user) {
+    console.error('[auth] getUser failed:', error?.message ?? 'user null')
+    return null
+  }
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
