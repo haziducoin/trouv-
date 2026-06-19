@@ -917,6 +917,7 @@ function ProspectCard({
               <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
                 {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
                 {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
+                {prospect.birthYear ? <span className="ml-1 text-slate-300">· {prospect.birthYear}</span> : null}
               </p>
             </>
           )}
@@ -1439,9 +1440,10 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection, placeme
 // ─── Recherche avancée (6 sections) ──────────────────────────────────────────
 interface AdvancedFiltersProps {
   // Identité professionnelle
-  firstName: string; setFirstName: (v: string) => void
-  lastName:  string; setLastName:  (v: string) => void
-  jobTitle:  string; setJobTitle:  (v: string) => void
+  firstName:  string; setFirstName:  (v: string) => void
+  lastName:   string; setLastName:   (v: string) => void
+  jobTitle:   string; setJobTitle:   (v: string) => void
+  birthYear:  string; setBirthYear:  (v: string) => void
   // Adresse
   city:       string; setCity:       (v: string) => void
   address:    string; setAddress:    (v: string) => void
@@ -1542,6 +1544,7 @@ function AdvSelect({
 function AdvancedFilters(props: AdvancedFiltersProps) {
   const {
     firstName, setFirstName, lastName, setLastName, jobTitle, setJobTitle,
+    birthYear, setBirthYear,
     city, setCity, address, setAddress, zipCode, setZipCode, department, setDepartment,
     phone, setPhone, email, setEmail,
     companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
@@ -1562,6 +1565,26 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
           <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
           <AdvInput label="Nom" value={lastName} onChange={setLastName} onEnter={onSearch} placeholder="Dupont" />
           <AdvInput label="Poste / Titre" value={jobTitle} onChange={setJobTitle} onEnter={onSearch} placeholder="Directeur commercial" />
+          <div>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Année de naissance
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={birthYear}
+                onChange={e => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={e => { if (e.key === 'Enter' && firstName && lastName) onSearch() }}
+                placeholder={firstName && lastName ? '1985' : 'Nom + Prénom requis'}
+                disabled={!firstName || !lastName}
+                maxLength={4}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+            </div>
+            {(!firstName || !lastName) && (
+              <p className="mt-1 text-[10px] text-slate-400">Renseignez Nom et Prénom pour activer</p>
+            )}
+          </div>
         </div>
       </AdvSection>
 
@@ -1646,6 +1669,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   // État de recherche
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
+  const [identityInput, setIdentityInput] = useState('')   // omnibar : "Jean Dupont"
   const [searchMode, setSearchMode]     = useState<'exact' | 'starts_with' | 'ends_with' | 'contains'>('exact')
   const [searchTel, setSearchTel]       = useState('')
   const [department, setDepartment]     = useState('')
@@ -1658,6 +1682,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [advFirstName, setAdvFirstName]     = useState('')
   const [advLastName, setAdvLastName]       = useState('')
   const [advJobTitle, setAdvJobTitle]       = useState('')
+  const [advBirthYear, setAdvBirthYear]     = useState('')
   const [advCity, setAdvCity]               = useState('')
   const [advAddress, setAdvAddress]         = useState('')
   const [advPhone, setAdvPhone]             = useState('')
@@ -1821,7 +1846,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Construit la requête FTS en combinant la barre principale + tous les champs avancés texte
   const buildQuery = () =>
-    [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+    [identityInput, inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
       .map(s => s.trim()).filter(Boolean).join(' ')
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
@@ -1903,15 +1928,24 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setQuery(advLastName || advFirstName)
+    const ident = identityInput.trim()
+    const label = ident || [advLastName, advFirstName].filter(Boolean).join(' ')
+    setQuery(label)
     setShowRecent(false)
-    const label = [advLastName, advFirstName].filter(Boolean).join(' ')
-    if (label.trim()) {
-      setTransitionQuery(label.trim())
+    if (label) {
+      setTransitionQuery(label)
       setSearchTransition('visible')
       transitionStartRef.current = Date.now()
     }
-    doSearch({ query: label, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+    doSearch({
+      query: label,
+      identity: ident || undefined,
+      nom:    !ident ? advLastName  : undefined,
+      prenom: !ident ? advFirstName : undefined,
+      city: advCity, tel: searchTel || advPhone, searchMode,
+      department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+      birthYear: advBirthYear,
+    })
   }
 
   const handleRecentSearch = (q: string) => {
@@ -1921,7 +1955,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
 
   const handlePageChange = (pg: number) => {
-    doSearch({ query: buildQuery(), nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm }, pg)
+    const ident = identityInput.trim()
+    doSearch({
+      query: buildQuery(),
+      identity: ident || undefined,
+      nom:    !ident ? advLastName  : undefined,
+      prenom: !ident ? advFirstName : undefined,
+      city: advCity, tel: searchTel || advPhone, searchMode,
+      department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+      birthYear: advBirthYear,
+    }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -2325,25 +2368,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               <form onSubmit={handleSearch} className="p-6">
                 {/* Champs + bouton */}
                 <div className="flex gap-3 flex-wrap sm:flex-nowrap">
-                  <div className="relative flex-1 min-w-[120px]">
+                  <div className="relative flex-[2] min-w-[200px]">
                     <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       ref={searchInputRef}
                       type="text"
-                      value={advLastName}
-                      onChange={e => { setAdvLastName(e.target.value); setPage(1) }}
-                      placeholder="Nom"
-                      autoComplete="off"
-                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
-                    />
-                  </div>
-                  <div className="relative flex-1 min-w-[120px]">
-                    <UserCircle2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={advFirstName}
-                      onChange={e => { setAdvFirstName(e.target.value); setPage(1) }}
-                      placeholder="Prénom"
+                      value={identityInput}
+                      onChange={e => { setIdentityInput(e.target.value); setPage(1) }}
+                      placeholder="Jean Dupont ou Dupont Jean…"
                       autoComplete="off"
                       className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500"
                     />
@@ -2400,6 +2432,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
                 lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
                 jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}
+                birthYear={advBirthYear}       setBirthYear={v => { setAdvBirthYear(v); setPage(1) }}
                 // Adresse
                 city={advCity}                 setCity={v => { setAdvCity(v); setPage(1) }}
                 address={advAddress}           setAddress={v => { setAdvAddress(v); setPage(1) }}
@@ -2416,13 +2449,23 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 // Réseaux sociaux
                 linkedin={advLinkedin}         setLinkedin={v => { setAdvLinkedin(v); setPage(1) }}
                 onSearch={() => {
-                  const q = [inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+                  const ident = identityInput.trim()
+                  const q = [ident || [advFirstName, advLastName].filter(Boolean).join(' '),
+                              advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
                     .map(s => s.trim()).filter(Boolean).join(' ')
-                  setQuery(inputValue)
-                  doSearch({ query: q, nom: advLastName, prenom: advFirstName, city: advCity, tel: searchTel || advPhone, searchMode, department, activityCode, activeOnly, zipCode, employeeRange, legalForm })
+                  setQuery(ident || inputValue)
+                  doSearch({
+                    query: q,
+                    identity: ident || undefined,
+                    nom:    !ident ? advLastName  : undefined,
+                    prenom: !ident ? advFirstName : undefined,
+                    city: advCity, tel: searchTel || advPhone, searchMode,
+                    department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+                    birthYear: advBirthYear,
+                  })
                 }}
                 onReset={() => {
-                  setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                  setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle(''); setAdvBirthYear('')
                   setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
                   setAdvCompanyName(''); setAdvLinkedin('')
                   setDepartment(''); setActivityCode(''); setActiveOnly(true)
@@ -2520,8 +2563,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                 </p>
                 <button
                   onClick={() => {
-                    setInputValue(''); setQuery('')
-                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle('')
+                    setInputValue(''); setIdentityInput(''); setQuery('')
+                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle(''); setAdvBirthYear('')
                     setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
                     setAdvCompanyName(''); setAdvLinkedin('')
                     setDepartment(''); setActivityCode(''); setActiveOnly(true)

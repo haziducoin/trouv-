@@ -69,6 +69,7 @@ export interface ProspectResult {
 
 export interface ProspectSearchParams {
   query:           string
+  identity?:       string  // omnibar : "Jean Dupont" ou "Dupont Jean"
   nom?:            string
   prenom?:         string
   city?:           string
@@ -80,6 +81,7 @@ export interface ProspectSearchParams {
   employeeRange?:  string
   legalForm?:      string
   activeOnly?:     boolean
+  birthYear?:      string
   page?:           number
   perPage?:        number
 }
@@ -126,7 +128,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     department:    null,
     region:        null,
     country:       null,
-    birthYear:     null,
+    birthYear:     row.date_naissance ? (row.date_naissance.match(/[0-9]{4}/)?.[0] ?? null) : null,
     birthCity:     null,
     isActive:      true,
     createdAt:     new Date().toISOString(),
@@ -138,10 +140,11 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const pg = params.page    ?? 1
   const pp = params.perPage ?? 20
 
+  const p_identity = params.identity?.trim() || null
   let p_nom    = params.nom?.trim()    || null
   let p_prenom = params.prenom?.trim() || null
 
-  if (!p_nom && !p_prenom && params.query.trim()) {
+  if (!p_identity && !p_nom && !p_prenom && params.query.trim()) {
     const parts = params.query.trim().split(/\s+/)
     p_nom    = parts[0] || null
     p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
@@ -152,11 +155,19 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     p_offset: (pg - 1) * pp,
     p_mode:   params.searchMode ?? 'starts_with',
   }
-  if (p_nom)                  rpcParams.p_nom    = p_nom
-  if (p_prenom)               rpcParams.p_prenom = p_prenom
+  if (p_identity) {
+    // Mode omnibar : un seul champ, le backend split et rank
+    rpcParams.p_identity = p_identity
+  } else {
+    if (p_nom)    rpcParams.p_nom    = p_nom
+    if (p_prenom) rpcParams.p_prenom = p_prenom
+  }
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
   if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
+  // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
+  if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
+    rpcParams.p_annee_naissance = params.birthYear.trim()
 
   const timeoutMs = 10000
   const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
