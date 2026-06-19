@@ -1747,14 +1747,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Solde de crédits (abonnés).
   useEffect(() => {
-    if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-')) {
+    if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-') && !account.id.startsWith('preview-')) {
       getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
     }
   }, [accessLevel, account.id])
 
   // Crédits clés simulés en mode démo
   useEffect(() => {
-    if (account.id.startsWith('demo-')) {
+    if (account.id.startsWith('demo-') || account.id.startsWith('preview-')) {
       const total = account.role === 'agent' ? 50 : 100
       const used  = account.role === 'agent' ? 23 : 4
       setCreditBalance({
@@ -2301,7 +2301,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             account={account}
             creditBalance={creditBalance}
             onCreditRefresh={() => {
-              if (!account.id.startsWith('demo-')) {
+              if (!account.id.startsWith('demo-') && !account.id.startsWith('preview-')) {
                 getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
               }
             }}
