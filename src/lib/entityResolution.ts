@@ -30,9 +30,18 @@ function normalizeText(s: string | null | undefined): string {
   if (!s) return ''
   return s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // retire les diacritiques (accents, cédilles…)
+    .replace(/[̀-ͯ]/g, '')  // retire les diacritiques (accents, cédilles…)
+    .replace(/[-–—]/g, ' ')           // "Jean-Charles" → "jean charles"
+    .replace(/\s+/g, ' ')             // espaces multiples → un seul
     .toLowerCase()
     .trim()
+}
+
+function birthYear(row: RawRow): string | null {
+  const d = row.date_naissance ?? row.annee_naissance ?? null
+  if (!d) return null
+  const m = String(d).match(/\b(19|20)\d{2}\b/)
+  return m ? m[0] : null
 }
 
 function normalizePhone(p: string | null | undefined): string {
@@ -173,10 +182,10 @@ export function resolveEntities(rows: RawRow[]): RawRow[] {
         const pb = normalizePhone(b.phone_value || b.phone_masked)
         if (pa && pb && pa === pb) { union(i, j); continue }
 
-        // Condition B : même date de naissance complète
-        if (a.date_naissance && b.date_naissance && a.date_naissance === b.date_naissance) {
-          union(i, j); continue
-        }
+        // Condition B : même date de naissance complète OU même année de naissance
+        const ya = birthYear(a)
+        const yb = birthYear(b)
+        if (ya && yb && ya === yb) { union(i, j); continue }
 
         // Condition C : même adresse complète (rue obligatoire)
         const addrA = addressKey(a)
