@@ -5,6 +5,7 @@ import {
   ArrowUpRight, ArrowDownRight, Minus, UserPlus, Phone, Mail, Eye, EyeOff, Copy,
 } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase'
+import { Switch } from '@/components/ui/switch'
 import type { Account } from '@/lib/accountStore'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -379,17 +380,14 @@ function CreateUserModal({ token, onClose, onCreated }: {
             {/* Crédits */}
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <label className="text-xs font-medium text-gray-700">Crédits alloués</label>
-                <label className="flex cursor-pointer items-center gap-2">
+                <span className="text-xs font-medium text-gray-700">Crédits alloués</span>
+                <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">Illimité</span>
-                  <button
-                    type="button"
-                    onClick={() => setUnlimited(v => !v)}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${unlimited ? 'bg-blue-600' : 'bg-gray-200'}`}
-                  >
-                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${unlimited ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </button>
-                </label>
+                  <Switch
+                    checked={unlimited}
+                    onCheckedChange={setUnlimited}
+                  />
+                </div>
               </div>
               {!unlimited && (
                 <div className="grid grid-cols-2 gap-3">
