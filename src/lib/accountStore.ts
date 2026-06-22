@@ -746,7 +746,7 @@ export async function getDemoRequests(): Promise<DemoRequest[]> {
       .from('demo_requests')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) throw new Error(error.message)
+    if (error) return []
     return (data ?? []).map((r: Record<string, any>) => ({
       id:        r.id,
       userId:    r.user_id,
