@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
 import {
   BadgeCheck,
   BarChart3,
@@ -583,10 +584,12 @@ export default function AccountPanel({
             {currentAccount.role !== 'admin' && (
               <SubscriptionPanel quota={currentAccount.quota} monthlyUsage={currentAccount.monthlyUsage} isDemo={currentAccount.id === 'demo-preview'} onRequestAuth={() => setView('login')} />
             )}
-            <button type="button" onClick={onLogout}
-              className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-              <LogOut size={15} /> Se déconnecter
-            </button>
+            <LogoutDialog onConfirm={onLogout}>
+              <button type="button"
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                <LogOut size={15} /> Se déconnecter
+              </button>
+            </LogoutDialog>
           </div>
         )}
 
@@ -932,14 +935,13 @@ function Workspace({
         <SubscriptionPanel quota={account.quota} monthlyUsage={account.monthlyUsage} isDemo={account.id === 'demo-preview'} onRequestAuth={onRequestAuth} />
       )}
 
-      <button
-        type="button"
-        onClick={onLogout}
-        className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-      >
-        <LogOut size={15} />
-        Se déconnecter
-      </button>
+      <LogoutDialog onConfirm={onLogout}>
+        <button type="button"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          <LogOut size={15} /> Se déconnecter
+        </button>
+      </LogoutDialog>
     </div>
   )
 }
@@ -1085,10 +1087,12 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
         </div>
       </div>
 
-      <button type="button" onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
-        <LogOut size={15} /> Se déconnecter
-      </button>
+      <LogoutDialog onConfirm={onLogout}>
+        <button type="button"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
+          <LogOut size={15} /> Se déconnecter
+        </button>
+      </LogoutDialog>
     </div>
   )
 }

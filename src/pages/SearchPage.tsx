@@ -29,6 +29,7 @@ import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoR
 import { getSupabaseClient } from '@/lib/supabase'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
 import { NotificationPopover, type Notification as AdminNotification } from '@/components/ui/notification-popover'
 import keyGreenImg  from '@/assets/key-green.png'
@@ -418,11 +419,11 @@ function ConversionModal({
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
               <Zap size={15} /> Voir les offres et s'abonner
             </button>
-            <button
-              onClick={onLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
-              <LogOut size={14} /> Se déconnecter
-            </button>
+            <LogoutDialog onConfirm={onLogout}>
+              <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+                <LogOut size={14} /> Se déconnecter
+              </button>
+            </LogoutDialog>
           </div>
         </div>
       </div>
@@ -440,10 +441,11 @@ function ConversionModal({
         <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
           Votre accès d'essai est épuisé. Contactez-nous pour continuer.
         </p>
-        <button onClick={onLogout}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-          <LogOut size={14} /> Se déconnecter
-        </button>
+        <LogoutDialog onConfirm={onLogout}>
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            <LogOut size={14} /> Se déconnecter
+          </button>
+        </LogoutDialog>
       </div>
     </div>
   )
@@ -1426,15 +1428,14 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection, placeme
 
           {/* Separator + Logout */}
           <div className="border-t border-slate-100 py-1.5 dark:border-slate-800">
-            <button
-              onClick={() => { setOpen(false); onLogout() }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
-                <LogOut size={15} className="text-red-500" />
-              </span>
-              <span className="font-medium">Déconnexion</span>
-            </button>
+            <LogoutDialog onConfirm={() => { setOpen(false); onLogout() }}>
+              <button className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
+                  <LogOut size={15} className="text-red-500" />
+                </span>
+                <span className="font-medium">Déconnexion</span>
+              </button>
+            </LogoutDialog>
           </div>
         </div>
       )}

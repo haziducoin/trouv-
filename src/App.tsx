@@ -416,6 +416,7 @@ export default function App() {
 // ─── Page d'attente de validation ─────────────────────────────────────────────
 import trouveLogo from '@/assets/trouve-logo.png'
 import { Ban, Clock, Mail, LogOut, AlertCircle } from 'lucide-react'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
 
 function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout: () => void }) {
   return (
@@ -443,12 +444,11 @@ function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout
           </p>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          <LogOut size={14} /> Se déconnecter
-        </button>
+        <LogoutDialog onConfirm={onLogout}>
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            <LogOut size={14} /> Se déconnecter
+          </button>
+        </LogoutDialog>
       </div>
     </div>
   )
