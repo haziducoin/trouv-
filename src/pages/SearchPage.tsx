@@ -822,10 +822,11 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   onUnlock:  (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
-  const has      = kind === 'phone' ? prospect.hasPhone : prospect.hasEmail
-  const unlocked = kind === 'phone' ? prospect.phoneUnlocked : prospect.emailUnlocked
-  const value    = kind === 'phone' ? prospect.phone : prospect.email
-  const Icon     = kind === 'phone' ? Phone : Mail
+  const isPhone  = kind === 'phone'
+  const has      = isPhone ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = isPhone ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value    = isPhone ? prospect.phone : prospect.email
+  const Icon     = isPhone ? Phone : Mail
   if (!has) return null
 
   if (unlocked && value) {
@@ -876,7 +877,6 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
     try { await onUnlock(prospect, kind) } finally { setBusy(false) }
   }
 
-  const isPhone = kind === 'phone'
   return (
     <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'}`}>
       <Icon size={14} className={isPhone ? 'text-[#124bd2]' : 'text-emerald-600'} />
