@@ -1387,7 +1387,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection, placeme
 
       {/* Dropdown */}
       {open && (
-        <div className={`animate-scale-in absolute z-50 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 ${placement === 'above' ? 'bottom-full left-0 mb-2' : 'top-full right-0 mt-2'}`}>
+        <div className={`animate-scale-in absolute z-50 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 ${placement === 'above' ? 'bottom-full left-0 mb-2' : 'top-full right-0 mt-2'}`}>
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
@@ -2334,10 +2334,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
         {/* Vue Recherche */}
         {appView === 'search' && (
-          <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col overflow-x-hidden">
 
             {/* En-tête 3 colonnes */}
-            <div className="mb-7 flex items-center justify-between px-6 pt-8 lg:px-10">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-2 px-6 pt-8 lg:px-10">
               {/* Gauche — titre */}
               <div>
                 <p className="font-mono text-[13px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
@@ -2771,7 +2771,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       )}
 
       {/* ── Bottom nav mobile ────────────────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1 pb-[env(safe-area-inset-bottom,0px)]">
         {([
           { key: 'search',  label: 'Recherche', icon: Search },
           { key: 'history', label: 'Historique', icon: History },
