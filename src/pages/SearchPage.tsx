@@ -842,7 +842,7 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
         <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
           <img
             src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
-            style={{ height: '34px', width: 'auto', mixBlendMode: 'multiply' }}
+            style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }}
             alt=""
           />
         </span>
@@ -865,7 +865,7 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
         className={`ml-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${isPhone ? 'bg-[#124bd2]/20 hover:bg-[#124bd2]/30 text-[#124bd2]' : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700'}`}>
         {busy
           ? <span className={`h-3 w-3 animate-spin rounded-full border-2 border-t-transparent ${isPhone ? 'border-[#124bd2]' : 'border-emerald-600'}`} />
-          : <img src={isPhone ? lockBlueImg : lockGreenImg} style={{ height: '34px', width: 'auto' }} alt="" />}
+          : <img src={isPhone ? lockBlueImg : lockGreenImg} style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />}
         {canUnlock ? 'Débloquer' : 'Voir les offres'}
       </button>
     </span>

@@ -11,6 +11,15 @@ function fixMojibake(str: string): string {
   }
 }
 
+function maskEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const at = raw.indexOf('@')
+  if (at < 0) return raw
+  const local = raw.slice(0, at)
+  const visible = local.slice(0, 1)
+  return `${visible}${'•'.repeat(Math.max(4, local.length - 1))}@••••`
+}
+
 function toTitleCase(str: string | null | undefined): string | null {
   if (!str) return null
   const fixed = fixMojibake(str)
@@ -119,7 +128,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     phoneMobile:   null,
     hasEmail:      !!row.has_email,
     emailUnlocked,
-    email:         emailUnlocked ? (row.email_value ?? null) : (row.email_masked ?? null),
+    email:         emailUnlocked ? (row.email_value ?? null) : maskEmail(row.email_masked),
     linkedinUrl:   null,
     website:       null,
     address:       row.adresse ?? null,
