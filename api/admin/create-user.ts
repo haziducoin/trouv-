@@ -49,8 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: `Erreur organisation : ${orgError.message}` }); return
   }
 
-  // 3. Créer le profil (statut approuvé immédiatement)
-  const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+  // 3. Créer ou mettre à jour le profil (le trigger Supabase peut en avoir déjà créé un)
+  const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
     id: userId,
     organization_id: org.id,
     professional_email: email,
@@ -58,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     last_name: '',
     role: 'agent',
     access_status: 'approved',
-  })
+  }, { onConflict: 'id' })
 
   if (profileError) {
     await supabaseAdmin.auth.admin.deleteUser(userId)
