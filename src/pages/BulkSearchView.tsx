@@ -6,7 +6,7 @@ import {
   Upload, Info, FileText, Download, Phone, Mail,
 } from 'lucide-react'
 import { CsvUploadModal } from '@/components/ui/csv-upload-modal'
-import { searchProspects, unlockContactField, UnlockError, type ProspectResult, type CreditBalance } from '@/lib/prospectApi'
+import { searchProspects, getContactValue, useCredit, UnlockError, type ProspectResult, type CreditBalance } from '@/lib/prospectApi'
 import { generateBulkDemoResults } from '@/lib/demoResults'
 import { type Account } from '@/lib/accountStore'
 import keyBlueImg  from '@/assets/key-blue.png'
@@ -213,7 +213,8 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
         await new Promise(res => setTimeout(res, 800))
         value = field === 'phone' ? '+33 6 12 34 56 78' : `${prospect.firstName?.toLowerCase()}.${prospect.lastName?.toLowerCase()}@exemple.fr`
       } else {
-        value = await unlockContactField(prospect.id, field)
+        value = await getContactValue(prospect.id, field)
+        await useCredit(prospect.id, field)
         onCreditRefresh()
       }
 

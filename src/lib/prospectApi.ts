@@ -214,7 +214,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   }
 }
 
-// ─── Déblocage d'un champ (consomme 1 crédit, idempotent) ───────────────────
+// ─── Erreurs de déblocage ────────────────────────────────────────────────────
 export class UnlockError extends Error {
   public readonly code: string
   constructor(code: string, message: string) {
@@ -224,28 +224,37 @@ export class UnlockError extends Error {
   }
 }
 
-/** Débloque le téléphone ou l'email d'un contact. Renvoie la valeur complète. */
-export async function unlockContactField(contactId: string, field: UnlockField): Promise<string> {
+function parseUnlockError(error: { message?: string }): UnlockError {
+  const raw = (error.message || '').toLowerCase()
+  let code = 'unknown'
+  if (raw.includes('no_phone_credits'))   code = 'no_phone_credits'
+  else if (raw.includes('no_email_credits')) code = 'no_email_credits'
+  else if (raw.includes('no_credits'))    code = 'no_credits'
+  else if (raw.includes('not_approved'))  code = 'not_approved'
+  else if (raw.includes('no_data'))       code = 'no_data'
+  return new UnlockError(code, error.message ?? '')
+}
+
+/** Récupère la vraie valeur depuis Supabase (user approuvé, pas de check abonnement). */
+export async function getContactValue(contactId: string, field: UnlockField): Promise<string> {
   const supabase = getSupabaseClient()
-  const { data, error } = await supabase.rpc('unlock_contact_field', {
+  const { data, error } = await supabase.rpc('get_contact_value', {
     p_contact_id: Number(contactId),
     p_field:      field,
   })
-
-  if (error) {
-    // Le code métier est dans le message de l'exception PostgreSQL.
-    const raw = (error.message || '').toLowerCase()
-    let code = 'unknown'
-    if (raw.includes('no_subscription'))   code = 'no_subscription'
-    else if (raw.includes('no_phone_credits')) code = 'no_phone_credits'
-    else if (raw.includes('no_email_credits')) code = 'no_email_credits'
-    else if (raw.includes('no_credits'))    code = 'no_credits'
-    else if (raw.includes('not_approved'))  code = 'not_approved'
-    else if (raw.includes('no_data'))       code = 'no_data'
-    throw new UnlockError(code, error.message)
-  }
-
+  if (error) throw parseUnlockError(error)
+  if (!data)  throw new UnlockError('no_data', 'Valeur introuvable')
   return field === 'phone' ? (formatPhone(data as string) ?? (data as string)) : (data as string)
+}
+
+/** Consomme 1 crédit et mémorise l'unlock (idempotent, gratuit si déjà débloqué). */
+export async function useCredit(contactId: string, field: UnlockField): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.rpc('use_credit', {
+    p_contact_id: Number(contactId),
+    p_field:      field,
+  })
+  if (error) throw parseUnlockError(error)
 }
 
 // ─── Solde de crédits de l'organisation ─────────────────────────────────────
