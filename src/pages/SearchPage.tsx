@@ -2005,23 +2005,21 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   const handleAddToListConfirm = (listId: string, newListName?: string, newListEmoji?: string) => {
     if (isDemoAccount) {
-      setLists(prev => {
-        let target = listId
-        let next = [...prev]
-        if (newListName) {
-          const newList: ProspectList = { id: Date.now().toString(), name: newListName, emoji: newListEmoji ?? 'blue', contacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-          next = [...next, newList]
-          target = newList.id
-        }
-        const idx = next.findIndex(l => l.id === target)
-        if (idx !== -1 && addPopupProspect && !next[idx].contacts.some(c => c.id === addPopupProspect.id)) {
-          next[idx] = { ...next[idx], contacts: [...next[idx].contacts, { id: addPopupProspect.id, name: addPopupProspect.fullName, jobTitle: addPopupProspect.jobTitle ?? '', companyName: addPopupProspect.companyName ?? '', city: addPopupProspect.city ?? '', phone: addPopupProspect.phone ?? '', email: addPopupProspect.email ?? '', savedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() }
-        }
-        const allIds = new Set<string>()
-        next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
-        setFavorites(allIds)
-        return next
-      })
+      let target = listId
+      let next = [...lists]
+      if (newListName) {
+        const newList: ProspectList = { id: Date.now().toString(), name: newListName, emoji: newListEmoji ?? 'blue', contacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        next = [...next, newList]
+        target = newList.id
+      }
+      const idx = next.findIndex(l => l.id === target)
+      if (idx !== -1 && addPopupProspect && !next[idx].contacts.some(c => c.id === addPopupProspect.id)) {
+        next = next.map((l, i) => i !== idx ? l : { ...l, contacts: [...l.contacts, { id: addPopupProspect.id, name: addPopupProspect.fullName, jobTitle: addPopupProspect.jobTitle ?? '', companyName: addPopupProspect.companyName ?? '', city: addPopupProspect.city ?? '', phone: addPopupProspect.phone ?? '', email: addPopupProspect.email ?? '', savedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() })
+      }
+      const allIds = new Set<string>()
+      next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+      setLists(next)
+      setFavorites(allIds)
       setAddPopupProspect(null)
       return
     }
@@ -2044,13 +2042,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   const handleRemoveFromList = (listId: string, contactId: string) => {
     if (isDemoAccount) {
-      setLists(prev => {
-        const next = prev.map(l => l.id !== listId ? l : { ...l, contacts: l.contacts.filter(c => c.id !== contactId), updatedAt: new Date().toISOString() })
-        const allIds = new Set<string>()
-        next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
-        setFavorites(allIds)
-        return next
-      })
+      const next = lists.map(l => l.id !== listId ? l : { ...l, contacts: l.contacts.filter(c => c.id !== contactId), updatedAt: new Date().toISOString() })
+      const allIds = new Set<string>()
+      next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+      setLists(next)
+      setFavorites(allIds)
       return
     }
     removeFromList(listId, contactId)
