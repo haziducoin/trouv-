@@ -11,7 +11,7 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell,
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
 import AdminPage from '@/pages/AdminPage'
@@ -1984,52 +1984,25 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
     try {
-      const primaryPhoneValue = field === 'phone' ? await unlockContactField(prospect.id, 'phone') : null
-      const primaryEmailValue = field === 'email' ? await unlockContactField(prospect.id, 'email') : null
+      const primaryValue = await unlockContactField(prospect.id, field)
 
-      const allRevealedPhones: string[] = primaryPhoneValue ? [primaryPhoneValue] : []
-      const allRevealedEmails: string[] = primaryEmailValue ? [primaryEmailValue] : []
-
-      // Déblocage en lot : unlock TOUS les phones ET TOUS les emails de toutes les fiches fusionnées
-      const allIds = prospect.allIds ?? [prospect.id]
-      const unlockTasks: Array<{ id: string; f: 'phone' | 'email' }> = []
-
-      for (const id of allIds) {
-        if (id === prospect.id) {
-          // Débloquer l'autre champ sur la fiche principale
-          if (field === 'phone' && prospect.hasEmail) unlockTasks.push({ id, f: 'email' })
-          if (field === 'email' && prospect.hasPhone) unlockTasks.push({ id, f: 'phone' })
-        } else {
-          // Débloquer les deux champs sur les fiches secondaires
-          if (prospect.hasPhone) unlockTasks.push({ id, f: 'phone' })
-          if (prospect.hasEmail) unlockTasks.push({ id, f: 'email' })
-        }
-      }
+      // Déblocage en lot : même champ sur toutes les fiches fusionnées
+      const revealed: string[] = [primaryValue]
+      const secondaryIds = (prospect.allIds ?? []).filter(id => id !== prospect.id)
 
       await Promise.allSettled(
-        unlockTasks.map(async ({ id, f }) => {
+        secondaryIds.map(async (secId) => {
           try {
-            const v = await unlockContactField(id, f)
-            if (!v) return
-            if (f === 'phone' && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
-            if (f === 'email' && !allRevealedEmails.includes(v)) allRevealedEmails.push(v)
+            const v = await unlockContactField(secId, field)
+            if (v && !revealed.includes(v)) revealed.push(v)
           } catch { /* ignore si crédit insuffisant */ }
         })
       )
 
-      const patch: Partial<ProspectResult> = {}
-      if (allRevealedPhones.length > 0) {
-        patch.phone        = allRevealedPhones[0]
-        patch.phoneUnlocked = true
-        patch.mobiles      = allRevealedPhones
-        patch.mobilesLocked = []
-      }
-      if (allRevealedEmails.length > 0) {
-        patch.email        = allRevealedEmails[0]
-        patch.emailUnlocked = true
-        patch.allEmails    = allRevealedEmails
-        patch.emailsLocked = []
-      }
+      const patch: Partial<ProspectResult> = field === 'phone'
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [] }
+        : { email: primaryValue, emailUnlocked: true, allEmails: revealed, emailsLocked: [] }
+
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
       getCreditBalance().then(setCreditBalance).catch(() => {})
