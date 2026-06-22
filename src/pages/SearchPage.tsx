@@ -20,7 +20,7 @@ import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
   searchProspects, exportProspectsCSV,
-  getContactValue, useCredit, getCreditBalance, UnlockError,
+  unlockContactField, getCreditBalance, UnlockError,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
 import { generateSearchDemoResults } from '@/lib/demoResults'
@@ -1817,23 +1817,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       return
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
-    const isPlatformAdmin = PLATFORM_ADMINS.includes(account.email)
     try {
-      // 1. Récupère la vraie valeur (pas de check abonnement côté Supabase)
-      const value = await getContactValue(prospect.id, field)
+      const value = await unlockContactField(prospect.id, field)
       const patch = field === 'phone'
         ? { phone: value, phoneUnlocked: true }
         : { email: value, emailUnlocked: true }
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
-      // 2. Consomme 1 crédit (ignoré pour les admins plateforme)
-      if (!isPlatformAdmin) {
-        await useCredit(prospect.id, field)
-        getCreditBalance().then(setCreditBalance).catch(() => {})
-      }
+      getCreditBalance().then(setCreditBalance).catch(() => {})
     } catch (e) {
       if (e instanceof UnlockError &&
-          ['no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
+          ['no_subscription', 'no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
         window.location.assign('/?pricing=1')
         return
       }
