@@ -1,5 +1,6 @@
 // ─── API Prospects — recherche sécurisée (masquage serveur) + déblocage crédits ─
 import { getSupabaseClient } from '@/lib/supabase'
+import { resolveEntities, type MergedAddress } from '@/lib/entityResolution'
 
 function fixMojibake(str: string): string {
   if (!/[Ã\xC0-\xC5]/.test(str)) return str
@@ -74,6 +75,11 @@ export interface ProspectResult {
   birthCity?:    string | null
   isActive:      boolean
   createdAt:     string
+  // Entity resolution — présent quand plusieurs fiches ont été fusionnées
+  mobiles?:      string[]
+  allEmails?:    string[]
+  allAddresses?: MergedAddress[]
+  mergedCount?:  number
 }
 
 export interface ProspectSearchParams {
@@ -115,7 +121,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
   const phoneUnlocked = !!row.phone_unlocked
   const emailUnlocked = !!row.email_unlocked
 
-  return {
+  const result: ProspectResult = {
     id:            String(row.id),
     firstName,
     lastName,
@@ -147,6 +153,16 @@ function mapRow(row: Record<string, any>): ProspectResult {
     isActive:      true,
     createdAt:     new Date().toISOString(),
   }
+
+  // Champs issus de l'entity resolution (présents uniquement sur les fiches fusionnées)
+  if (row._mergedCount > 1) {
+    result.mergedCount  = row._mergedCount
+    result.mobiles      = row._phones
+    result.allEmails    = row._emails
+    result.allAddresses = row._adresses
+  }
+
+  return result
 }
 
 export async function searchProspects(params: ProspectSearchParams): Promise<ProspectSearchResponse> {
@@ -201,9 +217,12 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const rows  = (data ?? []) as Array<Record<string, any>>
   const total = rows.length > 0 ? (Number(rows[0].total_count) || rows.length) : 0
 
+  // Entity resolution : fusionne les doublons (même personne, données différentes)
+  const resolved = resolveEntities(rows)
+
   // Déduplique par id de contact ; ne garde que les fiches avec au moins un contact.
   const seen = new Set<string>()
-  const results = rows.map(mapRow).filter(p => {
+  const results = resolved.map(mapRow).filter(p => {
     if (!p.hasPhone && !p.hasEmail) return false
     if (seen.has(p.id)) return false
     seen.add(p.id)
