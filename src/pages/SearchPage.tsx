@@ -26,6 +26,7 @@ import {
 import { generateSearchDemoResults } from '@/lib/demoResults'
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
+import { getSupabaseClient } from '@/lib/supabase'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
@@ -1778,6 +1779,26 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
   }, [account.id, account.role])
 
+  // ── Notification admin : demandes en attente ────────────────────────────────
+  const [pendingCount, setPendingCount] = useState<number>(0)
+  const [adminBannerDismissed, setAdminBannerDismissed] = useState(false)
+
+  useEffect(() => {
+    if (account.role !== 'admin' || isDemoAccount) return
+    const load = async () => {
+      const { data: { session } } = await getSupabaseClient().auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      const r = await fetch('/api/admin/users?status=pending&limit=1', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null)
+      if (!r?.ok) return
+      const d = await r.json()
+      setPendingCount(d.total ?? 0)
+    }
+    load()
+  }, [account.role, isDemoAccount])
+
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
     const isDemoAccount = accountIdRef.current.startsWith('demo-') || accountIdRef.current.startsWith('preview-')
@@ -2154,7 +2175,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     }`}>
                     {appView === 'admin' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />}
                     <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                    Dashboard
+                    <span className="flex-1 text-left">Dashboard</span>
+                    {pendingCount > 0 && (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
+                    )}
                   </button>
                 </>
               )}
@@ -2251,7 +2275,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />
                 )}
                 <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                Dashboard
+                <span className="flex-1 text-left">Dashboard</span>
+                {pendingCount > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
+                )}
               </button>
             </>
           )}
@@ -2320,6 +2347,30 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
       <div className="lg:ml-60 flex flex-1 flex-col pt-14 lg:pt-0 pb-16 lg:pb-0">
+
+        {/* Bandeau notification admin — demandes en attente */}
+        {account.role === 'admin' && !adminBannerDismissed && pendingCount > 0 && (
+          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-5 py-3 dark:bg-amber-950/30 dark:border-amber-800">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+              <Bell size={14} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="flex-1 text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">{pendingCount} demande{pendingCount > 1 ? 's' : ''} d'accès</span> en attente de validation.
+            </p>
+            <button
+              onClick={() => setAppView('admin')}
+              className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700"
+            >
+              Voir le dashboard
+            </button>
+            <button
+              onClick={() => setAdminBannerDismissed(true)}
+              className="shrink-0 rounded-lg p-1.5 text-amber-500 transition hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Vue Historique */}
         {appView === 'history' && (
