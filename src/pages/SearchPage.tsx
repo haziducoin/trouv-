@@ -1744,11 +1744,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   useEffect(() => { accountIdRef.current = account.id }, [account.id])
 
   // Solde de crédits (abonnés).
+  const PLATFORM_ADMINS = ['contact@trouve.fr', 'yassine.irh@gmail.com']
   useEffect(() => {
+    if (PLATFORM_ADMINS.includes(account.email)) {
+      setCreditBalance({ phoneCredits: 999999, emailCredits: 999999, unlimited: true })
+      return
+    }
     if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-') && !account.id.startsWith('preview-')) {
       getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
     }
-  }, [accessLevel, account.id])
+  }, [accessLevel, account.id, account.email])
 
   // Crédits clés simulés en mode démo
   useEffect(() => {
