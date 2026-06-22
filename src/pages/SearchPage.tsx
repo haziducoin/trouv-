@@ -32,6 +32,7 @@ import keyGreenImg  from '@/assets/key-green.png'
 import keyBlueImg   from '@/assets/key-blue.png'
 import lockBlueImg  from '@/assets/lock-blue.png'
 import lockGreenImg from '@/assets/lock-green.png'
+import lockOpenImg  from '@/assets/lock-open.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
 import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 import BulkSearchView from '@/pages/BulkSearchView'
@@ -830,11 +831,25 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   if (unlocked && value) {
     const isMasked = kind === 'phone' && (prospect as any).phoneDemoMasked
     const href = kind === 'phone' ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    // Cadenas ouvert t! : image combinée (vert=gauche, bleu=droite)
+    const openLock = (
+      <div
+        className="animate-lock-open-pop flex-shrink-0"
+        style={{
+          width: 26, height: 26,
+          backgroundImage: `url(${lockOpenImg})`,
+          backgroundSize: '200% 100%',
+          backgroundPosition: isPhone ? '100% 50%' : '0% 50%',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+    )
     if (isMasked) {
       return (
         <div className="group relative inline-flex flex-col gap-0.5">
           <span className="inline-flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/50">
-            <Icon size={14} /> <span className="truncate tabular-nums">{value}</span>
+            {openLock}
+            <span className="animate-value-reveal truncate tabular-nums">{value}</span>
           </span>
           <span className="text-[10px] text-slate-400 dark:text-slate-500">
             Version démo · numéro partiellement masqué.{' '}
@@ -847,8 +862,9 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
     }
     return (
       <a href={href} onClick={e => e.stopPropagation()}
-        className="inline-flex max-w-full items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-[#124bd2] ring-1 ring-blue-100/80 transition hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60">
-        <Icon size={14} /> <span className="truncate">{value}</span>
+        className={`inline-flex max-w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ring-1 transition ${isPhone ? 'bg-blue-50 text-[#124bd2] ring-blue-100/80 hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60' : 'bg-emerald-50 text-emerald-700 ring-emerald-100/80 hover:bg-emerald-100 dark:bg-emerald-950/35 dark:text-emerald-300 dark:ring-emerald-900/60'}`}>
+        {openLock}
+        <span className="animate-value-reveal truncate">{value}</span>
       </a>
     )
   }
