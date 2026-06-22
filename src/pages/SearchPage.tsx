@@ -2004,6 +2004,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   }
 
   const handleAddToListConfirm = (listId: string, newListName?: string, newListEmoji?: string) => {
+    const isRealProspect = addPopupProspect?.id !== '__new_list__' && !!addPopupProspect?.fullName
+
     if (isDemoAccount) {
       let target = listId
       let next = [...lists]
@@ -2013,8 +2015,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         target = newList.id
       }
       const idx = next.findIndex(l => l.id === target)
-      if (idx !== -1 && addPopupProspect && !next[idx].contacts.some(c => c.id === addPopupProspect.id)) {
-        next = next.map((l, i) => i !== idx ? l : { ...l, contacts: [...l.contacts, { id: addPopupProspect.id, name: addPopupProspect.fullName, jobTitle: addPopupProspect.jobTitle ?? '', companyName: addPopupProspect.companyName ?? '', city: addPopupProspect.city ?? '', phone: addPopupProspect.phone ?? '', email: addPopupProspect.email ?? '', savedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() })
+      if (isRealProspect && idx !== -1 && !next[idx].contacts.some(c => c.id === addPopupProspect!.id)) {
+        next = next.map((l, i) => i !== idx ? l : { ...l, contacts: [...l.contacts, { id: addPopupProspect!.id, name: addPopupProspect!.fullName, jobTitle: addPopupProspect!.jobTitle ?? '', companyName: addPopupProspect!.companyName ?? '', city: addPopupProspect!.city ?? '', phone: addPopupProspect!.phone ?? '', email: addPopupProspect!.email ?? '', savedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() })
       }
       const allIds = new Set<string>()
       next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
@@ -2028,7 +2030,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       const created = createList(newListName, newListEmoji ?? 'blue')
       targetId = created.id
     }
-    if (addPopupProspect) {
+    if (isRealProspect && addPopupProspect) {
       addToList(targetId, addPopupProspect)
       const updated = loadLists()
       setLists(updated)
@@ -2036,6 +2038,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       updated.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
       setFavorites(allIds)
       saveFavorite(account, { targetName: addPopupProspect.fullName, targetCity: addPopupProspect.city ?? undefined }).catch(() => {})
+    } else if (!isRealProspect && newListName) {
+      setLists(loadLists())
     }
     setAddPopupProspect(null)
   }
