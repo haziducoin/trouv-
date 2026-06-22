@@ -842,7 +842,7 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
         <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
           <img
             src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
-            style={{ height: '28px', width: 'auto', mixBlendMode: 'multiply' }}
+            style={{ height: '32px', width: 'auto', mixBlendMode: 'multiply' }}
             alt=""
           />
         </span>
