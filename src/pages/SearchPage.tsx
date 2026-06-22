@@ -1785,6 +1785,26 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    const isDemoAccount = account.id.startsWith('demo-') || account.id.startsWith('preview-')
+    // ── Mode démo : simule le déblocage avec données partielles ─────────────
+    if (isDemoAccount) {
+      await new Promise(res => setTimeout(res, 600 + Math.random() * 300))
+      if (field === 'phone') {
+        const raw = prospect.phone ?? '06 12 34 •• ••'
+        const digits = raw.replace(/\D/g, '')
+        const partial = digits.length >= 6
+          ? digits.slice(0, 4).replace(/(\d{2})(\d{2})/, '$1 $2') + ' •• ••'
+          : raw
+        const patch = { phone: partial, phoneUnlocked: true, phoneDemoMasked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      } else {
+        const patch = { email: prospect.email ?? 'exemple@••••.fr', emailUnlocked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      }
+      return
+    }
     // ── Mode trial : crédits locaux ──────────────────────────────────────────
     if (isTrialAccount) {
       if (field === 'phone') {
@@ -1826,7 +1846,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       }
       setError('Déblocage impossible pour le moment. Réessayez.')
     }
-  }, [accessLevel])
+  }, [accessLevel, account.id, isTrialAccount])
 
   // Sync dark mode with <html> class
   useEffect(() => {
