@@ -19,7 +19,7 @@ import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
-  searchProspects, exportProspectsCSV,
+  searchProspects, exportProspectsCSV, formatPhone,
   unlockContactField, getCreditBalance, UnlockError,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
@@ -708,12 +708,50 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
 
           {/* Coordonnées */}
           <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {!prospect.hasPhone && !prospect.hasEmail && (
-                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
+              {prospect.mergedCount && prospect.mergedCount > 1 && (
+                <span className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <Database size={9} /> {prospect.mergedCount} fiches fusionnées
+                </span>
+              )}
+            </div>
+            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+              {/* Contact principal */}
+              <div className="flex flex-wrap gap-2">
+                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                {!prospect.hasPhone && !prospect.hasEmail && (
+                  <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+                )}
+              </div>
+
+              {/* Numéros supplémentaires (entity resolution) */}
+              {prospect.mobiles && prospect.mobiles.length > 1 && (
+                <>
+                  <div className="border-t border-slate-200 dark:border-slate-700" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres numéros détectés</p>
+                  {prospect.mobiles.slice(1).filter(m => /^0[0-9]{9}$/.test(m)).map((m, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                      <Phone size={12} className="shrink-0 text-slate-300" />
+                      <span className="font-mono tabular-nums">{formatPhone(m)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Emails supplémentaires (entity resolution) */}
+              {prospect.allEmails && prospect.allEmails.length > 1 && (
+                <>
+                  <div className="border-t border-slate-200 dark:border-slate-700" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres emails détectés</p>
+                  {prospect.allEmails.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
+                      <Mail size={12} className="shrink-0 text-slate-300" />
+                      <span className="break-all">{e}</span>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </section>
@@ -729,12 +767,25 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
           )}
 
           {/* Localisation */}
-          {(prospect.address || prospect.city || prospect.country || birthContext) && (
+          {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
             <section>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
               <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
-                {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                {/* Adresses depuis entity resolution */}
+                {prospect.allAddresses && prospect.allAddresses.length > 0
+                  ? prospect.allAddresses.map((addr, i) => (
+                      <Row
+                        key={i}
+                        icon={<MapPin size={13} className="text-slate-300" />}
+                        label={i === 0 ? 'Adresse' : 'Ancienne adresse'}
+                        value={[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                      />
+                    ))
+                  : <>
+                      {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
+                      {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                    </>
+                }
                 {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
                 {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
               </div>
@@ -914,6 +965,11 @@ function ProspectCard({
                   {prospect.fullName}
                 </button>
                 {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+                {prospect.mergedCount && prospect.mergedCount > 1 && (
+                  <span className="flex items-center gap-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400 border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+                    <Database size={8} /> ×{prospect.mergedCount}
+                  </span>
+                )}
               </div>
               <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
                 {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
@@ -1007,28 +1063,63 @@ function ProspectCard({
         </div>
       ) : (
         <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Téléphone */}
+          {/* Téléphone principal + numéros supplémentaires (entity resolution) */}
           {prospect.hasPhone
-            ? <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
+            ? <div className="space-y-1">
+                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+                {prospect.mobiles && prospect.mobiles.length > 1 &&
+                  prospect.mobiles.slice(1).filter(m => /^0[0-9]{9}$/.test(m)).map((m, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <Phone size={9} className="text-slate-300" /> {formatPhone(m)}
+                    </span>
+                  ))
+                }
+              </div>
             : <ContactChip icon={<Phone size={14} />} value="—" muted />}
 
-          {/* Email */}
+          {/* Email principal + emails supplémentaires (entity resolution) */}
           {prospect.hasEmail
-            ? <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
+            ? <div className="space-y-1">
+                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+                {prospect.allEmails && prospect.allEmails.length > 1 &&
+                  prospect.allEmails.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <Mail size={9} className="text-slate-300" /> {e}
+                    </span>
+                  ))
+                }
+              </div>
             : <ContactChip icon={<Mail size={14} />} value="—" muted />}
 
-          {/* City */}
-          {prospect.city && (
-            <p className="flex items-center gap-2">
-              <MapPin size={11} className="shrink-0 text-slate-300" />
-              <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
-            </p>
-          )}
+          {/* Adresse(s) — toutes si plusieurs (entity resolution) */}
+          {prospect.allAddresses && prospect.allAddresses.length > 0
+            ? prospect.allAddresses.map((addr, i) => (
+                <p key={i} className="flex items-start gap-2">
+                  <MapPin size={11} className="mt-0.5 shrink-0 text-slate-300" />
+                  <span className="leading-tight">
+                    {addr.rue && <>{addr.rue}<br /></>}
+                    {[addr.cp, addr.ville].filter(Boolean).join(' ')}
+                  </span>
+                </p>
+              ))
+            : prospect.city && (
+                <p className="flex items-center gap-2">
+                  <MapPin size={11} className="shrink-0 text-slate-300" />
+                  <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+                </p>
+              )
+          }
         </div>
       )}
 
       {/* Footer */}
-      <div className="mt-4">
+      <div className="mt-4 space-y-2">
+        {prospect.mergedCount && prospect.mergedCount > 1 && !isLimited && (
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <Database size={9} className="text-slate-300" />
+            <span>{prospect.mergedCount} fiches fusionnées</span>
+          </div>
+        )}
         {isLimited ? (
           <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-100 py-2 text-xs font-medium text-slate-300 dark:border-slate-800 dark:text-slate-600">
             <Lock size={11} /> Accès restreint
