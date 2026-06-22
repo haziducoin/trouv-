@@ -845,6 +845,7 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
             backgroundSize: '200% 100%',
             backgroundPosition: isPhone ? '100% 50%' : '0% 50%',
             backgroundRepeat: 'no-repeat',
+            mixBlendMode: 'multiply',
           }} />
         </span>
       </span>
