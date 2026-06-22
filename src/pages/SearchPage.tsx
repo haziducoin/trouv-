@@ -717,58 +717,34 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
               )}
             </div>
             <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              {/* Contact principal */}
-              <div className="flex flex-wrap gap-2">
+              {/* Téléphones — tous en pill identique */}
+              <div className="flex flex-col gap-2">
                 <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-                {!prospect.hasPhone && !prospect.hasEmail && (
-                  <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
-                )}
+                {prospect.phoneUnlocked
+                  ? prospect.mobiles?.slice(1).map((m, i) => (
+                      <ContactPill key={i} value={formatPhone(m) ?? m} unlocked kind="phone" />
+                    ))
+                  : prospect.mobilesLocked?.map((m, i) => (
+                      <ContactPill key={i} value={m} unlocked={false} kind="phone" />
+                    ))
+                }
               </div>
 
-              {/* Numéros supplémentaires débloqués (entity resolution) */}
-              {prospect.mobiles && prospect.mobiles.length > 1 && (
-                <>
-                  <div className="border-t border-slate-200 dark:border-slate-700" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres numéros débloqués</p>
-                  {prospect.mobiles.slice(1).map((m, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-[#124bd2]">
-                      <Phone size={12} className="shrink-0 text-[#124bd2]/50" />
-                      <span className="font-mono tabular-nums">{formatPhone(m)}</span>
-                    </div>
-                  ))}
-                </>
-              )}
+              {/* Emails — tous en pill identique */}
+              <div className="flex flex-col gap-2">
+                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                {prospect.emailUnlocked
+                  ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                      <ContactPill key={i} value={e} unlocked kind="email" />
+                    ))
+                  : prospect.emailsLocked?.map((e, i) => (
+                      <ContactPill key={i} value={e} unlocked={false} kind="email" />
+                    ))
+                }
+              </div>
 
-              {/* Numéros masqués des fiches fusionnées */}
-              {!prospect.phoneUnlocked && prospect.mobilesLocked && prospect.mobilesLocked.length > 0 && (
-                <>
-                  <div className="border-t border-slate-200 dark:border-slate-700" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    {prospect.mobilesLocked.length} autre{prospect.mobilesLocked.length > 1 ? 's' : ''} numéro{prospect.mobilesLocked.length > 1 ? 's' : ''} · débloque pour révéler
-                  </p>
-                  {prospect.mobilesLocked.map((m, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-slate-400">
-                      <Phone size={12} className="shrink-0 text-slate-300" />
-                      <span className="font-mono">{m}</span>
-                      <Lock size={10} className="text-slate-300" />
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {/* Emails supplémentaires (entity resolution) */}
-              {prospect.allEmails && prospect.allEmails.length > 1 && (
-                <>
-                  <div className="border-t border-slate-200 dark:border-slate-700" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres emails détectés</p>
-                  {prospect.allEmails.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
-                      <Mail size={12} className="shrink-0 text-slate-300" />
-                      <span className="break-all">{e}</span>
-                    </div>
-                  ))}
-                </>
+              {!prospect.hasPhone && !prospect.hasEmail && (
+                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
               )}
             </div>
           </section>
@@ -834,6 +810,43 @@ function prospectAccent(jobTitle: string | null): string {
   if (t.includes('négociateur') || t.includes('conseiller'))
     return 'bg-amber-50 text-amber-600'
   return 'bg-slate-50 text-slate-500'
+}
+
+// Pill statique (même style que ContactUnlock) — sans bouton Débloquer
+// Utilisé pour les coordonnées supplémentaires des fiches fusionnées
+function ContactPill({ value, unlocked, kind }: { value: string; unlocked: boolean; kind: 'phone' | 'email' }) {
+  const isPhone = kind === 'phone'
+  const Icon = isPhone ? Phone : Mail
+  const ringClass = isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'
+  const textClass = isPhone ? 'text-[#124bd2]' : 'text-emerald-700'
+  const iconClass = isPhone ? 'text-[#124bd2]' : 'text-emerald-600'
+
+  if (unlocked) {
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    return (
+      <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${ringClass}`}>
+        <Icon size={14} className={iconClass} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-semibold tabular-nums animate-value-reveal truncate ${textClass}`}>
+          {value}
+        </a>
+        <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+          <img src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
+            style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />
+        </span>
+      </span>
+    )
+  }
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${ringClass}`}>
+      <Icon size={14} className={iconClass} />
+      <span className={`font-semibold tabular-nums ${textClass}`}>{value}</span>
+      <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+        <img src={isPhone ? lockBlueImg : lockGreenImg}
+          style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />
+      </span>
+    </span>
+  )
 }
 
 function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
@@ -1080,39 +1093,32 @@ function ProspectCard({
         </div>
       ) : (
         <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Téléphone principal + numéros supplémentaires (entity resolution) */}
+          {/* Téléphones — tous dans le même format pill */}
           {prospect.hasPhone
-            ? <div className="space-y-1">
+            ? <div className="space-y-1.5">
                 <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-                {/* Numéros débloqués supplémentaires */}
-                {prospect.mobiles && prospect.mobiles.length > 1 &&
-                  prospect.mobiles.slice(1).map((m, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-[#124bd2]/80">
-                      <Phone size={9} className="text-[#124bd2]/50" /> {formatPhone(m)}
-                    </span>
-                  ))
+                {prospect.phoneUnlocked
+                  ? prospect.mobiles?.slice(1).map((m, i) => (
+                      <ContactPill key={i} value={formatPhone(m) ?? m} unlocked kind="phone" />
+                    ))
+                  : prospect.mobilesLocked?.map((m, i) => (
+                      <ContactPill key={i} value={m} unlocked={false} kind="phone" />
+                    ))
                 }
-                {/* Numéros masqués des fiches fusionnées */}
-                {!prospect.phoneUnlocked && prospect.mobilesLocked && prospect.mobilesLocked.map((m, i) => (
-                  <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                    <Phone size={9} className="text-slate-300" />
-                    <span className="font-mono">{m}</span>
-                    <Lock size={8} className="text-slate-300" />
-                  </span>
-                ))}
               </div>
             : <ContactChip icon={<Phone size={14} />} value="—" muted />}
 
-          {/* Email principal + emails supplémentaires (entity resolution) */}
+          {/* Emails — tous dans le même format pill */}
           {prospect.hasEmail
-            ? <div className="space-y-1">
+            ? <div className="space-y-1.5">
                 <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-                {prospect.allEmails && prospect.allEmails.length > 1 &&
-                  prospect.allEmails.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                      <Mail size={9} className="text-slate-300" /> {e}
-                    </span>
-                  ))
+                {prospect.emailUnlocked
+                  ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                      <ContactPill key={i} value={e} unlocked kind="email" />
+                    ))
+                  : prospect.emailsLocked?.map((e, i) => (
+                      <ContactPill key={i} value={e} unlocked={false} kind="email" />
+                    ))
                 }
               </div>
             : <ContactChip icon={<Mail size={14} />} value="—" muted />}
@@ -1980,23 +1986,27 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     try {
       const primaryValue = await unlockContactField(prospect.id, field)
 
-      // Déblocage en lot : unlock toutes les fiches fusionnées
+      // Déblocage en lot sur toutes les fiches fusionnées
+      const secondaryIds = (prospect.allIds ?? []).filter(id => id !== prospect.id)
       const allRevealedPhones: string[] = field === 'phone' ? [primaryValue] : []
-      if (field === 'phone' && prospect.allIds && prospect.allIds.length > 1) {
-        const secondaryIds = prospect.allIds.filter(id => id !== prospect.id)
+      const allRevealedEmails: string[] = field === 'email' ? [primaryValue] : []
+
+      if (secondaryIds.length > 0) {
         await Promise.allSettled(
           secondaryIds.map(async (secId) => {
             try {
-              const v = await unlockContactField(secId, 'phone')
-              if (v && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
-            } catch { /* ignore si crédit insuffisant pour les secondaires */ }
+              const v = await unlockContactField(secId, field)
+              if (!v) return
+              if (field === 'phone' && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
+              if (field === 'email' && !allRevealedEmails.includes(v)) allRevealedEmails.push(v)
+            } catch { /* ignore crédit insuffisant pour les secondaires */ }
           })
         )
       }
 
       const patch = field === 'phone'
         ? { phone: primaryValue, phoneUnlocked: true, mobiles: allRevealedPhones, mobilesLocked: [] }
-        : { email: primaryValue, emailUnlocked: true }
+        : { email: primaryValue, emailUnlocked: true, allEmails: allRevealedEmails, emailsLocked: [] }
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
       getCreditBalance().then(setCreditBalance).catch(() => {})

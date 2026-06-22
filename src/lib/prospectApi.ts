@@ -79,7 +79,8 @@ export interface ProspectResult {
   allIds?:        string[]        // IDs de toutes les fiches fusionnées (pour unlock en lot)
   mobiles?:       string[]        // téléphones débloqués (phone_value)
   mobilesLocked?: string[]        // téléphones masqués des autres fiches
-  allEmails?:     string[]
+  allEmails?:     string[]        // emails débloqués des fiches fusionnées
+  emailsLocked?:  string[]        // emails masqués des autres fiches
   allAddresses?:  MergedAddress[]
   mergedCount?:   number
 }
@@ -163,6 +164,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     result.mobiles       = row._phones
     result.mobilesLocked = row._phonesLocked
     result.allEmails     = row._emails
+    result.emailsLocked  = row._emailsLocked
     result.allAddresses  = row._adresses
   }
 
