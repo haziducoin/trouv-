@@ -726,15 +726,32 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
                 )}
               </div>
 
-              {/* Numéros supplémentaires (entity resolution) */}
+              {/* Numéros supplémentaires débloqués (entity resolution) */}
               {prospect.mobiles && prospect.mobiles.length > 1 && (
                 <>
                   <div className="border-t border-slate-200 dark:border-slate-700" />
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres numéros détectés</p>
-                  {prospect.mobiles.slice(1).filter(m => /^0[0-9]{9}$/.test(m)).map((m, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-slate-500">
-                      <Phone size={12} className="shrink-0 text-slate-300" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Autres numéros débloqués</p>
+                  {prospect.mobiles.slice(1).map((m, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-[#124bd2]">
+                      <Phone size={12} className="shrink-0 text-[#124bd2]/50" />
                       <span className="font-mono tabular-nums">{formatPhone(m)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Numéros masqués des fiches fusionnées */}
+              {!prospect.phoneUnlocked && prospect.mobilesLocked && prospect.mobilesLocked.length > 0 && (
+                <>
+                  <div className="border-t border-slate-200 dark:border-slate-700" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {prospect.mobilesLocked.length} autre{prospect.mobilesLocked.length > 1 ? 's' : ''} numéro{prospect.mobilesLocked.length > 1 ? 's' : ''} · débloque pour révéler
+                  </p>
+                  {prospect.mobilesLocked.map((m, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-slate-400">
+                      <Phone size={12} className="shrink-0 text-slate-300" />
+                      <span className="font-mono">{m}</span>
+                      <Lock size={10} className="text-slate-300" />
                     </div>
                   ))}
                 </>
@@ -1067,13 +1084,22 @@ function ProspectCard({
           {prospect.hasPhone
             ? <div className="space-y-1">
                 <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+                {/* Numéros débloqués supplémentaires */}
                 {prospect.mobiles && prospect.mobiles.length > 1 &&
-                  prospect.mobiles.slice(1).filter(m => /^0[0-9]{9}$/.test(m)).map((m, i) => (
-                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                      <Phone size={9} className="text-slate-300" /> {formatPhone(m)}
+                  prospect.mobiles.slice(1).map((m, i) => (
+                    <span key={i} className="flex items-center gap-1.5 text-[10px] text-[#124bd2]/80">
+                      <Phone size={9} className="text-[#124bd2]/50" /> {formatPhone(m)}
                     </span>
                   ))
                 }
+                {/* Numéros masqués des fiches fusionnées */}
+                {!prospect.phoneUnlocked && prospect.mobilesLocked && prospect.mobilesLocked.map((m, i) => (
+                  <span key={i} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                    <Phone size={9} className="text-slate-300" />
+                    <span className="font-mono">{m}</span>
+                    <Lock size={8} className="text-slate-300" />
+                  </span>
+                ))}
               </div>
             : <ContactChip icon={<Phone size={14} />} value="—" muted />}
 
@@ -1952,10 +1978,25 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
     try {
-      const value = await unlockContactField(prospect.id, field)
+      const primaryValue = await unlockContactField(prospect.id, field)
+
+      // Déblocage en lot : unlock toutes les fiches fusionnées
+      const allRevealedPhones: string[] = field === 'phone' ? [primaryValue] : []
+      if (field === 'phone' && prospect.allIds && prospect.allIds.length > 1) {
+        const secondaryIds = prospect.allIds.filter(id => id !== prospect.id)
+        await Promise.allSettled(
+          secondaryIds.map(async (secId) => {
+            try {
+              const v = await unlockContactField(secId, 'phone')
+              if (v && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
+            } catch { /* ignore si crédit insuffisant pour les secondaires */ }
+          })
+        )
+      }
+
       const patch = field === 'phone'
-        ? { phone: value, phoneUnlocked: true }
-        : { email: value, emailUnlocked: true }
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: allRevealedPhones, mobilesLocked: [] }
+        : { email: primaryValue, emailUnlocked: true }
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
       getCreditBalance().then(setCreditBalance).catch(() => {})

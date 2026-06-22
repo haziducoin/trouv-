@@ -16,10 +16,12 @@ export interface MergedAddress {
 
 /** Champs internes ajoutés par resolveEntities() sur la row canonique */
 export interface EntityResolutionMeta {
-  _phones:      string[]         // numéros normalisés uniques
-  _emails:      string[]         // emails uniques (sans téléphones)
-  _adresses:    MergedAddress[]  // adresses uniques
-  _mergedCount: number           // nombre de lignes fusionnées
+  _ids:          string[]        // tous les IDs des lignes fusionnées (pour unlock en lot)
+  _phones:       string[]        // numéros propres déjà débloqués (phone_value)
+  _phonesLocked: string[]        // numéros masqués non encore débloqués (phone_masked)
+  _emails:       string[]        // emails uniques (sans téléphones)
+  _adresses:     MergedAddress[] // adresses uniques
+  _mergedCount:  number          // nombre de lignes fusionnées
 }
 
 type RawRow = Record<string, any>
@@ -96,15 +98,24 @@ function mergeCluster(rows: RawRow[]): RawRow {
   // On prend la première ligne comme base canonique
   const base: RawRow = { ...rows[0] }
 
-  const phoneSet   = new Set<string>()
-  const emailSet   = new Set<string>()
-  const addrKeySet = new Set<string>()
-  const adresses:  MergedAddress[] = []
+  const idSet          = new Set<string>()
+  const phoneSet       = new Set<string>() // phone_value débloqués uniquement
+  const phoneLockedSet = new Set<string>() // phone_masked des lignes non débloquées
+  const emailSet       = new Set<string>()
+  const addrKeySet     = new Set<string>()
+  const adresses:      MergedAddress[] = []
 
   for (const row of rows) {
-    // Téléphones : on collecte toutes les valeurs non-nulles
-    const phone = normalizePhone(row.phone_value || row.phone_masked)
-    if (phone) phoneSet.add(phone)
+    idSet.add(String(row.id))
+
+    // Téléphone débloqué : phone_value propre
+    if (row.phone_value) {
+      const p = normalizePhone(row.phone_value)
+      if (p) phoneSet.add(p)
+    } else if (row.phone_masked) {
+      // Masqué : on garde la valeur telle quelle pour l'affichage
+      phoneLockedSet.add(row.phone_masked)
+    }
 
     // Emails : on exclut les numéros mal mappés
     const emailVal = row.email_value || row.email_masked
@@ -129,14 +140,16 @@ function mergeCluster(rows: RawRow[]): RawRow {
     if (row.has_email)      base.has_email = true
   }
 
-  // Valeur affichée principale : on reprend le phone_value / email_value de la base
-  // (le mapRow les utilisera normalement)
+  // Les phones débloqués ne sont plus "locked"
+  for (const p of phoneSet) phoneLockedSet.delete(p)
 
   const meta: EntityResolutionMeta = {
-    _phones:      [...phoneSet],
-    _emails:      [...emailSet],
-    _adresses:    adresses,
-    _mergedCount: rows.length,
+    _ids:          [...idSet],
+    _phones:       [...phoneSet],
+    _phonesLocked: [...phoneLockedSet],
+    _emails:       [...emailSet],
+    _adresses:     adresses,
+    _mergedCount:  rows.length,
   }
 
   return { ...base, ...meta }

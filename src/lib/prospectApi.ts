@@ -76,10 +76,12 @@ export interface ProspectResult {
   isActive:      boolean
   createdAt:     string
   // Entity resolution — présent quand plusieurs fiches ont été fusionnées
-  mobiles?:      string[]
-  allEmails?:    string[]
-  allAddresses?: MergedAddress[]
-  mergedCount?:  number
+  allIds?:        string[]        // IDs de toutes les fiches fusionnées (pour unlock en lot)
+  mobiles?:       string[]        // téléphones débloqués (phone_value)
+  mobilesLocked?: string[]        // téléphones masqués des autres fiches
+  allEmails?:     string[]
+  allAddresses?:  MergedAddress[]
+  mergedCount?:   number
 }
 
 export interface ProspectSearchParams {
@@ -156,10 +158,12 @@ function mapRow(row: Record<string, any>): ProspectResult {
 
   // Champs issus de l'entity resolution (présents uniquement sur les fiches fusionnées)
   if (row._mergedCount > 1) {
-    result.mergedCount  = row._mergedCount
-    result.mobiles      = row._phones
-    result.allEmails    = row._emails
-    result.allAddresses = row._adresses
+    result.mergedCount   = row._mergedCount
+    result.allIds        = row._ids
+    result.mobiles       = row._phones
+    result.mobilesLocked = row._phonesLocked
+    result.allEmails     = row._emails
+    result.allAddresses  = row._adresses
   }
 
   return result
