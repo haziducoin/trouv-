@@ -1986,9 +1986,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     try {
       const primaryValue = await unlockContactField(prospect.id, field)
 
-      // Déblocage en lot : même champ sur toutes les fiches fusionnées
+      // Déblocage en lot : uniquement les fiches qui ont réellement ce champ
       const revealed: string[] = [primaryValue]
-      const secondaryIds = (prospect.allIds ?? []).filter(id => id !== prospect.id)
+      const fieldIds   = field === 'phone' ? (prospect.phoneIds ?? []) : (prospect.emailIds ?? [])
+      const secondaryIds = fieldIds.filter(id => id !== prospect.id)
 
       await Promise.allSettled(
         secondaryIds.map(async (secId) => {

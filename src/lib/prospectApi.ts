@@ -76,7 +76,9 @@ export interface ProspectResult {
   isActive:      boolean
   createdAt:     string
   // Entity resolution — présent quand plusieurs fiches ont été fusionnées
-  allIds?:        string[]        // IDs de toutes les fiches fusionnées (pour unlock en lot)
+  allIds?:        string[]        // IDs de toutes les fiches fusionnées
+  phoneIds?:      string[]        // IDs des fiches ayant un téléphone (pour unlock ciblé)
+  emailIds?:      string[]        // IDs des fiches ayant un email (pour unlock ciblé)
   mobiles?:       string[]        // téléphones débloqués (phone_value)
   mobilesLocked?: string[]        // téléphones masqués des autres fiches
   allEmails?:     string[]        // emails débloqués des fiches fusionnées
@@ -161,6 +163,8 @@ function mapRow(row: Record<string, any>): ProspectResult {
   if (row._mergedCount > 1) {
     result.mergedCount   = row._mergedCount
     result.allIds        = row._ids
+    result.phoneIds      = row._phoneIds
+    result.emailIds      = row._emailIds
     result.mobiles       = row._phones
     result.mobilesLocked = row._phonesLocked
     result.allEmails     = row._emails

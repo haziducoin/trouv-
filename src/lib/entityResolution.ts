@@ -16,7 +16,9 @@ export interface MergedAddress {
 
 /** Champs internes ajoutés par resolveEntities() sur la row canonique */
 export interface EntityResolutionMeta {
-  _ids:          string[]        // tous les IDs des lignes fusionnées (pour unlock en lot)
+  _ids:          string[]        // tous les IDs des lignes fusionnées
+  _phoneIds:     string[]        // IDs des lignes ayant un téléphone (pour unlock ciblé)
+  _emailIds:     string[]        // IDs des lignes ayant un email (pour unlock ciblé)
   _phones:       string[]        // numéros propres déjà débloqués (phone_value)
   _phonesLocked: string[]        // numéros masqués non encore débloqués (phone_masked)
   _emails:       string[]        // emails débloqués (email_value)
@@ -100,6 +102,8 @@ function mergeCluster(rows: RawRow[]): RawRow {
   const base: RawRow = { ...rows[0] }
 
   const idSet          = new Set<string>()
+  const phoneIdSet     = new Set<string>() // IDs ayant un téléphone
+  const emailIdSet     = new Set<string>() // IDs ayant un email
   const phoneSet       = new Set<string>() // phone_value débloqués uniquement
   const phoneLockedSet = new Set<string>() // phone_masked des lignes non débloquées
   const emailSet       = new Set<string>() // email_value débloqués
@@ -110,6 +114,8 @@ function mergeCluster(rows: RawRow[]): RawRow {
   for (let ri = 0; ri < rows.length; ri++) {
     const row = rows[ri]
     idSet.add(String(row.id))
+    if (row.has_phone) phoneIdSet.add(String(row.id))
+    if (row.has_email) emailIdSet.add(String(row.id))
 
     // Téléphone débloqué : phone_value propre
     if (row.phone_value) {
@@ -153,6 +159,8 @@ function mergeCluster(rows: RawRow[]): RawRow {
 
   const meta: EntityResolutionMeta = {
     _ids:          [...idSet],
+    _phoneIds:     [...phoneIdSet],
+    _emailIds:     [...emailIdSet],
     _phones:       [...phoneSet],
     _phonesLocked: [...phoneLockedSet],
     _emails:       [...emailSet],
