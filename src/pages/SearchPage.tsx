@@ -30,6 +30,7 @@ import { getSupabaseClient } from '@/lib/supabase'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
+import { NotificationPopover, type Notification as AdminNotification } from '@/components/ui/notification-popover'
 import keyGreenImg  from '@/assets/key-green.png'
 import keyBlueImg   from '@/assets/key-blue.png'
 import lockBlueImg      from '@/assets/lock-blue.png'
@@ -1779,9 +1780,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
   }, [account.id, account.role])
 
-  // ── Notification admin : demandes en attente ────────────────────────────────
+  // ── Notifications admin ──────────────────────────────────────────────────────
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [adminBannerDismissed, setAdminBannerDismissed] = useState(false)
+  const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>([])
 
   useEffect(() => {
     if (account.role !== 'admin' || isDemoAccount) return
@@ -1789,12 +1791,23 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       const { data: { session } } = await getSupabaseClient().auth.getSession()
       const token = session?.access_token
       if (!token) return
-      const r = await fetch('/api/admin/users?status=pending&limit=1', {
+      const r = await fetch('/api/admin/users?status=pending&limit=50', {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => null)
       if (!r?.ok) return
       const d = await r.json()
-      setPendingCount(d.total ?? 0)
+      const count = d.total ?? 0
+      setPendingCount(count)
+      if (count > 0) {
+        setAdminNotifications([{
+          id: 'pending-accounts',
+          title: `${count} demande${count > 1 ? 's' : ''} d'accès en attente`,
+          description: `${count} compte${count > 1 ? 's' : ''} nécessite${count > 1 ? 'nt' : ''} une validation dans le dashboard admin.`,
+          timestamp: new Date(),
+          read: false,
+          action: () => setAppView('admin'),
+        }])
+      }
     }
     load()
   }, [account.role, isDemoAccount])
@@ -2408,6 +2421,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
               <div className="flex items-center gap-3">
+                <NotificationPopover
+                  notifications={adminNotifications}
+                  onMarkAsRead={(id) => setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
+                  onMarkAllAsRead={() => setAdminNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                />
                 <ThemeToggle size="sm" />
               </div>
             </div>

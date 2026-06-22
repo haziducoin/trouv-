@@ -170,7 +170,8 @@ export default function App() {
 
   const handleAuthenticated = (a: Account) => {
     setAccount(a)
-    setAccountPanel(null)
+    // Admin → ouvre automatiquement le panel compte en premier plan après login
+    setAccountPanel(a.role === 'admin' ? 'workspace' : null)
   }
 
   const handleLogout = async () => {

@@ -1,12 +1,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowDown,
   BadgeCheck,
   BarChart3,
   Building2,
   Gift,
   Link,
-  BriefcaseBusiness,
   Check,
   Clock3,
   CreditCard,
@@ -17,19 +15,14 @@ import {
   KeyRound,
   LogOut,
   Mail,
-  MapPin,
   MessageSquare,
-  Phone,
   Plus,
-  Search,
   ShieldCheck,
   Sparkles,
-  Target,
   TrendingUp,
   UserRound,
   UsersRound,
   X,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import trouveLogo from '@/assets/trouve-logo.png'
@@ -267,16 +260,17 @@ export default function AccountPanel({
     const oauthEnabled = oauthPreview || import.meta.env.VITE_OAUTH_ENABLED === '1'
 
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-white text-[#07113d]">
-        <div className="grid min-h-screen lg:grid-cols-[0.46fr_1fr]">
-          <aside className="relative flex min-h-screen flex-col px-6 py-4 sm:px-9 lg:px-12">
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm text-[#07113d]">
+        <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
+        <div className="relative w-full max-w-md">
+          <aside className="relative flex flex-col rounded-2xl bg-white px-6 py-8 shadow-2xl sm:px-9">
             <button
               type="button"
               aria-label="Fermer"
               onClick={onClose}
-              className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2] lg:hidden"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2]"
             >
-              <X size={17} />
+              <X size={15} />
             </button>
 
             <img src={trouveLogo} alt="trouvé!" className="h-8 w-fit sm:h-9" />
@@ -407,8 +401,6 @@ export default function AccountPanel({
               <span>Vos données sont sécurisées et ne sont jamais revendues.</span>
             </div>
           </aside>
-
-          <AuthShowcase />
         </div>
       </div>
     )
@@ -628,84 +620,6 @@ export default function AccountPanel({
   )
 }
 
-function AuthShowcase() {
-  return (
-    <section className="relative hidden min-h-screen items-center justify-center overflow-hidden bg-[#f3f7ff] p-5 lg:flex">
-      <div className="absolute inset-4 rounded-[32px] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(240,246,255,0.72)_48%,rgba(232,241,255,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_30px_100px_-70px_rgba(7,39,115,0.7)]" />
-      <div className="absolute left-20 top-20 h-72 w-72 rounded-full bg-blue-200/30 blur-[90px]" />
-      <div className="absolute bottom-16 right-16 h-80 w-80 rounded-full bg-indigo-200/30 blur-[90px]" />
-
-      <div className="relative z-10 w-full max-w-[900px]">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight text-[#07113d] xl:text-4xl">
-            <span className="block text-[#0757f8]">Retrouvez un 06, un 07</span>
-            ou un email direct
-          </h2>
-          <div className="mx-auto mt-1 h-2.5 w-48 rounded-full bg-[#0757f8]/15" />
-          <p className="mt-4 text-base leading-7 text-slate-500">
-            Nom, prénom, ville, adresse, téléphone, email ou réseau public.
-            <span className="block">Croisez les indices, puis débloquez le contact après validation.</span>
-          </p>
-        </div>
-
-        <div className="mx-auto mt-6 flex max-w-3xl items-center gap-4 rounded-2xl border border-white/80 bg-white p-2.5 shadow-[0_24px_80px_-50px_rgba(7,39,115,0.8)]">
-          <Search className="ml-3 text-slate-400" size={22} />
-          <span className="flex-1 text-left text-lg text-slate-400">Ex : Camille Moreau, Paris 16, 06 42 18 74 93</span>
-          <button className="rounded-xl bg-[#0757f8] px-6 py-3.5 text-base font-bold text-white shadow-[0_14px_35px_-18px_rgba(7,87,248,0.85)]">
-            Rechercher
-          </button>
-        </div>
-
-        <div className="mt-3 flex justify-center text-[#0757f8]">
-          <ArrowDown size={24} />
-        </div>
-
-        <div className="relative mx-auto mt-3 max-w-3xl">
-          <div className="absolute inset-x-[-70px] top-10 -z-10 h-[180px] bg-[radial-gradient(#2f7dff_1px,transparent_1px)] [background-size:18px_18px] opacity-20" />
-          <div className="grid gap-5 rounded-[26px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_-58px_rgba(7,39,115,0.9)] md:grid-cols-[1fr_210px]">
-            <div className="flex gap-5">
-              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-blue-100 to-slate-200">
-                <div className="absolute left-1/2 top-7 h-10 w-10 -translate-x-1/2 rounded-full bg-[#f1c5a5]" />
-                <div className="absolute bottom-0 left-1/2 h-16 w-20 -translate-x-1/2 rounded-t-[28px] bg-[#10245c]" />
-                <div className="absolute left-1/2 top-[44px] h-10 w-14 -translate-x-1/2 rounded-b-full bg-[#f1c5a5]" />
-                <div className="absolute left-1/2 top-[39px] h-5 w-12 -translate-x-1/2 rounded-full border-2 border-[#07113d]/60" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-[#07113d]">Camille Moreau</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">Paris 16<br />Profil public cohérent</p>
-                  </div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-[0_12px_28px_-16px_rgba(16,185,129,0.9)]">
-                    Contact trouvé <BadgeCheck size={14} />
-                  </span>
-                </div>
-                <div className="mt-5 space-y-2.5 text-[15px] font-medium text-[#07113d]">
-                  <InfoLine icon={Phone} label="06 42 18 74 93" />
-                  <InfoLine icon={Mail} label="camille.moreau@gmail.com" />
-                  <InfoLine icon={MapPin} label="Paris 16 · adresse cohérente" />
-                  <InfoLine icon={BriefcaseBusiness} label="Entreprise associée détectée" />
-                  <InfoLine icon={UsersRound} label="Homonymes filtrés" />
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <ProofCard icon={Zap} title="Résultat instantané" detail="en 2,3 secondes" />
-              <ProofCard icon={Target} title="Informations fiables" detail="Mises à jour en continu" />
-              <ProofCard icon={ShieldCheck} title="Données sécurisées" detail="Confidentielles & RGPD" />
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-7 grid max-w-4xl grid-cols-3 rounded-[24px] border border-white/80 bg-white/70 p-5 text-center shadow-[0_24px_70px_-60px_rgba(7,39,115,0.75)] backdrop-blur">
-          <Metric value="267M+" label="Données" />
-          <Metric value="25+" label="Critères" framed />
-          <Metric value="<1s" label="Résultats" />
-        </div>
-      </div>
-    </section>
-  )
-}
 
 function AuthInput({
   id,
@@ -758,36 +672,6 @@ function AuthInput({
           <EyeIcon size={19} />
         </button>
       )}
-    </div>
-  )
-}
-
-function InfoLine({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon size={18} className="text-[#0757f8]" />
-      <span>{label}</span>
-    </div>
-  )
-}
-
-function ProofCard({ icon: Icon, title, detail }: { icon: LucideIcon; title: string; detail: string }) {
-  return (
-    <div className="flex items-center gap-4 rounded-2xl bg-[#f3f7ff] p-4">
-      <Icon size={25} className="text-[#0757f8]" />
-      <div>
-        <p className="text-sm font-bold text-[#07113d]">{title}</p>
-        <p className="mt-1 text-xs text-slate-500">{detail}</p>
-      </div>
-    </div>
-  )
-}
-
-function Metric({ value, label, framed = false }: { value: string; label: string; framed?: boolean }) {
-  return (
-    <div className={framed ? 'border-x border-slate-200' : ''}>
-      <p className="text-3xl font-extrabold tracking-tight text-[#0757f8]">{value}</p>
-      <p className="mt-2 text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
     </div>
   )
 }
