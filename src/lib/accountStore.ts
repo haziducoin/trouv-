@@ -270,7 +270,7 @@ async function fetchRemoteProfiles(accountId?: string) {
   let query = supabase
     .from('profiles')
     .select(
-      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
+      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations!profiles_organization_id_fkey ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
     )
     .order('created_at', { ascending: false })
 

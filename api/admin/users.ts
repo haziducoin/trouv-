@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at,
         last_login_at,
         cgu_accepted,
-        organizations ( siren, legal_name, legal_form, administrative_status ),
+        organizations!profiles_organization_id_fkey ( siren, legal_name, legal_form, administrative_status ),
         monthly_usage ( period_start, searches_used )
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
