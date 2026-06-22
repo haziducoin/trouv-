@@ -5,6 +5,12 @@ export type UserRole = 'agent' | 'agence' | 'admin'
 export type AccessStatus = 'pending' | 'trial' | 'approved' | 'rejected' | 'suspended'
 export type OAuthProvider = 'google' | 'azure'
 
+// ─── Admins plateforme — exemptés du filtre email personnel ─────────────────
+const PLATFORM_ADMIN_EMAILS = new Set([
+  'contact@trouve.fr',
+  'yassine.irh@gmail.com',
+])
+
 // ─── Domaines email personnels bloqués ───────────────────────────────────────
 const PERSONAL_EMAIL_DOMAINS = new Set([
   'gmail.com', 'googlemail.com', 'googlemail.co.uk',
@@ -20,7 +26,9 @@ const PERSONAL_EMAIL_DOMAINS = new Set([
 ])
 
 export function isPersonalEmail(email: string): boolean {
-  const domain = email.split('@')[1]?.toLowerCase() ?? ''
+  const normalized = email.trim().toLowerCase()
+  if (PLATFORM_ADMIN_EMAILS.has(normalized)) return false
+  const domain = normalized.split('@')[1] ?? ''
   return PERSONAL_EMAIL_DOMAINS.has(domain)
 }
 
