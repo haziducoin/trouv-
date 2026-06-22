@@ -107,21 +107,24 @@ function mergeCluster(rows: RawRow[]): RawRow {
   const addrKeySet     = new Set<string>()
   const adresses:      MergedAddress[] = []
 
-  for (const row of rows) {
+  for (let ri = 0; ri < rows.length; ri++) {
+    const row = rows[ri]
     idSet.add(String(row.id))
 
     // Téléphone débloqué : phone_value propre
     if (row.phone_value) {
       const p = normalizePhone(row.phone_value)
       if (p) phoneSet.add(p)
-    } else if (row.phone_masked) {
+    } else if (ri > 0 && row.phone_masked) {
+      // La ligne de base (ri=0) est déjà le phone principal — ne pas la dupliquer
       phoneLockedSet.add(row.phone_masked)
     }
 
     // Email débloqué vs masqué
     if (row.email_value && !looksLikePhone(row.email_value)) {
       emailSet.add(row.email_value)
-    } else if (row.email_masked && !looksLikePhone(row.email_masked)) {
+    } else if (ri > 0 && row.email_masked && !looksLikePhone(row.email_masked)) {
+      // Idem pour l'email de la ligne de base
       emailLockedSet.add(row.email_masked)
     }
 

@@ -164,7 +164,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     result.mobiles       = row._phones
     result.mobilesLocked = row._phonesLocked
     result.allEmails     = row._emails
-    result.emailsLocked  = row._emailsLocked
+    result.emailsLocked  = (row._emailsLocked as string[]).map(e => maskEmail(e) ?? e)
     result.allAddresses  = row._adresses
   }
 

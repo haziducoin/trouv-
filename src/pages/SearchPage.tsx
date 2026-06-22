@@ -717,28 +717,28 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
               )}
             </div>
             <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              {/* Téléphones — tous en pill identique */}
+              {/* Téléphones — tous en pill identique, empilés */}
               <div className="flex flex-col gap-2">
-                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} /></div>
                 {prospect.phoneUnlocked
                   ? prospect.mobiles?.slice(1).map((m, i) => (
-                      <ContactPill key={i} value={formatPhone(m) ?? m} unlocked kind="phone" />
+                      <div key={i}><ContactPill value={formatPhone(m) ?? m} unlocked kind="phone" /></div>
                     ))
                   : prospect.mobilesLocked?.map((m, i) => (
-                      <ContactPill key={i} value={m} unlocked={false} kind="phone" />
+                      <div key={i}><ContactPill value={m} unlocked={false} kind="phone" /></div>
                     ))
                 }
               </div>
 
-              {/* Emails — tous en pill identique */}
+              {/* Emails — tous en pill identique, empilés */}
               <div className="flex flex-col gap-2">
-                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} /></div>
                 {prospect.emailUnlocked
                   ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                      <ContactPill key={i} value={e} unlocked kind="email" />
+                      <div key={i}><ContactPill value={e} unlocked kind="email" /></div>
                     ))
                   : prospect.emailsLocked?.map((e, i) => (
-                      <ContactPill key={i} value={e} unlocked={false} kind="email" />
+                      <div key={i}><ContactPill value={e} unlocked={false} kind="email" /></div>
                     ))
                 }
               </div>
@@ -1093,31 +1093,31 @@ function ProspectCard({
         </div>
       ) : (
         <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Téléphones — tous dans le même format pill */}
+          {/* Téléphones — tous dans le même format pill, empilés */}
           {prospect.hasPhone
-            ? <div className="space-y-1.5">
-                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+            ? <div className="flex flex-col gap-1.5">
+                <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
                 {prospect.phoneUnlocked
                   ? prospect.mobiles?.slice(1).map((m, i) => (
-                      <ContactPill key={i} value={formatPhone(m) ?? m} unlocked kind="phone" />
+                      <div key={i}><ContactPill value={formatPhone(m) ?? m} unlocked kind="phone" /></div>
                     ))
                   : prospect.mobilesLocked?.map((m, i) => (
-                      <ContactPill key={i} value={m} unlocked={false} kind="phone" />
+                      <div key={i}><ContactPill value={m} unlocked={false} kind="phone" /></div>
                     ))
                 }
               </div>
             : <ContactChip icon={<Phone size={14} />} value="—" muted />}
 
-          {/* Emails — tous dans le même format pill */}
+          {/* Emails — tous dans le même format pill, empilés */}
           {prospect.hasEmail
-            ? <div className="space-y-1.5">
-                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+            ? <div className="flex flex-col gap-1.5">
+                <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
                 {prospect.emailUnlocked
                   ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                      <ContactPill key={i} value={e} unlocked kind="email" />
+                      <div key={i}><ContactPill value={e} unlocked kind="email" /></div>
                     ))
                   : prospect.emailsLocked?.map((e, i) => (
-                      <ContactPill key={i} value={e} unlocked={false} kind="email" />
+                      <div key={i}><ContactPill value={e} unlocked={false} kind="email" /></div>
                     ))
                 }
               </div>
@@ -1984,29 +1984,52 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
     try {
-      const primaryValue = await unlockContactField(prospect.id, field)
+      const primaryPhoneValue = field === 'phone' ? await unlockContactField(prospect.id, 'phone') : null
+      const primaryEmailValue = field === 'email' ? await unlockContactField(prospect.id, 'email') : null
 
-      // Déblocage en lot sur toutes les fiches fusionnées
-      const secondaryIds = (prospect.allIds ?? []).filter(id => id !== prospect.id)
-      const allRevealedPhones: string[] = field === 'phone' ? [primaryValue] : []
-      const allRevealedEmails: string[] = field === 'email' ? [primaryValue] : []
+      const allRevealedPhones: string[] = primaryPhoneValue ? [primaryPhoneValue] : []
+      const allRevealedEmails: string[] = primaryEmailValue ? [primaryEmailValue] : []
 
-      if (secondaryIds.length > 0) {
-        await Promise.allSettled(
-          secondaryIds.map(async (secId) => {
-            try {
-              const v = await unlockContactField(secId, field)
-              if (!v) return
-              if (field === 'phone' && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
-              if (field === 'email' && !allRevealedEmails.includes(v)) allRevealedEmails.push(v)
-            } catch { /* ignore crédit insuffisant pour les secondaires */ }
-          })
-        )
+      // Déblocage en lot : unlock TOUS les phones ET TOUS les emails de toutes les fiches fusionnées
+      const allIds = prospect.allIds ?? [prospect.id]
+      const unlockTasks: Array<{ id: string; f: 'phone' | 'email' }> = []
+
+      for (const id of allIds) {
+        if (id === prospect.id) {
+          // Débloquer l'autre champ sur la fiche principale
+          if (field === 'phone' && prospect.hasEmail) unlockTasks.push({ id, f: 'email' })
+          if (field === 'email' && prospect.hasPhone) unlockTasks.push({ id, f: 'phone' })
+        } else {
+          // Débloquer les deux champs sur les fiches secondaires
+          if (prospect.hasPhone) unlockTasks.push({ id, f: 'phone' })
+          if (prospect.hasEmail) unlockTasks.push({ id, f: 'email' })
+        }
       }
 
-      const patch = field === 'phone'
-        ? { phone: primaryValue, phoneUnlocked: true, mobiles: allRevealedPhones, mobilesLocked: [] }
-        : { email: primaryValue, emailUnlocked: true, allEmails: allRevealedEmails, emailsLocked: [] }
+      await Promise.allSettled(
+        unlockTasks.map(async ({ id, f }) => {
+          try {
+            const v = await unlockContactField(id, f)
+            if (!v) return
+            if (f === 'phone' && !allRevealedPhones.includes(v)) allRevealedPhones.push(v)
+            if (f === 'email' && !allRevealedEmails.includes(v)) allRevealedEmails.push(v)
+          } catch { /* ignore si crédit insuffisant */ }
+        })
+      )
+
+      const patch: Partial<ProspectResult> = {}
+      if (allRevealedPhones.length > 0) {
+        patch.phone        = allRevealedPhones[0]
+        patch.phoneUnlocked = true
+        patch.mobiles      = allRevealedPhones
+        patch.mobilesLocked = []
+      }
+      if (allRevealedEmails.length > 0) {
+        patch.email        = allRevealedEmails[0]
+        patch.emailUnlocked = true
+        patch.allEmails    = allRevealedEmails
+        patch.emailsLocked = []
+      }
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
       getCreditBalance().then(setCreditBalance).catch(() => {})
