@@ -103,6 +103,11 @@ export interface ProspectSearchResponse {
   totalPages: number
 }
 
+function looksLikePhone(value: string | null | undefined): boolean {
+  if (!value) return false
+  return /^[0-9][0-9\s\.\-\+]{6,}$/.test(value.trim())
+}
+
 function mapRow(row: Record<string, any>): ProspectResult {
   const firstName   = toTitleCase(row.prenom) ?? ''
   const lastName    = toTitleCase(row.nom) ?? ''
@@ -128,7 +133,7 @@ function mapRow(row: Record<string, any>): ProspectResult {
     phoneMobile:   null,
     hasEmail:      !!row.has_email,
     emailUnlocked,
-    email:         emailUnlocked ? (row.email_value ?? null) : maskEmail(row.email_masked),
+    email:         emailUnlocked ? (looksLikePhone(row.email_value) ? null : (row.email_value ?? null)) : (looksLikePhone(row.email_masked) ? null : maskEmail(row.email_masked)),
     linkedinUrl:   null,
     website:       null,
     address:       row.adresse ?? null,
