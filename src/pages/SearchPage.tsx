@@ -28,6 +28,7 @@ import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
 import keyGreenImg  from '@/assets/key-green.png'
 import keyBlueImg   from '@/assets/key-blue.png'
 import lockBlueImg      from '@/assets/lock-blue.png'
@@ -1177,7 +1178,9 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
           <div key={list.id} onClick={() => onOpenList(list.id)}
             className="card-lift flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white p-5 transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-2xl">{list.emoji}</span>
+              {isListColor(list.emoji)
+                ? <ListColorDot color={list.emoji} size="lg" />
+                : <span className="text-2xl">{list.emoji}</span>}
               <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</span>
             </div>
             <p className="font-semibold text-slate-800 dark:text-slate-100">{list.name}</p>
@@ -1223,14 +1226,19 @@ function SingleListView({ list, onBack, onExport, onRemove, onGoSearch }: {
         )}
         <button onClick={onBack} className="hover:text-[#124bd2] transition font-medium">Mes listes</button>
         <ChevronRight size={12} className="text-slate-300" />
-        <span className="text-slate-600 dark:text-slate-300 font-medium truncate max-w-[180px]">{list.emoji} {list.name}</span>
+        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium truncate max-w-[180px]">
+          {isListColor(list.emoji) ? <ListColorDot color={list.emoji} size="sm" /> : list.emoji}
+          {list.name}
+        </span>
       </nav>
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <button onClick={onBack} className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#124bd2] transition font-medium">
           <ChevronLeft size={13} /> Mes listes
         </button>
         <span className="text-slate-300">|</span>
-        <span className="text-xl">{list.emoji}</span>
+        {isListColor(list.emoji)
+          ? <ListColorDot color={list.emoji} size="lg" />
+          : <span className="text-xl">{list.emoji}</span>}
         <div className="flex-1">
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{list.name}</h2>
           <p className="text-xs text-slate-400">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</p>
@@ -1275,10 +1283,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
   onConfirm: (listId: string, newName?: string, newEmoji?: string) => void; onClose: () => void
 }) {
   const [newName, setNewName] = useState('')
-  const [newEmoji, setNewEmoji] = useState('📋')
+  const [newEmoji, setNewEmoji] = useState('blue')
   const [selected, setSelected] = useState<string>('')
   const isNewList = prospect?.id === '__new_list__'
-  const EMOJIS = ['📋','🏗','🏠','🏥','💼','🎯','🌍','⭐','🔑','📊']
 
   if (!prospect) return null
 
@@ -1302,7 +1309,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
             {lists.map(l => (
               <label key={l.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-2.5 transition ${selected === l.id ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
                 <input type="radio" name="list-pick" value={l.id} checked={selected === l.id} onChange={() => setSelected(l.id)} className="accent-[#124bd2]" />
-                <span className="text-base">{l.emoji}</span>
+                {isListColor(l.emoji)
+                  ? <ListColorDot color={l.emoji} size="md" />
+                  : <span className="text-base">{l.emoji}</span>}
                 <span className="flex-1 text-sm font-semibold">{l.name}</span>
                 <span className="text-xs text-slate-400">{l.contacts.length}</span>
               </label>
@@ -1316,11 +1325,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
           </p>
           <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex : BTP Lyon, Médecins Paris…"
             className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800" />
-          <div className="mt-2 flex gap-1.5 flex-wrap">
-            {EMOJIS.map(e => (
-              <button key={e} type="button" onClick={() => setNewEmoji(e)}
-                className={`rounded-lg p-1.5 text-base transition ${newEmoji === e ? 'bg-blue-100 ring-1 ring-blue-400' : 'hover:bg-slate-100'}`}>{e}</button>
-            ))}
+          <div className="mt-3">
+            <p className="mb-2 text-xs text-slate-400">Couleur</p>
+            <ListColorPicker value={newEmoji} onChange={setNewEmoji} />
           </div>
         </div>
 
@@ -2181,7 +2188,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   ? 'bg-blue-50 text-blue-700 font-medium'
                   : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800'
               }`}>
-              <span className="text-sm leading-none">{list.emoji}</span>
+              {isListColor(list.emoji)
+                ? <ListColorDot color={list.emoji} size="sm" />
+                : <span className="text-sm leading-none">{list.emoji}</span>}
               <span className="flex-1 truncate text-left text-xs">{list.name}</span>
               <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">{list.contacts.length}</span>
             </button>
