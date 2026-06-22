@@ -830,43 +830,24 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   if (!has) return null
 
   if (unlocked && value) {
-    const isMasked = kind === 'phone' && (prospect as any).phoneDemoMasked
-    const href = kind === 'phone' ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
-    // Cadenas ouvert t! : image combinée (vert=gauche, bleu=droite)
-    const openLock = (
-      <div
-        className="animate-lock-open-pop flex-shrink-0"
-        style={{
-          width: 26, height: 26,
-          backgroundImage: `url(${lockOpenImg})`,
-          backgroundSize: '200% 100%',
-          backgroundPosition: isPhone ? '100% 50%' : '0% 50%',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
-    )
-    if (isMasked) {
-      return (
-        <div className="group relative inline-flex flex-col gap-0.5">
-          <span className="inline-flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/50">
-            {openLock}
-            <span className="animate-value-reveal truncate tabular-nums">{value}</span>
-          </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500">
-            Version démo · numéro partiellement masqué.{' '}
-            <button className="text-[#1B54FF] hover:underline font-medium" onClick={() => window.location.assign('/?pricing=1')}>
-              Abonnez-vous
-            </button>{' '}pour l'afficher.
-          </span>
-        </div>
-      )
-    }
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
     return (
-      <a href={href} onClick={e => e.stopPropagation()}
-        className={`inline-flex max-w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ring-1 transition ${isPhone ? 'bg-blue-50 text-[#124bd2] ring-blue-100/80 hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60' : 'bg-emerald-50 text-emerald-700 ring-emerald-100/80 hover:bg-emerald-100 dark:bg-emerald-950/35 dark:text-emerald-300 dark:ring-emerald-900/60'}`}>
-        {openLock}
-        <span className="animate-value-reveal truncate">{value}</span>
-      </a>
+      <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'}`}>
+        <Icon size={14} className={isPhone ? 'text-[#124bd2]' : 'text-emerald-600'} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-semibold tabular-nums animate-value-reveal truncate ${isPhone ? 'text-[#124bd2]' : 'text-emerald-700'}`}>
+          {value}
+        </a>
+        <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+          <div style={{
+            width: 28, height: 28,
+            backgroundImage: `url(${lockOpenImg})`,
+            backgroundSize: '200% 100%',
+            backgroundPosition: isPhone ? '100% 50%' : '0% 50%',
+            backgroundRepeat: 'no-repeat',
+          }} />
+        </span>
+      </span>
     )
   }
 
@@ -1790,18 +1771,18 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     const isDemoAccount = accountIdRef.current.startsWith('demo-') || accountIdRef.current.startsWith('preview-')
     // ── Mode démo : simule le déblocage avec données partielles ─────────────
     if (isDemoAccount) {
-      await new Promise(res => setTimeout(res, 600 + Math.random() * 300))
+      await new Promise(res => setTimeout(res, 500 + Math.random() * 300))
       if (field === 'phone') {
-        const raw = prospect.phone ?? '06 12 34 •• ••'
-        const digits = raw.replace(/\D/g, '')
-        const partial = digits.length >= 6
-          ? digits.slice(0, 4).replace(/(\d{2})(\d{2})/, '$1 $2') + ' •• ••'
-          : raw
-        const patch = { phone: partial, phoneUnlocked: true, phoneDemoMasked: true }
+        const r = () => String(Math.floor(Math.random() * 90) + 10)
+        const fakePhone = `06 ${r()} ${r()} ${r()} ${r()}`
+        const patch = { phone: fakePhone, phoneUnlocked: true }
         setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
         setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
       } else {
-        const patch = { email: prospect.email ?? 'exemple@••••.fr', emailUnlocked: true }
+        const names   = ['jean.dupont', 'marie.martin', 'pierre.durand', 'sophie.leblanc']
+        const domains = ['gmail.com', 'yahoo.fr', 'outlook.fr', 'hotmail.com']
+        const fakeEmail = `${names[Math.floor(Math.random() * names.length)]}@${domains[Math.floor(Math.random() * domains.length)]}`
+        const patch = { email: fakeEmail, emailUnlocked: true }
         setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
         setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
       }
