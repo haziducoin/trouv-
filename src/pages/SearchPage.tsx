@@ -1760,6 +1760,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   )
   const [showDemoToast, setShowDemoToast] = useState(false)
   const demoLocked = isTrialAccount && demoCredits.phone === 0
+  const accountIdRef = useRef(account.id)
+  useEffect(() => { accountIdRef.current = account.id }, [account.id])
 
   // Solde de crédits (abonnés).
   useEffect(() => {
@@ -1785,7 +1787,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
-    const isDemoAccount = account.id.startsWith('demo-') || account.id.startsWith('preview-')
+    const isDemoAccount = accountIdRef.current.startsWith('demo-') || accountIdRef.current.startsWith('preview-')
     // ── Mode démo : simule le déblocage avec données partielles ─────────────
     if (isDemoAccount) {
       await new Promise(res => setTimeout(res, 600 + Math.random() * 300))
@@ -1846,7 +1848,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       }
       setError('Déblocage impossible pour le moment. Réessayez.')
     }
-  }, [accessLevel, account.id, isTrialAccount])
+  }, [accessLevel, isTrialAccount])
 
   // Sync dark mode with <html> class
   useEffect(() => {
