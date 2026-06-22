@@ -30,9 +30,10 @@ import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import keyGreenImg  from '@/assets/key-green.png'
 import keyBlueImg   from '@/assets/key-blue.png'
-import lockBlueImg  from '@/assets/lock-blue.png'
-import lockGreenImg from '@/assets/lock-green.png'
-import lockOpenImg  from '@/assets/lock-open.png'
+import lockBlueImg      from '@/assets/lock-blue.png'
+import lockGreenImg     from '@/assets/lock-green.png'
+import lockOpenGreenImg from '@/assets/lock-open-green.png'
+import lockOpenBlueImg  from '@/assets/lock-open-blue.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
 import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 import BulkSearchView from '@/pages/BulkSearchView'
@@ -839,14 +840,11 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
           {value}
         </a>
         <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
-          <div style={{
-            width: 28, height: 28,
-            backgroundImage: `url(${lockOpenImg})`,
-            backgroundSize: '200% 100%',
-            backgroundPosition: isPhone ? '100% 50%' : '0% 50%',
-            backgroundRepeat: 'no-repeat',
-            mixBlendMode: 'multiply',
-          }} />
+          <img
+            src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
+            style={{ height: '28px', width: 'auto', mixBlendMode: 'multiply' }}
+            alt=""
+          />
         </span>
       </span>
     )
