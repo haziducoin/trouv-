@@ -679,9 +679,9 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-in slide-in-from-right duration-200 dark:bg-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex w-full max-w-lg max-h-[88vh] flex-col overflow-y-auto bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 dark:bg-slate-900">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
           <div className="flex items-center gap-4">
