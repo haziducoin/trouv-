@@ -420,10 +420,10 @@ export default function AccountPanel({
   useEffect(() => { const t = requestAnimationFrame(() => setEntered(true)); return () => cancelAnimationFrame(t) }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
       <section
-        className={`relative h-full w-full max-w-[620px] overflow-y-auto bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-2xl transition-transform duration-300 ease-out sm:p-8 ${entered ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`relative w-full max-w-[580px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-2xl transition-all duration-300 ease-out sm:p-8 ${entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
       >
         <header className="mb-6 flex items-start justify-between">
           <div>
