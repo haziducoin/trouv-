@@ -21,7 +21,7 @@ export function LogoutDialog({ onConfirm, children }: LogoutDialogProps) {
             <>
               <AlertDialog.Overlay asChild forceMount>
                 <motion.div
-                  className="fixed inset-0 z-[100] bg-slate-950/50 backdrop-blur-sm"
+                  className="fixed inset-0 z-[9998] bg-slate-950/60 backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -31,7 +31,8 @@ export function LogoutDialog({ onConfirm, children }: LogoutDialogProps) {
 
               <AlertDialog.Content asChild forceMount>
                 <motion.div
-                  className="fixed left-1/2 top-1/2 z-[101] w-full max-w-[380px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
+                  style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
+                  className="z-[9999] w-[calc(100vw-2rem)] max-w-[380px] rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
                   initial={{ opacity: 0, scale: 0.95, y: 8 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 8 }}

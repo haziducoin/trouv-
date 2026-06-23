@@ -680,17 +680,18 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex w-full max-w-lg max-h-[88vh] flex-col overflow-y-auto bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 dark:bg-slate-900">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex w-full max-w-lg max-h-[88vh] flex-col overflow-y-auto bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-4">
-            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-base font-bold ${prospectAccent(prospect.jobTitle)}`}>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#124bd2]/10 border border-[#124bd2]/20 text-sm font-semibold text-[#124bd2]">
               {prospectInitials(prospect.fullName)}
             </div>
             <div>
-              <h2 className="font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
-              {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
+              <h2 className="text-base font-semibold text-gray-900 tracking-tight leading-snug">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-sm text-gray-400">{prospect.jobTitle}</p>}
               {prospect.companyName && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
                   <Building2 size={11} /> {prospect.companyName}
@@ -698,53 +699,49 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
               )}
             </div>
           </div>
-          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-gray-300 transition hover:bg-gray-100 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
 
         {/* Corps */}
-        <div className="flex-1 space-y-5 p-6">
+        <div className="flex-1 space-y-6 px-6 py-5">
 
           {/* Coordonnées */}
           <section>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Coordonnées</p>
               {prospect.mergedCount && prospect.mergedCount > 1 && (
-                <span className="flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  <Database size={9} /> {prospect.mergedCount} fiches fusionnées
+                <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                  <Database size={9} className="text-gray-300" /> {prospect.mergedCount} fiches fusionnées
                 </span>
               )}
             </div>
-            <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-              {/* Téléphones — tous en pill identique, empilés */}
-              <div className="flex flex-col gap-2">
-                <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} /></div>
-                {prospect.phoneUnlocked
-                  ? prospect.mobiles?.slice(1).map((m, i) => (
-                      <div key={i}><ContactPill value={formatPhone(m) ?? m} unlocked kind="phone" /></div>
-                    ))
-                  : prospect.mobilesLocked?.map((m, i) => (
-                      <div key={i}><ContactPill value={m} unlocked={false} kind="phone" /></div>
-                    ))
-                }
-              </div>
+            <div className="border-t border-gray-100">
+              {/* Téléphones */}
+              <ModalContactRowUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {prospect.phoneUnlocked
+                ? prospect.mobiles?.slice(1).map((m, i) => (
+                    <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
+                  ))
+                : prospect.mobilesLocked?.map((m, i) => (
+                    <ContactRowStatic key={i} kind="phone" value={m} unlocked={false} coloredIcon />
+                  ))
+              }
 
-              {/* Emails — tous en pill identique, empilés */}
-              <div className="flex flex-col gap-2">
-                <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} /></div>
-                {prospect.emailUnlocked
-                  ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                      <div key={i}><ContactPill value={e} unlocked kind="email" /></div>
-                    ))
-                  : prospect.emailsLocked?.map((e, i) => (
-                      <div key={i}><ContactPill value={e} unlocked={false} kind="email" /></div>
-                    ))
-                }
-              </div>
+              {/* Emails */}
+              <ModalContactRowUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {prospect.emailUnlocked
+                ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                    <ContactRowStatic key={i} kind="email" value={e} unlocked coloredIcon />
+                  ))
+                : prospect.emailsLocked?.map((e, i) => (
+                    <ContactRowStatic key={i} kind="email" value={e} unlocked={false} coloredIcon />
+                  ))
+              }
 
               {!prospect.hasPhone && !prospect.hasEmail && (
-                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+                <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
               )}
             </div>
           </section>
@@ -752,9 +749,15 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
           {/* Entreprise */}
           {prospect.companyName && (
             <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                <Row icon={<Building2 size={13} className="text-slate-300" />} label="Employeur" value={prospect.companyName} />
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Entreprise</p>
+              <div className="border-t border-gray-100">
+                <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 size={14} className="text-gray-300 shrink-0" />
+                    <span className="text-xs text-gray-400">Employeur</span>
+                  </div>
+                  <span className="text-xs text-gray-700 font-medium text-right">{prospect.companyName}</span>
+                </div>
               </div>
             </section>
           )}
@@ -762,25 +765,59 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
           {/* Localisation */}
           {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
             <section>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
-              <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-                {/* Adresses depuis entity resolution */}
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Localisation</p>
+              <div className="border-t border-gray-100">
                 {prospect.allAddresses && prospect.allAddresses.length > 0
                   ? prospect.allAddresses.map((addr, i) => (
-                      <Row
-                        key={i}
-                        icon={<MapPin size={13} className="text-slate-300" />}
-                        label={i === 0 ? 'Adresse' : 'Ancienne adresse'}
-                        value={[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
-                      />
+                      <div key={i} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <MapPin size={14} className="text-gray-300 shrink-0" />
+                          <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre adresse'}</span>
+                        </div>
+                        <span className="text-xs text-gray-700 font-medium text-right leading-relaxed">
+                          {[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
                     ))
                   : <>
-                      {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
-                      {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                      {prospect.address && (
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex items-center gap-2.5">
+                            <MapPin size={14} className="text-gray-300 shrink-0" />
+                            <span className="text-xs text-gray-400">Adresse</span>
+                          </div>
+                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.address}</span>
+                        </div>
+                      )}
+                      {prospect.city && (
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex items-center gap-2.5">
+                            <MapPin size={14} className="text-gray-300 shrink-0" />
+                            <span className="text-xs text-gray-400">Commune</span>
+                          </div>
+                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+                        </div>
+                      )}
                     </>
                 }
-                {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
-                {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
+                {prospect.country && (
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <MapPin size={14} className="text-gray-300 shrink-0" />
+                      <span className="text-xs text-gray-400">Pays</span>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">{prospect.country}</span>
+                  </div>
+                )}
+                {birthContext && (
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <UserCircle2 size={14} className="text-gray-300 shrink-0" />
+                      <span className="text-xs text-gray-400">Homonymie</span>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">{birthContext}</span>
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -958,6 +995,151 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   )
 }
 
+// ─── Cadenas SVG "t!" — masque global référencé par id ───────────────────────
+// Le masque est déclaré une seule fois dans le DOM (voir GlobalSvgDefs),
+// tous les cadenas de la page l'utilisent via url(#trouve-t-mask).
+const PADLOCK_MASK_ID = 'trouve-t-mask'
+
+function GlobalSvgDefs() {
+  return (
+    <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+      <defs>
+        <mask id={PADLOCK_MASK_ID}>
+          <rect width="24" height="24" fill="white" />
+          <text
+            x="12.5" y="18.8" fill="black" textAnchor="middle"
+            style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontWeight: 900, fontSize: '9px', letterSpacing: '-0.5px' }}
+          >t!</text>
+        </mask>
+      </defs>
+    </svg>
+  )
+}
+
+function PadlockUnlockButton({
+  kind, onClick, busy, canUnlock,
+}: {
+  kind:       'phone' | 'email'
+  onClick:    (e: React.MouseEvent) => void
+  busy?:      boolean
+  canUnlock?: boolean
+}) {
+  const isPhone   = kind === 'phone'
+  const hoverText = isPhone ? 'group-hover:text-[#124bd2]' : 'group-hover:text-emerald-500'
+  const hoverBg   = isPhone ? 'hover:bg-blue-50'           : 'hover:bg-emerald-50'
+
+  if (!canUnlock) {
+    return (
+      <button type="button" onClick={onClick} disabled={busy}
+        className="text-[11px] font-medium text-gray-400 hover:text-[#124bd2] transition-colors disabled:opacity-50 px-1">
+        Voir les offres
+      </button>
+    )
+  }
+
+  return (
+    <button type="button" onClick={onClick} disabled={busy}
+      className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all duration-200 ${hoverBg} active:scale-95 disabled:opacity-50`}>
+      {busy ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          className={`w-4 h-4 text-gray-300 transition-colors duration-200 ${hoverText}`}
+          fill="none">
+          {/* Anse */}
+          <path d="M7 10V7A5 5 0 0117 7V10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          {/* Corps avec "t!" découpé */}
+          <rect x="3" y="10" width="18" height="12" rx="3"
+            fill="currentColor" mask={`url(#${PADLOCK_MASK_ID})`} />
+        </svg>
+      )}
+      <span className={`text-[11px] font-medium text-gray-400 transition-colors duration-200 ${hoverText}`}>
+        Débloquer
+      </span>
+    </button>
+  )
+}
+
+// ─── Ligne de contact Apple-style (grille + modale) ──────────────────────────
+function ContactRowStatic({
+  kind, value, unlocked, onUnlock, busy, canUnlock, coloredIcon,
+}: {
+  kind:         'phone' | 'email'
+  value:        string
+  unlocked:     boolean
+  onUnlock?:    (e: React.MouseEvent) => void
+  busy?:        boolean
+  canUnlock?:   boolean
+  coloredIcon?: boolean  // icône bleue (phone) ou verte (email) pour la modale
+}) {
+  const isPhone   = kind === 'phone'
+  const Icon      = isPhone ? Phone : Mail
+  const iconClass = coloredIcon
+    ? (isPhone ? 'text-[#124bd2]' : 'text-emerald-500')
+    : 'text-gray-300'
+
+  if (unlocked) {
+    const href      = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    const rowHoverBg   = isPhone ? 'hover:bg-blue-50'            : 'hover:bg-emerald-50'
+    const childHover   = isPhone ? 'group-hover:text-[#124bd2]'  : 'group-hover:text-emerald-500'
+    return (
+      <div className={`group flex items-center py-3.5 border-b border-gray-100 last:border-0 rounded-lg transition-colors cursor-pointer -mx-1 px-1 ${rowHoverBg}`}>
+        <Icon size={15} className={`${iconClass} shrink-0 mr-3 transition-colors ${childHover}`} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-mono text-xs text-gray-700 flex-1 min-w-0 truncate transition-colors animate-value-reveal ${childHover}`}>
+          {value}
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between py-3.5 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+        <Icon size={15} className={`${iconClass} shrink-0`} />
+        <span className="font-mono text-xs text-gray-500 tracking-wide truncate">{value}</span>
+      </div>
+      {onUnlock && (
+        <PadlockUnlockButton kind={kind} onClick={onUnlock} busy={busy} canUnlock={canUnlock} />
+      )}
+    </div>
+  )
+}
+
+// Ligne unlock pour la modale — gère le busy state, icône colorée
+function ModalContactRowUnlock({ prospect, kind, canUnlock, onUnlock }: {
+  prospect:  ProspectResult
+  kind:      'phone' | 'email'
+  canUnlock: boolean
+  onUnlock:  (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const isPhone = kind === 'phone'
+  const has     = isPhone ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = isPhone ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value   = isPhone ? prospect.phone : prospect.email
+  if (!has || !value) return null
+
+  const click = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try { await onUnlock(prospect, kind) } finally { setBusy(false) }
+  }
+
+  return (
+    <ContactRowStatic
+      kind={kind}
+      value={kind === 'phone' ? value : value}
+      unlocked={!!unlocked}
+      onUnlock={unlocked ? undefined : click}
+      busy={busy}
+      canUnlock={canUnlock}
+      coloredIcon
+    />
+  )
+}
+
 function ProspectCard({
   prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full', canUnlock = false, onUnlock,
 }: {
@@ -973,6 +1155,8 @@ function ProspectCard({
   const noop = async () => {}
   const initials = prospectInitials(prospect.fullName)
   const accent   = prospectAccent(prospect.jobTitle)
+  const [phoneBusy, setPhoneBusy] = useState(false)
+  const [emailBusy, setEmailBusy] = useState(false)
 
   if (viewMode === 'list') {
     const isLimited = accessLevel === 'limited'
@@ -1038,128 +1222,146 @@ function ProspectCard({
     )
   }
 
-  // Vue grille
+  // Vue grille — Apple-style
   const isLimited = accessLevel === 'limited'
+
+  const unlockPhone = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (phoneBusy) return
+    setPhoneBusy(true)
+    try { await (onUnlock ?? noop)(prospect, 'phone') } finally { setPhoneBusy(false) }
+  }
+
+  const unlockEmail = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (emailBusy) return
+    setEmailBusy(true)
+    try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
+  }
+
+  const primaryAddress = prospect.allAddresses?.[0]
+  const addressSubtitle = primaryAddress
+    ? [primaryAddress.rue, [primaryAddress.cp, primaryAddress.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    : prospect.city
+      ? [prospect.zipCode, prospect.city].filter(Boolean).join(' ')
+      : null
+
   return (
     <div
-      className={`card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}
+      className={`group flex flex-col rounded-2xl bg-white border border-[#E5E7EB] p-5 shadow-sm transition duration-200 hover:shadow-md ${isLimited ? 'cursor-default' : 'cursor-pointer'}`}
       onClick={() => !isLimited && onDetail(prospect)}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
-          {isLimited ? <Lock size={14} className="text-slate-300 dark:text-slate-600" /> : initials}
+      {/* Header — initiales + nom + sous-titre */}
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+            {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            {isLimited ? (
+              <div className="space-y-1.5 pt-0.5">
+                <BlurPill w="w-32" h="h-3.5" />
+                <BlurPill w="w-20" />
+              </div>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-gray-900 tracking-tight leading-snug truncate">{prospect.fullName}</p>
+                {(prospect.jobTitle || addressSubtitle) && (
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">
+                    {prospect.jobTitle ?? addressSubtitle}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {!isLimited && (
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
             aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
+            className={`shrink-0 transition ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'}`}
           >
             <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
         )}
       </div>
 
-      {/* Identité */}
-      <div className="mt-3">
-        {isLimited ? (
-          <div className="space-y-1.5">
-            <BlurPill w="w-36" h="h-4" />
-            <BlurPill w="w-24" />
-            <BlurPill w="w-28" />
-          </div>
-        ) : (
-          <>
-            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">{prospect.fullName}</p>
-            {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
-            {prospect.companyName && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
-                <Building2 size={10} className="shrink-0" /> {prospect.companyName}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
-
-      {/* Coordonnées */}
+      {/* Section Coordonnées */}
       {isLimited ? (
         <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2"><Phone size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-28" /></div>
-          <div className="flex items-center gap-2"><Mail size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-32" /></div>
-          <div className="flex items-center gap-2"><MapPin size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-20" /></div>
+          <div className="flex items-center gap-2"><Phone size={11} className="text-gray-200" /><BlurPill w="w-28" /></div>
+          <div className="flex items-center gap-2"><Mail size={11} className="text-gray-200" /><BlurPill w="w-32" /></div>
+          <div className="flex items-center gap-2"><MapPin size={11} className="text-gray-200" /><BlurPill w="w-20" /></div>
         </div>
       ) : (
-        <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Téléphones — tous dans le même format pill, empilés */}
-          {prospect.hasPhone
-            ? <div className="flex flex-col gap-1.5">
-                <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
-                {prospect.phoneUnlocked
-                  ? prospect.mobiles?.slice(1).map((m, i) => (
-                      <div key={i}><ContactPill value={formatPhone(m) ?? m} unlocked kind="phone" /></div>
-                    ))
-                  : prospect.mobilesLocked?.map((m, i) => (
-                      <div key={i}><ContactPill value={m} unlocked={false} kind="phone" /></div>
-                    ))
-                }
-              </div>
-            : <ContactChip icon={<Phone size={14} />} value="—" muted />}
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Coordonnées</p>
+          <div className="border-t border-gray-100">
+            {/* Téléphones */}
+            {prospect.hasPhone && (
+              <ContactRowStatic
+                kind="phone"
+                value={prospect.phone ?? ''}
+                unlocked={!!prospect.phoneUnlocked}
+                onUnlock={prospect.phoneUnlocked ? undefined : unlockPhone}
+                busy={phoneBusy}
+                canUnlock={canUnlock}
+              />
+            )}
+            {prospect.phoneUnlocked
+              ? prospect.mobiles?.slice(1).map((m, i) => (
+                  <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked />
+                ))
+              : prospect.mobilesLocked?.map((m, i) => (
+                  <ContactRowStatic key={i} kind="phone" value={m} unlocked={false}
+                    onUnlock={unlockPhone} busy={phoneBusy} canUnlock={canUnlock} />
+                ))
+            }
 
-          {/* Emails — tous dans le même format pill, empilés */}
-          {prospect.hasEmail
-            ? <div className="flex flex-col gap-1.5">
-                <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
-                {prospect.emailUnlocked
-                  ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                      <div key={i}><ContactPill value={e} unlocked kind="email" /></div>
-                    ))
-                  : prospect.emailsLocked?.map((e, i) => (
-                      <div key={i}><ContactPill value={e} unlocked={false} kind="email" /></div>
-                    ))
-                }
-              </div>
-            : <ContactChip icon={<Mail size={14} />} value="—" muted />}
+            {/* Emails */}
+            {prospect.hasEmail && (
+              <ContactRowStatic
+                kind="email"
+                value={prospect.email ?? ''}
+                unlocked={!!prospect.emailUnlocked}
+                onUnlock={prospect.emailUnlocked ? undefined : unlockEmail}
+                busy={emailBusy}
+                canUnlock={canUnlock}
+              />
+            )}
+            {prospect.emailUnlocked
+              ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                  <ContactRowStatic key={i} kind="email" value={e} unlocked />
+                ))
+              : prospect.emailsLocked?.map((e, i) => (
+                  <ContactRowStatic key={i} kind="email" value={e} unlocked={false}
+                    onUnlock={unlockEmail} busy={emailBusy} canUnlock={canUnlock} />
+                ))
+            }
 
-          {/* Adresse(s) — toutes si plusieurs (entity resolution) */}
-          {prospect.allAddresses && prospect.allAddresses.length > 0
-            ? prospect.allAddresses.map((addr, i) => (
-                <p key={i} className="flex items-start gap-2">
-                  <MapPin size={11} className="mt-0.5 shrink-0 text-slate-300" />
-                  <span className="leading-tight">
-                    {addr.rue && <>{addr.rue}<br /></>}
-                    {[addr.cp, addr.ville].filter(Boolean).join(' ')}
-                  </span>
-                </p>
-              ))
-            : prospect.city && (
-                <p className="flex items-center gap-2">
-                  <MapPin size={11} className="shrink-0 text-slate-300" />
-                  <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
-                </p>
-              )
-          }
+            {!prospect.hasPhone && !prospect.hasEmail && (
+              <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
+            )}
+          </div>
         </div>
       )}
 
       {/* Footer */}
-      <div className="mt-4 space-y-2">
-        {prospect.mergedCount && prospect.mergedCount > 1 && !isLimited && (
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-            <Database size={9} className="text-slate-300" />
-            <span>{prospect.mergedCount} fiches fusionnées</span>
-          </div>
-        )}
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+        {prospect.mergedCount && prospect.mergedCount > 1 && !isLimited ? (
+          <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+            <Database size={9} className="text-gray-300" />
+            {prospect.mergedCount} fiches fusionnées
+          </span>
+        ) : <span />}
         {isLimited ? (
-          <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-100 py-2 text-xs font-medium text-slate-300 dark:border-slate-800 dark:text-slate-600">
-            <Lock size={11} /> Accès restreint
-          </div>
+          <span className="flex items-center gap-1 text-xs font-medium text-gray-300">
+            <Lock size={10} /> Accès restreint
+          </span>
         ) : (
           <button
             onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+            className="text-xs font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
           >
             Voir la fiche <ArrowRight size={12} />
           </button>
@@ -2255,7 +2457,9 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
+    <>
+    <GlobalSvgDefs />
+    <div className="flex min-h-screen bg-[#F5F5F7] dark:bg-[#0d1424]">
 
       {/* Hard-lock démo : modal non-fermable quand crédits phone = 0 */}
       {demoLocked && (
@@ -2437,63 +2641,73 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           )}
         </nav>
 
-        {/* Jauge crédits démo */}
-        {isTrialAccount && (
-          <DemoCreditsBar phone={demoCredits.phone} email={demoCredits.email} />
-        )}
+        {/* ── Bas de sidebar : crédits + profil ────────────────────────────── */}
+        <div className="mt-auto flex flex-col gap-0">
 
-        {/* Solde de crédits (abonnés) / recherches démo */}
-        {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
-          <div className="space-y-3 border-t border-white/8 px-4 py-4">
-            {creditBalance && (
-              <>
-                <div className="flex items-center gap-3">
-                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 dark:text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-white/40">Téléphone direct</p>
+          {/* Jauge crédits démo */}
+          {isTrialAccount && (
+            <div className="px-4 pt-4">
+              <DemoCreditsBar phone={demoCredits.phone} email={demoCredits.email} />
+            </div>
+          )}
+
+          {/* Compteurs de clés */}
+          {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
+            <div className="px-4 pt-5 pb-4 border-t border-gray-100 dark:border-gray-800">
+              {creditBalance && (
+                <div className="flex flex-col gap-3">
+
+                  {/* Compteurs sur une ligne */}
+                  <div className="flex items-center justify-center gap-5">
+                    <div className="flex items-center gap-2">
+                      <img src={keyBlueImg} alt="clé téléphone"
+                        style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
+                        {creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}
+                      </span>
+                    </div>
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+                    <div className="flex items-center gap-2">
+                      <img src={keyGreenImg} alt="clé email"
+                        style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
+                        {creditBalance.unlimited ? '∞' : creditBalance.emailCredits}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Bouton Recharger — outline ghost */}
+                  {!creditBalance.unlimited && (
+                    <button onClick={() => setShowBuyKeys(true)}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-[#124bd2] hover:text-[#124bd2] hover:bg-blue-50 active:scale-95 transition-all duration-200 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
+                      <Plus size={14} />
+                      Recharger
+                    </button>
+                  )}
+
                 </div>
-                <div className="flex items-center gap-3">
-                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 dark:text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-white/40">Email direct</p>
-                  </div>
+              )}
+
+              {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-gray-400">Recherches démo</span>
+                  <span className="text-xs font-bold tabular-nums text-gray-700">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
                 </div>
-                {!creditBalance.unlimited && (
-                  <button
-                    onClick={() => setShowBuyKeys(true)}
-                    className="w-full rounded-lg bg-[#124bd2] hover:bg-[#124bd2]/80 px-3 py-2 text-xs font-semibold text-white flex items-center justify-center gap-1.5 relative overflow-hidden before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.7)_50%,transparent_75%,transparent_100%)] before:bg-[length:250%_250%,100%_100%] before:bg-[position:200%_0,0_0] before:bg-no-repeat before:transition-[background-position_0s_ease] before:duration-1000 hover:before:bg-[position:-100%_0,0_0] cursor-pointer active:scale-95"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Recharger des clés
-                  </button>
-                )}
-              </>
-            )}
-            {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/55">Recherches démo</span>
-                <span className="text-xs font-bold tabular-nums text-white">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
-              </div>
-            )}
+              )}
+            </div>
+          )}
+
+          {/* Profil utilisateur */}
+          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-3">
+            <UserMenu
+              account={account}
+              onLogout={onLogout}
+              onOpenAccount={onOpenAccount}
+              onOpenProspection={() => setShowProspectionPanel(true)}
+              placement="above"
+            />
           </div>
-        )}
 
-        {/* Compte — toujours visible en bas du sidebar */}
-        <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-3">
-          <UserMenu
-            account={account}
-            onLogout={onLogout}
-            onOpenAccount={onOpenAccount}
-            onOpenProspection={() => setShowProspectionPanel(true)}
-            placement="above"
-          />
         </div>
 
       </aside>
@@ -2602,24 +2816,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
                 </h1>
               </div>
-
-              {/* Centre — compteur de clés */}
-              {accessLevel === 'full' && account.role !== 'agent' && (
-                <div className="hidden items-center gap-6 sm:flex">
-                  <div className="flex items-center gap-3">
-                    <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.phoneCredits} restantes`) : '— restantes'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} onMouseEnter={bounceKey} />
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.emailCredits} restantes`) : '— restantes'}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* Droite — contrôles */}
               <div className="flex items-center gap-2">
@@ -3042,5 +3238,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
       <BuyKeysModal open={showBuyKeys} onClose={() => setShowBuyKeys(false)} />
     </div>
+    </>
   )
 }
