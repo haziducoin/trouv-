@@ -41,6 +41,7 @@ import lockOpenBlueImg  from '@/assets/lock-open-blue.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
 import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 import BulkSearchView from '@/pages/BulkSearchView'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -2027,7 +2028,17 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
       <AdvSection id="address" icon={<MapPin size={15} />} title="Adresse"
         color="bg-emerald-50 text-emerald-600" open={open.includes('address')} onToggle={() => tog('address')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="Rue / Adresse" value={address} onChange={setAddress} onEnter={onSearch} placeholder="122 Boulevard Murat" />
+          <AddressAutocomplete
+              label="Rue / Adresse"
+              value={address}
+              placeholder="122 Boulevard Murat"
+              onSelect={result => {
+                setAddress(result.adresse)
+                setCity(result.ville)
+                setZipCode(result.codePostal)
+                onSearch()
+              }}
+            />
           <AdvInput label="Ville" value={city} onChange={setCity} onEnter={onSearch} placeholder="Paris" />
           <AdvInput label="Code postal" value={zipCode}
             onChange={v => setZipCode(v.replace(/\D/g, '').slice(0, 5))}
@@ -2423,7 +2434,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       identity: ident || undefined,
       nom:    !ident ? advLastName  : undefined,
       prenom: !ident ? advFirstName : undefined,
-      city: advCity, tel: searchTel || advPhone, searchMode,
+      city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
       department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
       birthYear: advBirthYear,
     })
@@ -2442,7 +2453,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       identity: ident || undefined,
       nom:    !ident ? advLastName  : undefined,
       prenom: !ident ? advFirstName : undefined,
-      city: advCity, tel: searchTel || advPhone, searchMode,
+      city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
       department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
       birthYear: advBirthYear,
     }, pg)
@@ -3007,7 +3018,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     identity: ident || undefined,
                     nom:    !ident ? advLastName  : undefined,
                     prenom: !ident ? advFirstName : undefined,
-                    city: advCity, tel: searchTel || advPhone, searchMode,
+                    city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
                     department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
                     birthYear: advBirthYear,
                   })

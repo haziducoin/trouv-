@@ -149,6 +149,7 @@ export interface ProspectSearchParams {
   nom?:            string
   prenom?:         string
   city?:           string
+  address?:        string
   tel?:            string
   searchMode?:     'exact' | 'starts_with' | 'ends_with' | 'contains'
   department?:     string
@@ -260,6 +261,7 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   }
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
+  if (params.address?.trim()) rpcParams.p_adresse = params.address.trim()
   if (params.tel?.trim()) {
     const clean = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
     let normalizedTel = clean
