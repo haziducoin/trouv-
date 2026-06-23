@@ -1865,8 +1865,9 @@ interface AdvancedFiltersProps {
   // Réseaux sociaux
   linkedin: string; setLinkedin: (v: string) => void
   // Actions
-  onSearch: () => void
-  onReset:  () => void
+  onSearch:        () => void
+  onAddressSelect: (result: import('@/components/ui/address-autocomplete').AddressResult) => void
+  onReset:         () => void
 }
 
 function AdvSection({
@@ -1954,7 +1955,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
     phone, setPhone, email, setEmail,
     companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
     linkedin, setLinkedin,
-    onSearch, onReset,
+    onSearch, onAddressSelect, onReset,
   } = props
 
   const [open, setOpen] = useState<string[]>(['civil', 'origin', 'contact', 'address', 'networks', 'other'])
@@ -2036,7 +2037,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
                 setAddress(result.adresse)
                 setCity(result.ville)
                 setZipCode(result.codePostal)
-                onSearch()
+                onAddressSelect(result)
               }}
             />
           <AdvInput label="Ville" value={city} onChange={setCity} onEnter={onSearch} placeholder="Paris" />
@@ -2966,7 +2967,17 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                       setAdvAddress(result.adresse)
                       setAdvCity(result.ville)
                       setZipCode(result.codePostal)
-                      handleSearch()
+                      const ident = identityInput.trim()
+                      doSearch({
+                        query: ident,
+                        identity: ident || undefined,
+                        address: result.adresse,
+                        city: result.ville,
+                        zipCode: result.codePostal,
+                        tel: searchTel,
+                        searchMode, department, activityCode, activeOnly,
+                        employeeRange, legalForm, birthYear: advBirthYear,
+                      })
                     }}
                   />
                 </div>
@@ -3035,6 +3046,22 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                     city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
                     department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
                     birthYear: advBirthYear,
+                  })
+                }}
+                onAddressSelect={result => {
+                  setAdvAddress(result.adresse)
+                  setAdvCity(result.ville)
+                  setZipCode(result.codePostal)
+                  const ident = identityInput.trim()
+                  doSearch({
+                    query: ident,
+                    identity: ident || undefined,
+                    address: result.adresse,
+                    city: result.ville,
+                    zipCode: result.codePostal,
+                    tel: searchTel || advPhone,
+                    searchMode, department, activityCode, activeOnly,
+                    employeeRange, legalForm, birthYear: advBirthYear,
                   })
                 }}
                 onReset={() => {
