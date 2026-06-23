@@ -1170,31 +1170,30 @@ function ProspectCard({
       setEmailBusy(true); try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
     }
 
-    // Compile toutes les lignes téléphone (principale + fusionnées)
+    // Compile toutes les lignes téléphone (principale + fusionnées) — filtre les nulls DB
     const phoneRows: { value: string; unlocked: boolean }[] = []
     if (prospect.hasPhone && prospect.phone) {
       phoneRows.push({ value: prospect.phone, unlocked: !!prospect.phoneUnlocked })
     }
     if (prospect.phoneUnlocked) {
       prospect.mobiles?.forEach(m => {
+        if (!m) return
         const fmt = formatPhone(m) ?? m
-        if (fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
+        if (fmt && fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
       })
     } else {
-      prospect.mobilesLocked?.forEach(m => phoneRows.push({ value: m, unlocked: false }))
+      prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
     }
 
-    // Compile toutes les lignes email (principale + fusionnées)
+    // Compile toutes les lignes email (principale + fusionnées) — filtre les nulls DB
     const emailRows: { value: string; unlocked: boolean }[] = []
     if (prospect.hasEmail && prospect.email) {
       emailRows.push({ value: prospect.email, unlocked: !!prospect.emailUnlocked })
     }
     if (prospect.emailUnlocked) {
-      prospect.allEmails?.forEach(e => {
-        if (e !== prospect.email) emailRows.push({ value: e, unlocked: true })
-      })
+      prospect.allEmails?.forEach(em => { if (em && em !== prospect.email) emailRows.push({ value: em, unlocked: true }) })
     } else {
-      prospect.emailsLocked?.forEach(e => emailRows.push({ value: e, unlocked: false }))
+      prospect.emailsLocked?.forEach(em => { if (em) emailRows.push({ value: em, unlocked: false }) })
     }
 
     return (
@@ -1240,7 +1239,7 @@ function ProspectCard({
               {phoneRows.map((p, i) => (
                 <div key={i} className="flex items-center gap-2 min-w-0">
                   {p.unlocked ? (
-                    <a href={`tel:${p.value.replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
+                    <a href={`tel:${(p.value ?? '').replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
                       className="font-mono text-sm text-[#124bd2] hover:underline truncate flex-1">
                       {p.value}
                     </a>
@@ -2336,6 +2335,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
     const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
                     !params.zipCode && !params.employeeRange && !params.legalForm
+
+    // Recherche par téléphone seul sans aucun autre critère → timeout RPC assuré
+    const hasName = !!(params.identity?.trim() || params.nom?.trim() || params.prenom?.trim())
+    const hasTelOnly = !!(params.tel?.trim()) && !hasName && !params.city?.trim() &&
+                       !params.department && !params.activityCode && !params.zipCode
+    if (hasTelOnly) {
+      setError('Ajoutez un nom ou une ville pour rechercher par numéro de téléphone.')
+      setLoading(false)
+      return
+    }
 
     // Mode démo : résultats fictifs sans appel API
     if (account.id.startsWith('demo-')) {
