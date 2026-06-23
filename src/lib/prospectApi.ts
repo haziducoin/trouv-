@@ -261,8 +261,12 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
   if (params.tel?.trim()) {
-    // Normalise avant envoi : supprime espaces, tirets, points, parenthèses
-    const normalizedTel = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
+    const clean = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
+    let normalizedTel = clean
+    // Convertit le format national français → international +33 (format DB)
+    if (/^0[1-9]\d{8}$/.test(clean))               normalizedTel = '+33' + clean.slice(1)
+    else if (/^[1-9]\d{8}$/.test(clean))            normalizedTel = '+33' + clean
+    else if (clean.startsWith('0033'))               normalizedTel = '+' + clean.slice(2)
     if (normalizedTel) rpcParams.p_tel = normalizedTel
   }
   // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
