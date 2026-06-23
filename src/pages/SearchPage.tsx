@@ -2957,6 +2957,20 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   </button>
                 </div>
 
+                {/* Ligne adresse */}
+                <div className="mt-3">
+                  <AddressAutocomplete
+                    value={advAddress}
+                    placeholder="Rechercher par adresse… ex: 10 Rue de la Paix Paris"
+                    onSelect={result => {
+                      setAdvAddress(result.adresse)
+                      setAdvCity(result.ville)
+                      setZipCode(result.codePostal)
+                      handleSearch()
+                    }}
+                  />
+                </div>
+
                 {/* Recherche avancée — ghost button */}
                 <div className="mt-4 flex items-center justify-between">
                   <button
