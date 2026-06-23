@@ -263,10 +263,12 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.tel?.trim()) {
     const clean = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
     let normalizedTel = clean
-    // Convertit le format national français → international +33 (format DB)
-    if (/^0[1-9]\d{8}$/.test(clean))               normalizedTel = '+33' + clean.slice(1)
-    else if (/^[1-9]\d{8}$/.test(clean))            normalizedTel = '+33' + clean
-    else if (clean.startsWith('0033'))               normalizedTel = '+' + clean.slice(2)
+    // Index GIN trigram sur mobile/telephone (stockés +33XXXXXXXXX)
+    // → on extrait les 9 chiffres significatifs communs aux deux formats
+    // 0789291368 → 789291368   (LIKE '%789291368%' matche +33789291368) ✓
+    if      (clean.startsWith('+33'))  normalizedTel = clean.slice(3)
+    else if (clean.startsWith('0033')) normalizedTel = clean.slice(4)
+    else if (/^0[1-9]\d{8}$/.test(clean)) normalizedTel = clean.slice(1)
     if (normalizedTel) rpcParams.p_tel = normalizedTel
   }
   // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
