@@ -1170,18 +1170,45 @@ function ProspectCard({
       setEmailBusy(true); try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
     }
 
+    // Compile toutes les lignes téléphone (principale + fusionnées)
+    const phoneRows: { value: string; unlocked: boolean }[] = []
+    if (prospect.hasPhone && prospect.phone) {
+      phoneRows.push({ value: prospect.phone, unlocked: !!prospect.phoneUnlocked })
+    }
+    if (prospect.phoneUnlocked) {
+      prospect.mobiles?.forEach(m => {
+        const fmt = formatPhone(m) ?? m
+        if (fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
+      })
+    } else {
+      prospect.mobilesLocked?.forEach(m => phoneRows.push({ value: m, unlocked: false }))
+    }
+
+    // Compile toutes les lignes email (principale + fusionnées)
+    const emailRows: { value: string; unlocked: boolean }[] = []
+    if (prospect.hasEmail && prospect.email) {
+      emailRows.push({ value: prospect.email, unlocked: !!prospect.emailUnlocked })
+    }
+    if (prospect.emailUnlocked) {
+      prospect.allEmails?.forEach(e => {
+        if (e !== prospect.email) emailRows.push({ value: e, unlocked: true })
+      })
+    } else {
+      prospect.emailsLocked?.forEach(e => emailRows.push({ value: e, unlocked: false }))
+    }
+
     return (
       <div
-        className={`group flex items-center gap-4 bg-white border border-gray-100 rounded-xl px-5 py-3.5 transition-all duration-200 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-gray-200'}`}
+        className={`group flex items-start gap-4 bg-white border border-gray-100 rounded-xl px-5 py-4 transition-all duration-200 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-gray-200'}`}
         onClick={() => !isLimited && onDetail(prospect)}
       >
-        {/* Avatar */}
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+        {/* Avatar — aligné en haut */}
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
           {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
         </div>
 
         {/* Identité */}
-        <div className="min-w-0 w-52 shrink-0">
+        <div className="min-w-0 w-52 shrink-0 pt-0.5">
           {isLimited ? (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
@@ -1204,61 +1231,65 @@ function ProspectCard({
           )}
         </div>
 
-        {/* Coordonnées — masquées ou débloquées */}
+        {/* Coordonnées multi-lignes */}
         {!isLimited && (
-          <div className="hidden md:flex items-center gap-8 flex-1 min-w-0">
+          <div className="hidden md:flex items-start gap-8 flex-1 min-w-0 pt-0.5">
 
-            {/* Téléphone */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              {prospect.hasPhone ? (
-                prospect.phoneUnlocked && prospect.phone ? (
-                  <a href={`tel:${prospect.phone.replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
-                    className="font-mono text-sm text-[#124bd2] hover:underline truncate">
-                    {prospect.phone}
-                  </a>
-                ) : (
-                  <>
-                    <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{prospect.phone ?? ''}</span>
-                    <PadlockUnlockButton kind="phone" onClick={unlockPhoneList} busy={phoneBusy} canUnlock={canUnlock} />
-                  </>
-                )
-              ) : null}
+            {/* Colonne Téléphones */}
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              {phoneRows.map((p, i) => (
+                <div key={i} className="flex items-center gap-2 min-w-0">
+                  {p.unlocked ? (
+                    <a href={`tel:${p.value.replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
+                      className="font-mono text-sm text-[#124bd2] hover:underline truncate flex-1">
+                      {p.value}
+                    </a>
+                  ) : (
+                    <>
+                      <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{p.value}</span>
+                      <PadlockUnlockButton kind="phone" onClick={unlockPhoneList} busy={phoneBusy} canUnlock={canUnlock} />
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
 
-            {/* Email */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              {prospect.hasEmail ? (
-                prospect.emailUnlocked && prospect.email ? (
-                  <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
-                    className="font-mono text-sm text-emerald-600 hover:underline truncate">
-                    {prospect.email}
-                  </a>
-                ) : (
-                  <>
-                    <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{prospect.email ?? ''}</span>
-                    <PadlockUnlockButton kind="email" onClick={unlockEmailList} busy={emailBusy} canUnlock={canUnlock} />
-                  </>
-                )
-              ) : null}
+            {/* Colonne Emails */}
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              {emailRows.map((e, i) => (
+                <div key={i} className="flex items-center gap-2 min-w-0">
+                  {e.unlocked ? (
+                    <a href={`mailto:${e.value}`} onClick={ev => ev.stopPropagation()}
+                      className="font-mono text-sm text-emerald-600 hover:underline truncate flex-1">
+                      {e.value}
+                    </a>
+                  ) : (
+                    <>
+                      <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{e.value}</span>
+                      <PadlockUnlockButton kind="email" onClick={unlockEmailList} busy={emailBusy} canUnlock={canUnlock} />
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
 
           </div>
         )}
         {isLimited && (
-          <div className="hidden md:flex items-center gap-4 flex-1">
+          <div className="hidden md:flex items-center gap-4 flex-1 pt-0.5">
             <BlurPill w="w-32" /><BlurPill w="w-40" />
           </div>
         )}
 
         {/* Actions droite */}
-        <div className={`flex shrink-0 items-center gap-1.5 transition-opacity duration-200 ${isLimited ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
+        <div className={`flex shrink-0 items-center gap-1.5 pt-0.5 transition-opacity duration-200 ${isLimited ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
           <button onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
             aria-label={isFavorite ? 'Retirer' : 'Ajouter aux favoris'}
             className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}>
             <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
           <span className="text-xs text-gray-400 flex items-center gap-0.5 pr-1">
-            Voir la fiche <ChevronRight size={13} />
+            Fiche <ChevronRight size={13} />
           </span>
         </div>
       </div>
