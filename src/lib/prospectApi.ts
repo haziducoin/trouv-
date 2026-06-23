@@ -269,10 +269,12 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
 
-  const timeoutMs = 10000
+  // Recherche par téléphone seul → plus de temps (index phone, pas de filtre nom)
+  const telOnly = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
+  const timeoutMs = telOnly ? 30000 : 10000
   const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
   const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>(
-    (resolve) => setTimeout(() => resolve({ data: null, error: { message: 'Recherche trop longue — réessayez avec un nom exact', code: 'TIMEOUT' } }), timeoutMs)
+    (resolve) => setTimeout(() => resolve({ data: null, error: { message: telOnly ? 'Recherche par numéro trop longue — essayez d\'ajouter un nom' : 'Recherche trop longue — réessayez avec un nom exact', code: 'TIMEOUT' } }), timeoutMs)
   )
 
   const { data, error } = await Promise.race([rpcPromise, timeoutPromise])

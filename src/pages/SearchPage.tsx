@@ -2336,15 +2336,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
     const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
                     !params.zipCode && !params.employeeRange && !params.legalForm
 
-    // Recherche par téléphone seul sans aucun autre critère → timeout RPC assuré
-    const hasName = !!(params.identity?.trim() || params.nom?.trim() || params.prenom?.trim())
-    const hasTelOnly = !!(params.tel?.trim()) && !hasName && !params.city?.trim() &&
-                       !params.department && !params.activityCode && !params.zipCode
-    if (hasTelOnly) {
-      setError('Ajoutez un nom ou une ville pour rechercher par numéro de téléphone.')
-      setLoading(false)
-      return
-    }
 
     // Mode démo : résultats fictifs sans appel API
     if (account.id.startsWith('demo-')) {
