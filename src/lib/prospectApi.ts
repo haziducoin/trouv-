@@ -29,16 +29,72 @@ function toTitleCase(str: string | null | undefined): string | null {
 
 export function formatPhone(phone: string | null | undefined): string | null {
   if (!phone) return null
-  const clean = phone.replace(/[^\d+]/g, '')
-  let digits: string
+  const raw = phone.replace(/[^\d+]/g, '')
 
-  if (clean.startsWith('+33') && clean.length === 12) digits = clean.slice(3)
-  else if (clean.startsWith('0033') && clean.length === 13) digits = clean.slice(4)
-  else if (clean.startsWith('0') && clean.length === 10) digits = clean.slice(1)
-  else if (clean.length === 9 && /^[1-9]/.test(clean)) digits = clean
+  // Normalise vers E.164
+  let e164: string
+  if (raw.startsWith('+'))            e164 = raw
+  else if (raw.startsWith('0033'))    e164 = '+33' + raw.slice(4)
+  else if (raw.startsWith('0032'))    e164 = '+32' + raw.slice(4)
+  else if (raw.startsWith('0041'))    e164 = '+41' + raw.slice(4)
+  else if (raw.startsWith('0') && raw.length === 10) e164 = '+33' + raw.slice(1)
+  else if (raw.length === 9 && /^[1-9]/.test(raw))   e164 = '+33' + raw
   else return phone
 
-  return `+33 ${digits[0]} ${digits.slice(1, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`
+  // France: +33 X XX XX XX XX (12 chiffres après +)
+  if (e164.startsWith('+33') && e164.length === 12) {
+    const d = e164.slice(3)
+    return `+33 ${d[0]} ${d.slice(1,3)} ${d.slice(3,5)} ${d.slice(5,7)} ${d.slice(7,9)}`
+  }
+  // Belgique: +32 XXX XX XX XX
+  if (e164.startsWith('+32')) {
+    const d = e164.slice(3)
+    if (d.length === 8)  return `+32 ${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,6)} ${d.slice(6,8)}`
+    if (d.length === 9)  return `+32 ${d[0]} ${d.slice(1,4)} ${d.slice(4,6)} ${d.slice(6,9)}`
+    return `+32 ${d}`
+  }
+  // Suisse: +41 XX XXX XX XX
+  if (e164.startsWith('+41')) {
+    const d = e164.slice(3)
+    if (d.length === 9) return `+41 ${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5,7)} ${d.slice(7,9)}`
+    return `+41 ${d}`
+  }
+  // Espagne: +34 XXX XXX XXX
+  if (e164.startsWith('+34')) {
+    const d = e164.slice(3)
+    if (d.length === 9) return `+34 ${d.slice(0,3)} ${d.slice(3,6)} ${d.slice(6,9)}`
+    return `+34 ${d}`
+  }
+  // Italie: +39 XXX XXX XXXX
+  if (e164.startsWith('+39')) {
+    const d = e164.slice(3)
+    return `+39 ${d.slice(0,3)} ${d.slice(3,6)} ${d.slice(6)}`
+  }
+  // Royaume-Uni: +44 XXXX XXXXXX
+  if (e164.startsWith('+44')) {
+    const d = e164.slice(3)
+    if (d.length >= 10) return `+44 ${d.slice(0,4)} ${d.slice(4)}`
+    return `+44 ${d}`
+  }
+  // Allemagne: +49 XXX XXXXXXX
+  if (e164.startsWith('+49')) {
+    const d = e164.slice(3)
+    return `+49 ${d.slice(0,3)} ${d.slice(3)}`
+  }
+  // USA/Canada: +1 (XXX) XXX-XXXX
+  if (e164.startsWith('+1') && e164.length === 12) {
+    const d = e164.slice(2)
+    return `+1 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,10)}`
+  }
+  // Pays Bas: +31 X XXXX XXXX
+  if (e164.startsWith('+31')) {
+    const d = e164.slice(3)
+    if (d.length === 9) return `+31 ${d[0]} ${d.slice(1,5)} ${d.slice(5,9)}`
+    return `+31 ${d}`
+  }
+
+  // Fallback générique : retourne e164 brut
+  return e164
 }
 
 export type UnlockField = 'phone' | 'email'
@@ -204,7 +260,11 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   }
   if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
-  if (params.tel?.trim())     rpcParams.p_tel    = params.tel.trim()
+  if (params.tel?.trim()) {
+    // Normalise avant envoi : supprime espaces, tirets, points, parenthèses
+    const normalizedTel = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
+    if (normalizedTel) rpcParams.p_tel = normalizedTel
+  }
   // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
