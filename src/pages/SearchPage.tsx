@@ -1160,12 +1160,28 @@ function ProspectCard({
 
   if (viewMode === 'list') {
     const isLimited = accessLevel === 'limited'
+
+    const unlockPhoneList = async (e: React.MouseEvent) => {
+      e.stopPropagation(); if (phoneBusy) return
+      setPhoneBusy(true); try { await (onUnlock ?? noop)(prospect, 'phone') } finally { setPhoneBusy(false) }
+    }
+    const unlockEmailList = async (e: React.MouseEvent) => {
+      e.stopPropagation(); if (emailBusy) return
+      setEmailBusy(true); try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
+    }
+
     return (
-      <div className={`group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
-          {isLimited ? '' : initials}
+      <div
+        className={`group flex items-center gap-4 bg-white border border-gray-100 rounded-xl px-5 py-3.5 transition-all duration-200 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-gray-200'}`}
+        onClick={() => !isLimited && onDetail(prospect)}
+      >
+        {/* Avatar */}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+          {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
         </div>
-        <div className="min-w-0 flex-1">
+
+        {/* Identité */}
+        <div className="min-w-0 w-52 shrink-0">
           {isLimited ? (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
@@ -1173,51 +1189,78 @@ function ProspectCard({
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => onDetail(prospect)}
-                  className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
-                  {prospect.fullName}
-                </button>
-                {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900 truncate">{prospect.fullName}</span>
                 {prospect.mergedCount && prospect.mergedCount > 1 && (
-                  <span className="flex items-center gap-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400 border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
-                    <Database size={8} /> ×{prospect.mergedCount}
+                  <span className="shrink-0 flex items-center gap-1 rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400 border border-gray-100">
+                    <Database size={8} />×{prospect.mergedCount}
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
-                {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
-                {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
-                {prospect.birthYear ? <span className="ml-1 text-slate-300">· {prospect.birthYear}</span> : null}
+              <p className="text-xs text-gray-400 mt-0.5 truncate">
+                {[prospect.jobTitle, prospect.companyName, prospect.city].filter(Boolean).join(' · ')}
               </p>
             </>
           )}
         </div>
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          {isLimited ? (
-            <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
-          ) : (
-            <>
-              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-            </>
-          )}
-        </div>
+
+        {/* Coordonnées — masquées ou débloquées */}
         {!isLimited && (
-          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-            <button
-              onClick={() => onToggleFavorite(prospect)}
-              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-              className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-            >
-              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-            </button>
-            <button onClick={() => onDetail(prospect)}
-              className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
-              <ArrowRight size={15} />
-            </button>
+          <div className="hidden md:flex items-center gap-8 flex-1 min-w-0">
+
+            {/* Téléphone */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {prospect.hasPhone ? (
+                prospect.phoneUnlocked && prospect.phone ? (
+                  <a href={`tel:${prospect.phone.replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
+                    className="font-mono text-sm text-[#124bd2] hover:underline truncate">
+                    {prospect.phone}
+                  </a>
+                ) : (
+                  <>
+                    <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{prospect.phone ?? ''}</span>
+                    <PadlockUnlockButton kind="phone" onClick={unlockPhoneList} busy={phoneBusy} canUnlock={canUnlock} />
+                  </>
+                )
+              ) : null}
+            </div>
+
+            {/* Email */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {prospect.hasEmail ? (
+                prospect.emailUnlocked && prospect.email ? (
+                  <a href={`mailto:${prospect.email}`} onClick={e => e.stopPropagation()}
+                    className="font-mono text-sm text-emerald-600 hover:underline truncate">
+                    {prospect.email}
+                  </a>
+                ) : (
+                  <>
+                    <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{prospect.email ?? ''}</span>
+                    <PadlockUnlockButton kind="email" onClick={unlockEmailList} busy={emailBusy} canUnlock={canUnlock} />
+                  </>
+                )
+              ) : null}
+            </div>
+
           </div>
         )}
+        {isLimited && (
+          <div className="hidden md:flex items-center gap-4 flex-1">
+            <BlurPill w="w-32" /><BlurPill w="w-40" />
+          </div>
+        )}
+
+        {/* Actions droite */}
+        <div className={`flex shrink-0 items-center gap-1.5 transition-opacity duration-200 ${isLimited ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
+          <button onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+            aria-label={isFavorite ? 'Retirer' : 'Ajouter aux favoris'}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}>
+            <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
+          <span className="text-xs text-gray-400 flex items-center gap-0.5 pr-1">
+            Voir la fiche <ChevronRight size={13} />
+          </span>
+        </div>
       </div>
     )
   }
