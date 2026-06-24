@@ -232,6 +232,65 @@ function mapRow(row: Record<string, any>): ProspectResult {
   return result
 }
 
+function maskPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  return raw.slice(0, 6) + '••••'
+}
+
+function enrichRawContact(row: Record<string, any>): Record<string, any> {
+  return {
+    ...row,
+    has_phone:      !!(row.telephone || row.mobile),
+    has_email:      !!row.email,
+    phone_masked:   maskPhone(row.telephone) ?? maskPhone(row.mobile),
+    email_masked:   maskEmail(row.email),
+    phone_unlocked: false,
+    email_unlocked: false,
+    phone_value:    null,
+    email_value:    null,
+    score:          0,
+    total_count:    0,
+  }
+}
+
+async function searchByAddressCluster(
+  adresse: string,
+  codePostal: string,
+  page: number,
+  perPage: number
+): Promise<ProspectSearchResponse> {
+  const supabase = getSupabaseClient()
+  const formattedAddress = '%' + adresse.trim().replace(/\s+/g, '%') + '%'
+
+  const { data, error } = await supabase.rpc('get_contacts_cluster_by_address', {
+    p_adresse:     formattedAddress,
+    p_code_postal: codePostal || null,
+  })
+
+  if (error) throw new Error(`Recherche impossible : ${error.message}`)
+
+  const rows     = (data ?? []) as Array<Record<string, any>>
+  const enriched = rows.map(enrichRawContact)
+  const resolved = resolveEntities(enriched)
+
+  const seen = new Set<string>()
+  const results = resolved.map(mapRow).filter(p => {
+    if (!p.hasPhone && !p.hasEmail) return false
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+
+  const start = (page - 1) * perPage
+  return {
+    results:    results.slice(start, start + perPage),
+    total:      results.length,
+    page,
+    perPage,
+    totalPages: Math.ceil(results.length / perPage),
+  }
+}
+
 export async function searchProspects(params: ProspectSearchParams): Promise<ProspectSearchResponse> {
   const supabase = getSupabaseClient()
   const pg = params.page    ?? 1
@@ -276,6 +335,13 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
+
+  // Recherche par adresse seule → cluster query (toutes les fiches de chaque identité trouvée)
+  const isAddressOnly = !!params.address?.trim() && !!params.zipCode?.trim()
+    && !p_identity && !p_nom && !p_prenom && !rpcParams.p_tel
+  if (isAddressOnly) {
+    return searchByAddressCluster(params.address!, params.zipCode!, pg, pp)
+  }
 
   // Recherche par téléphone seul → plus de temps (index phone, pas de filtre nom)
   const telOnly = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
