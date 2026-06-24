@@ -336,13 +336,6 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
 
-  // Recherche par adresse seule → cluster query (toutes les fiches de chaque identité trouvée)
-  const isAddressOnly = !!params.address?.trim() && !!params.zipCode?.trim()
-    && !p_identity && !p_nom && !p_prenom && !rpcParams.p_tel
-  if (isAddressOnly) {
-    return searchByAddressCluster(params.address!, params.zipCode!, pg, pp)
-  }
-
   // Recherche par téléphone seul → plus de temps (index phone, pas de filtre nom)
   const telOnly = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
   const timeoutMs = telOnly ? 30000 : 10000
