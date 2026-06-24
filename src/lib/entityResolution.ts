@@ -207,9 +207,9 @@ export function resolveEntities(rows: RawRow[]): RawRow[] {
         const a = group[i].row
         const b = group[j].row
 
-        // Condition A : même mobile
-        const pa = normalizePhone(a.phone_value || a.phone_masked)
-        const pb = normalizePhone(b.phone_value || b.phone_masked)
+        // Condition A : même mobile (phone_value si débloqué, sinon colonne brute, sinon masque)
+        const pa = normalizePhone(a.phone_value || a.telephone || a.mobile || a.phone_masked)
+        const pb = normalizePhone(b.phone_value || b.telephone || b.mobile || b.phone_masked)
         if (pa && pb && pa === pb) { union(i, j); continue }
 
         // Condition B : même date de naissance complète OU même année de naissance
