@@ -1,5 +1,3 @@
-import { RadioGroup } from '@ark-ui/react/radio-group'
-
 export const LIST_COLORS = [
   { value: 'blue',   bg: 'bg-blue-500',   ring: 'ring-blue-400' },
   { value: 'red',    bg: 'bg-red-500',    ring: 'ring-red-400' },
@@ -35,26 +33,26 @@ export function ListColorPicker({
   onChange: (color: string) => void
 }) {
   return (
-    <RadioGroup.Root
-      value={value}
-      onValueChange={({ value }) => onChange(value)}
-      className="flex flex-wrap gap-2"
-    >
-      {LIST_COLORS.map(({ value: colorValue, bg, ring }) => (
-        <RadioGroup.Item key={colorValue} value={colorValue} className="cursor-pointer">
-          <RadioGroup.ItemControl
-            className={`group flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent transition-all duration-150 data-[state=checked]:ring-2 data-[state=checked]:ring-offset-1 ${bg} ${ring}`}
+    <div role="radiogroup" className="flex flex-wrap gap-2">
+      {LIST_COLORS.map(({ value: colorValue, bg, ring }) => {
+        const checked = colorValue === value
+        return (
+          <button
+            key={colorValue}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            onClick={() => onChange(colorValue)}
+            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent transition-all duration-150 ${bg} ${checked ? `ring-2 ring-offset-1 ${ring}` : ''}`}
           >
-            <svg
-              width="10" height="10" viewBox="0 0 10 10" fill="white"
-              className="opacity-0 transition-opacity group-data-[state=checked]:opacity-100"
-            >
-              <path d="M2 5.5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
-          </RadioGroup.ItemControl>
-          <RadioGroup.ItemHiddenInput />
-        </RadioGroup.Item>
-      ))}
-    </RadioGroup.Root>
+            {checked && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5.5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        )
+      })}
+    </div>
   )
 }

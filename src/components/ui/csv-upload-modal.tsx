@@ -1,5 +1,5 @@
 import { useState, useRef, DragEvent, ChangeEvent } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import { UploadCloud, File as FileIcon, Trash2, Loader, CheckCircle, X, AlertCircle, ArrowRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
