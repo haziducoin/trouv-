@@ -2864,22 +2864,35 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                   </button>
                 </div>
 
-                {/* Recherche avancée — ghost button */}
+                {/* Recherche avancée — toggle + effacer */}
                 <div className="mt-4 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setShowFilters(v => !v)}
-                    className="flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-blue-600"
-                  >
-                    <SlidersHorizontal size={13} />
-                    <span>Recherche avancée</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(v => !v)}
+                      className="flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-blue-600"
+                    >
+                      <SlidersHorizontal size={13} />
+                      <span>Recherche avancée</span>
+                      {activeFiltersCount > 0 && (
+                        <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
+                          {activeFiltersCount}
+                        </span>
+                      )}
+                      {showFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
+
+                    {/* Bouton effacer — visible dès qu'un filtre est renseigné */}
                     {activeFiltersCount > 0 && (
-                      <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
-                        {activeFiltersCount}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={handleResetFilters}
+                        className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-500 transition hover:bg-red-100 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40"
+                      >
+                        <X size={11} /> Effacer les filtres
+                      </button>
                     )}
-                    {showFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                  </button>
+                  </div>
 
                   {results.length > 0 && (
                     <button onClick={() => exportProspectsCSV(results, query)}
