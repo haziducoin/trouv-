@@ -60,6 +60,7 @@ interface AccountPanelProps {
   onAuthenticated: (account: Account) => void
   onClose: () => void
   onLogout: () => void | Promise<void>
+  initialEmail?: string
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -105,6 +106,7 @@ export default function AccountPanel({
   onAuthenticated,
   onClose,
   onLogout,
+  initialEmail = '',
 }: AccountPanelProps) {
   const [view, setView] = useState<AccountPanelView>(
     currentAccount && (initialView === 'login' || initialView === 'register') ? 'workspace' : initialView
@@ -337,6 +339,7 @@ export default function AccountPanel({
               {isRegister ? (
                 <div className="mt-5">
                   <RegisterWizard
+                    initialEmail={initialEmail}
                     onComplete={async () => {
                       try {
                         const account = await restoreSession()

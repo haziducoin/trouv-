@@ -33,6 +33,7 @@ export interface WizardData {
 interface Props {
   onComplete:    (data: WizardData) => void
   onBackToLogin: () => void
+  initialEmail?: string
 }
 
 export const CGU_VERSION = '1.0'
@@ -353,10 +354,10 @@ function StepOtp({
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export default function RegisterWizard({ onComplete, onBackToLogin }: Props) {
+export default function RegisterWizard({ onComplete, onBackToLogin, initialEmail = '' }: Props) {
   const [step, setStep]   = useState(0)
   const [data, setData]   = useState<WizardData>({
-    firstName: '', lastName: '', email: '', password: '',
+    firstName: '', lastName: '', email: initialEmail, password: '',
     functionTitle: '', company: '', siren: '', website: '',
   })
   const [loading, setLoading] = useState(false)

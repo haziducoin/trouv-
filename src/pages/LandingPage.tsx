@@ -38,7 +38,7 @@ import { IntegrationsStrip } from '@/components/ui/integrations-strip'
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import trouveLogo from '@/assets/trouve-logo.png'
 
-import { clearSession, restoreSession, type Account } from '@/lib/accountStore'
+import { clearSession, isPersonalEmail, restoreSession, type Account } from '@/lib/accountStore'
 import { getSupabaseClient } from '@/lib/supabase'
 
 type BillingPeriod = 'monthly' | 'quarterly' | 'annual'
@@ -284,15 +284,17 @@ function statusClasses(status: string) {
 
 interface LandingPageProps {
   // Quand App.tsx gère la session, il passe ces props
-  externalAccountPanel?:  AccountPanelView | null
-  onOpenAccountPanel?:    (v: AccountPanelView | null) => void
-  onAuthenticated?:       (a: Account) => void
-  onLogout?:              () => void | Promise<void>
+  externalAccountPanel?:      AccountPanelView | null
+  onOpenAccountPanel?:        (v: AccountPanelView | null) => void
+  onOpenRegisterWithEmail?:   (email: string) => void
+  onAuthenticated?:           (a: Account) => void
+  onLogout?:                  () => void | Promise<void>
 }
 
 export default function LandingPage({
   externalAccountPanel,
   onOpenAccountPanel,
+  onOpenRegisterWithEmail,
   onAuthenticated,
   onLogout,
 }: LandingPageProps = {}) {
@@ -303,6 +305,8 @@ export default function LandingPage({
   const [checkoutLoading, setCheckoutLoading]   = useState<string | null>(null)
   const [checkoutError, setCheckoutError]       = useState<string | null>(null)
   const [emailInput, setEmailInput]             = useState('')
+  const [emailError, setEmailError]             = useState<'invalid' | 'personal' | null>(null)
+  const [emailShake, setEmailShake]             = useState(false)
   const [showQualModal, setShowQualModal]       = useState(false)
   const [demoTransition, setDemoTransition]     = useState<'hidden' | 'visible' | 'leaving'>('hidden')
   const [titleNumber, setTitleNumber]           = useState(0)
@@ -333,10 +337,31 @@ export default function LandingPage({
     setAccountPanel(null)
   }
 
+  const triggerEmailShake = () => {
+    setEmailShake(true)
+    setTimeout(() => setEmailShake(false), 600)
+  }
+
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!emailInput.trim() || !emailInput.includes('@')) return
-    setShowQualModal(true)
+    const trimmed = emailInput.trim()
+    const isValidFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+    if (!trimmed || !isValidFormat) {
+      setEmailError('invalid')
+      triggerEmailShake()
+      return
+    }
+    if (isPersonalEmail(trimmed)) {
+      setEmailError('personal')
+      triggerEmailShake()
+      return
+    }
+    setEmailError(null)
+    if (onOpenRegisterWithEmail) {
+      onOpenRegisterWithEmail(trimmed)
+    } else {
+      setAccountPanel('register')
+    }
   }
 
   const triggerDemoTransition = () => {
@@ -484,16 +509,17 @@ export default function LandingPage({
             <div className="w-full max-w-2xl">
               <form
                 onSubmit={handleEmailSubmit}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_8px_32px_-8px_rgba(18,75,210,0.18)] sm:flex-row sm:gap-2"
+                style={emailShake ? { animation: 'heroEmailShake 0.5s ease-in-out' } : undefined}
+                className={`flex flex-col gap-3 rounded-2xl border bg-white p-2 shadow-[0_8px_32px_-8px_rgba(18,75,210,0.18)] transition-colors sm:flex-row sm:gap-2 ${emailError ? 'border-red-300' : 'border-slate-200'}`}
               >
                 <div className="relative flex-1">
-                  <Mail size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={16} className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${emailError ? 'text-red-400' : 'text-slate-400'}`} />
                   <input
-                    type="email"
+                    type="text"
                     value={emailInput}
-                    onChange={e => setEmailInput(e.target.value)}
+                    onChange={e => { setEmailInput(e.target.value); if (emailError) setEmailError(null) }}
                     placeholder="Entrez votre adresse email professionnelle..."
-                    className="w-full rounded-xl border border-transparent bg-slate-50 py-3.5 pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#124bd2] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    className={`w-full rounded-xl border py-3.5 pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:ring-2 ${emailError ? 'border-red-200 bg-red-50 focus:border-red-400 focus:ring-red-100' : 'border-transparent bg-slate-50 focus:border-[#124bd2] focus:bg-white focus:ring-blue-100'}`}
                   />
                 </div>
                 <button
@@ -504,6 +530,23 @@ export default function LandingPage({
                   <ArrowRight size={15} />
                 </button>
               </form>
+
+              {/* Inline error message */}
+              {emailError && (
+                <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                  <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-500" />
+                  <div className="text-sm leading-snug text-red-700">
+                    {emailError === 'invalid' ? (
+                      <span>Entrez une adresse email valide (ex&nbsp;: <span className="font-semibold">vous@votre-agence.fr</span>).</span>
+                    ) : (
+                      <>
+                        <span className="font-semibold">Adresse personnelle détectée.</span>
+                        {' '}trouvé! est réservé aux professionnels — utilisez votre email&nbsp;<span className="font-semibold">@votre-agence.fr</span>.
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* CTAs */}

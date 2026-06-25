@@ -79,6 +79,7 @@ export default function App() {
   const [account, setAccount]               = useState<Account | null>(isDemoMode ? DEMO_ACCOUNT : null)
   const [sessionLoading, setSessionLoading] = useState(!isDemoMode && !isSuccessPage)
   const [accountPanel, setAccountPanel]     = useState<AccountPanelView | null>(panelParam)
+  const [panelEmail, setPanelEmail]         = useState<string>('')
   const [blockedEmail, setBlockedEmail]     = useState<string | null>(null)
   const [authError, setAuthError]           = useState<string | null>(null)
   const [loadingTooLong, setLoadingTooLong] = useState(false)
@@ -403,7 +404,8 @@ export default function App() {
       )}
       <LandingPage
         externalAccountPanel={accountPanel}
-        onOpenAccountPanel={view => setAccountPanel(view)}
+        onOpenAccountPanel={view => { setPanelEmail(''); setAccountPanel(view) }}
+        onOpenRegisterWithEmail={email => { setPanelEmail(email); setAccountPanel('register') }}
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />
@@ -411,9 +413,10 @@ export default function App() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <AccountPanel
             initialView={accountPanel}
+            initialEmail={panelEmail}
             currentAccount={null}
             onAuthenticated={handleAuthenticated}
-            onClose={() => setAccountPanel(null)}
+            onClose={() => { setAccountPanel(null); setPanelEmail('') }}
             onLogout={handleLogout}
           />
         </div>
