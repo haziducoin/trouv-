@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // ── 1. Récupère TOUS les signaux disponibles en base (pas juste ce que le front envoie)
-    const { data: contact } = await supabaseAdmin
+    const { data: rawContact } = await supabaseAdmin
       .from('contacts')
       .select([
         'nom', 'prenom', 'ville', 'adresse', 'adresse_complement',
@@ -43,6 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ].join(','))
       .eq('id', Number(contact_id))
       .maybeSingle()
+
+    const contact = rawContact as Record<string, any> | null
 
     if (!contact?.nom && !contact?.prenom) {
       res.status(404).json({ error: 'Contact introuvable' })
