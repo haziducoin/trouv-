@@ -4,40 +4,25 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
 import SearchPage from './pages/SearchPage'
 import AdminCRMPage from './pages/AdminCRMPage'
-import AdminUserPage from './pages/AdminUserPage'
-import CRMLoginPage from './pages/CRMLoginPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
 import CompliancePage from './pages/CompliancePage'
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
-import { getDeviceId } from './lib/deviceId'
 
 // ─── Restore dark mode preference immediately (before first paint) ────────────
-try {
-  if (localStorage.getItem('trouve_dark') === '1') {
-    document.documentElement.classList.add('dark')
-  }
-} catch { /* storage inaccessible */ }
+if (localStorage.getItem('trouve_dark') === '1') {
+  document.documentElement.classList.add('dark')
+}
 
 // ─── URL params ───────────────────────────────────────────────────────────────
 const _params          = new URLSearchParams(window.location.search)
-const _isCRMHostname   = window.location.hostname.startsWith('crm.')
-const _pathname        = window.location.pathname
 const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
-// CRM : subdomain crm.* uniquement
-const isCRMMode        = _isCRMHostname && !_pathname.startsWith('/user/')
-// Fiche user : /user/UUID sur le subdomain crm.*
-const isCRMUserPage    = _isCRMHostname && _pathname.startsWith('/user/')
-// Pages compte : /account/dashboard, /account/profil, etc.
-const _accountSegment  = _pathname.startsWith('/account/')
-  ? (_pathname.replace(/^\/account\//, '').split('/')[0] as AccountPanelView)
-  : null
-const isAccountPage    = !!_accountSegment && !_isCRMHostname
+const isCRMMode        = _params.has('crm')
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
@@ -61,7 +46,7 @@ function formatOAuthError(rawError: string) {
 
 // ─── Comptes démo (dev only) ──────────────────────────────────────────────────
 const DEMO_ACCOUNT: Account = {
-  id:             'preview-live',
+  id:             'demo-preview',
   organizationId: 'org-preview',
   firstName:      'Sophie',
   lastName:       'Martin',
@@ -76,7 +61,7 @@ const DEMO_ACCOUNT: Account = {
 }
 
 const DEMO_EMPLOYEE_ACCOUNT: Account = {
-  id:             'preview-employee',
+  id:             'demo-employee',
   organizationId: 'org-preview',
   firstName:      'Thomas',
   lastName:       'Moreau',
@@ -151,23 +136,10 @@ export default function App() {
             if (mounted) setSessionLoading(false)
             return
           }
-          // Session existante au chargement → restaure le profil + tracking IP + appareil
+          // Session existante au chargement → restaure le profil
           try {
             const a = await restoreSession()
             if (mounted) setAccount(a)
-            // Tracking IP silencieux
-            fetch('/api/track-ip', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            }).catch(() => {})
-            // Enregistrement appareil silencieux
-            fetch('/api/devices', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-                'X-Device-Id': getDeviceId(),
-              },
-            }).catch(() => {})
           } catch (err) {
             if (err instanceof PersonalEmailError) {
               if (mounted) setBlockedEmail((err as PersonalEmailError).email)
@@ -198,25 +170,8 @@ export default function App() {
 
   const handleAuthenticated = (a: Account) => {
     setAccount(a)
-    setAccountPanel(null)
-    // Tracking IP + enregistrement appareil (silencieux, non bloquant)
-    getSupabaseClient().auth.getSession().then(({ data }) => {
-      const token = data.session?.access_token
-      if (token) {
-        const deviceId = getDeviceId()
-        fetch('/api/track-ip', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {})
-        fetch('/api/devices', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Device-Id': deviceId,
-          },
-        }).catch(() => {})
-      }
-    })
+    // Admin → ouvre automatiquement le panel compte en premier plan après login
+    setAccountPanel(a.role === 'admin' ? 'workspace' : null)
   }
 
   const handleLogout = async () => {
@@ -320,22 +275,6 @@ export default function App() {
     )
   }
 
-  // ── Pages compte indépendantes : /account/dashboard, /account/profil… ───
-  if (isAccountPage) {
-    return (
-      <>
-        <AccountPanel
-          initialView={account ? (_accountSegment ?? 'workspace') : 'login'}
-          currentAccount={account}
-          onAuthenticated={(a) => { setAccount(a); window.location.assign('/account/' + (_accountSegment ?? 'workspace')) }}
-          onClose={() => window.history.back()}
-          onLogout={async () => { await handleLogout(); window.location.assign('/') }}
-        />
-        <Analytics />
-      </>
-    )
-  }
-
   // ── Mode démo (?demo=1) — lien de prospection sans compte ───────────────
   if (isDemoMode) {
     const demoAccount = demoView === 'admin' ? DEMO_ACCOUNT : DEMO_EMPLOYEE_ACCOUNT
@@ -372,35 +311,22 @@ export default function App() {
           onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
         {accountPanel && (
-          <AccountPanel
-            initialView={accountPanel}
-            currentAccount={demoAccount}
-            onAuthenticated={() => {}}
-            onClose={() => setAccountPanel(null)}
-            onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
-          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <AccountPanel
+              initialView={accountPanel}
+              currentAccount={demoAccount}
+              onAuthenticated={() => {}}
+              onClose={() => setAccountPanel(null)}
+              onLogout={() => { setAccountPanel(null); window.location.replace('/') }}
+            />
+          </div>
         )}
         <Analytics />
       </>
     )
   }
 
-  // ── CRM Admin fiche utilisateur (?crm&user=...) ──────────────────────────
-  if (isCRMUserPage) {
-    return (
-      <>
-        <AdminUserPage />
-        <Analytics />
-      </>
-    )
-  }
-
-  // ── CRM : page de connexion si non authentifié ───────────────────────────
-  if (isCRMMode && !sessionLoading && (!account || account.role !== 'admin')) {
-    return <CRMLoginPage onLogin={handleAuthenticated} />
-  }
-
-  // ── CRM Admin — interface back-office sécurisée ───────────────────────────
+  // ── CRM Admin (?crm) — interface back-office sécurisée ───────────────────
   if (isCRMMode && account && account.role === 'admin') {
     return (
       <>
@@ -419,24 +345,46 @@ export default function App() {
           account={account}
           accessLevel="full"
           onLogout={handleLogout}
-          onOpenAccount={(tab) => window.location.assign('/account/' + (tab ?? 'workspace'))}
+          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
+        {accountPanel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <AccountPanel
+              initialView={accountPanel}
+              currentAccount={account}
+              onAuthenticated={handleAuthenticated}
+              onClose={() => setAccountPanel(null)}
+              onLogout={handleLogout}
+            />
+          </div>
+        )}
         <Analytics />
       </>
     )
   }
 
-  // ── En attente ou trial → accès limité, invite à payer ──────────────────
+  // ── En attente ou trial → accès complet pour les tests ──────────────────
   if (account && (account.status === 'pending' || account.status === 'trial')) {
     return (
       <>
         <SpeedInsights />
         <SearchPage
           account={account}
-          accessLevel="trial"
+          accessLevel="full"
           onLogout={handleLogout}
-          onOpenAccount={(tab) => window.location.assign('/account/' + (tab ?? 'workspace'))}
+          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
         />
+        {accountPanel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <AccountPanel
+              initialView={accountPanel}
+              currentAccount={account}
+              onAuthenticated={handleAuthenticated}
+              onClose={() => setAccountPanel(null)}
+              onLogout={handleLogout}
+            />
+          </div>
+        )}
         <Analytics />
       </>
     )
@@ -454,8 +402,8 @@ export default function App() {
         </div>
       )}
       <LandingPage
-        externalAccountPanel={null}
-        onOpenAccountPanel={(v) => { if (v) window.location.assign('/account/' + v) }}
+        externalAccountPanel={accountPanel}
+        onOpenAccountPanel={view => setAccountPanel(view)}
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />
@@ -468,6 +416,7 @@ export default function App() {
 // ─── Page d'attente de validation ─────────────────────────────────────────────
 import trouveLogo from '@/assets/trouve-logo.png'
 import { Ban, Clock, Mail, LogOut, AlertCircle } from 'lucide-react'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
 
 function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout: () => void }) {
   return (
@@ -495,12 +444,11 @@ function PendingApprovalPage({ account, onLogout }: { account: Account; onLogout
           </p>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          <LogOut size={14} /> Se déconnecter
-        </button>
+        <LogoutDialog onConfirm={onLogout}>
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            <LogOut size={14} /> Se déconnecter
+          </button>
+        </LogoutDialog>
       </div>
     </div>
   )

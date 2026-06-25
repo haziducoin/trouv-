@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getSupabaseClient } from '@/lib/supabase'
 import DemoLockModal from '@/components/demo/DemoLockModal'
 import DemoToast from '@/components/demo/DemoToast'
 import DemoCreditsBar from '@/components/demo/DemoCreditsBar'
@@ -9,29 +8,40 @@ import {
   Building2, MapPin, Hash, Users, LogOut, X,
   Zap, RefreshCw, ExternalLink, LayoutGrid, List,
   ShieldCheck, AlertCircle, Download, Clock,
-  ArrowRight, ArrowLeft, Globe, FileText, Info,
+  ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell,
 } from 'lucide-react'
-type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'prospect' | 'prospection'
+type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
 import AdminPage from '@/pages/AdminPage'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
-  searchProspects, exportProspectsCSV,
+  searchProspects, exportProspectsCSV, formatPhone,
   unlockContactField, getCreditBalance, UnlockError,
-  enrichBeforeUnlock, enrichContactPreview, type EnrichBeforeUnlockResult,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
+import { generateSearchDemoResults } from '@/lib/demoResults'
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
+import { getSupabaseClient } from '@/lib/supabase'
 import HistoryPage from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import keyGreenImg from '@/assets/key-green.png'
-import keyBlueImg  from '@/assets/key-blue.png'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
+import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
+import { NotificationPopover, type Notification as AdminNotification } from '@/components/ui/notification-popover'
+import keyGreenImg  from '@/assets/key-green.png'
+import keyBlueImg   from '@/assets/key-blue.png'
+import lockBlueImg      from '@/assets/lock-blue.png'
+import lockGreenImg     from '@/assets/lock-green.png'
+import lockOpenGreenImg from '@/assets/lock-open-green.png'
+import lockOpenBlueImg  from '@/assets/lock-open-blue.png'
 import { AnimateNumber } from '@/components/ui/animated-blur-number'
+import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
+import BulkSearchView from '@/pages/BulkSearchView'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -59,6 +69,17 @@ function formatSiren(s: string) {
 
 function departmentLabel(code: string) {
   return DEPARTMENTS.find(d => d.code === code)?.label ?? `Dép. ${code}`
+}
+
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 py-1 pl-3 pr-1.5 text-xs font-medium text-blue-700 dark:border-blue-800/50 dark:bg-blue-950/30 dark:text-blue-300">
+      {label}
+      <button type="button" onClick={onRemove} className="flex h-4 w-4 items-center justify-center rounded-full text-blue-400 transition hover:bg-blue-200 hover:text-blue-700 dark:text-blue-500 dark:hover:bg-blue-900 dark:hover:text-blue-300">
+        <X size={9} />
+      </button>
+    </span>
+  )
 }
 
 function isNew(createdAt: string | null) {
@@ -171,22 +192,6 @@ function QuotaBar({ used, total }: { used: number; total: number }) {
         &thinsp;/&thinsp;{total.toLocaleString('fr-FR')}
       </span>
     </div>
-  )
-}
-
-// ─── FilterChip — chip de filtre actif supprimable ────────────────────────────
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 py-1 pl-3 pr-1.5 text-xs font-medium text-blue-700 dark:border-blue-800/50 dark:bg-blue-950/30 dark:text-blue-300">
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="flex h-4 w-4 items-center justify-center rounded-full text-blue-400 transition hover:bg-blue-200 hover:text-blue-700 dark:text-blue-500 dark:hover:bg-blue-900 dark:hover:text-blue-300"
-      >
-        <X size={9} />
-      </button>
-    </span>
   )
 }
 
@@ -365,25 +370,6 @@ function DemoRequestModal({
 }
 
 // ─── ConversionModal — appel à l'action après épuisement ─────────────────────
-const CHECKOUT_PLANS = [
-  {
-    code: 'solo',
-    label: 'Solo',
-    monthly: 33,
-    annual: 26,
-    features: ['Recherches illimitées', '100 crédits téléphone / mois', '25 e-mails directs / mois', '1 compte utilisateur'],
-    popular: false,
-  },
-  {
-    code: 'agence',
-    label: 'Agence',
-    monthly: 79,
-    annual: 63,
-    features: ['Recherches illimitées', '250 crédits téléphone / mois', '250 e-mails directs / mois', 'Export CSV · Tableau équipe'],
-    popular: true,
-  },
-] as const
-
 function ConversionModal({
   accessLevel, account, onClose, onLogout, onRequestDemo,
 }: {
@@ -393,123 +379,33 @@ function ConversionModal({
   onLogout:       () => void
   onRequestDemo?: () => void
 }) {
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
-  const [checkoutError, setCheckoutError]     = useState<string | null>(null)
-  const [isAnnual, setIsAnnual]               = useState(false)
-
-  const handleCheckout = async (planCode: string) => {
-    setCheckoutLoading(planCode)
-    setCheckoutError(null)
-    try {
-      const { data: { session } } = await getSupabaseClient().auth.getSession()
-      if (!session?.access_token) { onLogout(); return }
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ plan_code: planCode, period: isAnnual ? 'annual' : 'monthly' }),
-      })
-      const data = await res.json()
-      if (data.url) { window.location.href = data.url }
-      else setCheckoutError(data.error ?? 'Une erreur est survenue.')
-    } catch {
-      setCheckoutError('Service momentanément indisponible. Réessayez.')
-    } finally {
-      setCheckoutLoading(null)
-    }
-  }
-
-  // Bloc plans réutilisable
-  const PlanCards = () => (
-    <div className="space-y-3">
-      {/* Toggle annuel */}
-      <div className="flex items-center justify-center gap-2 text-xs">
-        <button onClick={() => setIsAnnual(false)}
-          className={`rounded-lg px-3 py-1.5 font-semibold transition ${!isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
-          Mensuel
-        </button>
-        <button onClick={() => setIsAnnual(true)}
-          className={`rounded-lg px-3 py-1.5 font-semibold transition ${isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
-          Annuel <span className="font-bold text-emerald-500">−20 %</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {CHECKOUT_PLANS.map(plan => (
-          <div key={plan.code} className={`relative flex flex-col rounded-2xl border-2 p-4 ${plan.popular ? 'border-[#124bd2] bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
-            {plan.popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#124bd2] px-3 py-0.5 text-[10px] font-bold text-white">
-                Recommandé
-              </span>
-            )}
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{plan.label}</p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-2xl font-black text-[#124bd2]">{isAnnual ? plan.annual : plan.monthly}</span>
-              <span className="text-xs text-slate-400">€/mois</span>
-            </div>
-            {isAnnual && (
-              <p className="text-[10px] text-emerald-600 font-medium">soit {plan.annual * 12} €/an</p>
-            )}
-            <ul className="mt-3 space-y-1.5">
-              {plan.features.map(f => (
-                <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
-                  <ShieldCheck size={11} className="mt-0.5 shrink-0 text-emerald-500" />{f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => handleCheckout(plan.code)}
-              disabled={checkoutLoading !== null}
-              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition disabled:opacity-60 ${
-                plan.popular
-                  ? 'bg-[#124bd2] text-white hover:bg-[#0b3fbc]'
-                  : 'border border-[#124bd2] text-[#124bd2] hover:bg-blue-50 dark:hover:bg-blue-950/20'
-              }`}>
-              {checkoutLoading === plan.code
-                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                : <>{plan.label} — Souscrire <ArrowRight size={12} /></>}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {checkoutError && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-400">{checkoutError}</p>
-      )}
-
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-400">
-        {['Paiement sécurisé Stripe', 'Facture TVA auto', 'Résiliable à tout moment'].map(t => (
-          <span key={t} className="flex items-center gap-1"><ShieldCheck size={9} className="text-emerald-400" />{t}</span>
-        ))}
-      </div>
-
-      <button
-        onClick={() => window.open('mailto:contact@trouve.fr?subject=Offre Entreprise sur mesure', '_blank')}
-        className="mx-auto flex items-center gap-1.5 text-xs text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline">
-        Besoin de plus ? Offre Entreprise sur mesure →
-      </button>
-    </div>
-  )
-
-  // demo = 5 floues épuisées
+  // demo = 5 floues épuisées → proposer démo ou pricing
   if (accessLevel === 'demo') {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-5 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
-              <Zap size={26} />
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Vos 5 aperçus sont terminés</h2>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Accédez aux coordonnées réelles en choisissant un plan :</p>
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#124bd2]">
+            <Zap size={28} />
           </div>
-          <PlanCards />
-          <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <button onClick={onRequestDemo}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
-              <Zap size={14} /> Demander une démo gratuite (10 recherches)
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 5 aperçus sont terminés</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            Vous avez vu des résultats partiels. Pour accéder aux coordonnées complètes, choisissez une option :
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={onRequestDemo}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <Zap size={15} /> Demander une démo gratuite <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">10 vraies recherches</span>
             </button>
-            <button onClick={onClose} className="text-center text-xs text-slate-400 hover:text-slate-600 py-1">
-              Continuer avec résultats floutés
+            <button
+              onClick={() => window.location.replace('/?pricing=1')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#124bd2] px-4 py-3 text-sm font-semibold text-[#124bd2] transition hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400">
+              <ArrowRight size={15} /> Voir les offres
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs text-slate-400 hover:text-slate-600 py-1">
+              Continuer à explorer (résultats floutés)
             </button>
           </div>
         </div>
@@ -517,26 +413,29 @@ function ConversionModal({
     )
   }
 
-  // trial = quota épuisé → paiement obligatoire
+  // trial = 10 vraies recherches épuisées → pricing obligatoire
   if (accessLevel === 'trial') {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-5 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
-              <Lock size={26} />
-            </div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Quota d'essai atteint</h2>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Choisissez un abonnement pour continuer à accéder aux contacts professionnels.
-            </p>
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+            <Lock size={28} />
           </div>
-          <PlanCards />
-          <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-slate-800">
-            <button onClick={onLogout}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
-              <LogOut size={12} /> Se déconnecter
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vos 10 recherches de démo sont terminées</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            Vous avez utilisé toutes vos recherches de démo. Passez à un abonnement pour continuer à accéder aux contacts professionnels.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={() => window.location.replace('/?pricing=1')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <Zap size={15} /> Voir les offres et s'abonner
             </button>
+            <LogoutDialog onConfirm={onLogout}>
+              <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+                <LogOut size={14} /> Se déconnecter
+              </button>
+            </LogoutDialog>
           </div>
         </div>
       </div>
@@ -546,23 +445,19 @@ function ConversionModal({
   // limited (fallback)
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-        <div className="mb-5 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
-            <Lock size={26} />
-          </div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Accès limité</h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Souscrivez à un abonnement pour accéder à toutes les fonctionnalités.
-          </p>
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl dark:border-slate-700 dark:bg-slate-900 text-center">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+          <Lock size={28} />
         </div>
-        <PlanCards />
-        <div className="mt-4 flex justify-center border-t border-slate-100 pt-4 dark:border-slate-800">
-          <button onClick={onLogout}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
-            <LogOut size={12} /> Se déconnecter
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Limite atteinte</h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          Votre accès d'essai est épuisé. Contactez-nous pour continuer.
+        </p>
+        <LogoutDialog onConfirm={onLogout}>
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+            <LogOut size={14} /> Se déconnecter
           </button>
-        </div>
+        </LogoutDialog>
       </div>
     </div>
   )
@@ -662,8 +557,8 @@ const PROSPECTION_TIPS = [
   },
 ]
 
-// ─── ProspectionPage — page pleine aide à la prospection ─────────────────────
-function ProspectionPage({
+// ─── ProspectionPanel — slide-over aide à la prospection ─────────────────────
+function ProspectionPanel({
   onClose, onApply,
 }: {
   onClose: () => void
@@ -671,27 +566,32 @@ function ProspectionPage({
 }) {
   const [activeSector, setActiveSector] = useState<string | null>(null)
 
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
   const sector = PROSPECTION_SECTORS.find(s => s.id === activeSector)
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto bg-[#f5f7fc] dark:bg-slate-950">
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl dark:bg-slate-900" style={{ animation: 'slideInRight 0.2s ease' }}>
 
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200/60 bg-white/90 px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300">
-            <ArrowLeft size={14} /> Retour
-          </button>
-          <span className="text-slate-200 dark:text-slate-700">/</span>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Aide à la prospection</h2>
-            <p className="text-xs text-slate-400">Critères suggérés · Conseils pour affiner vos résultats</p>
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">Aide à la prospection</h2>
+            <p className="mt-0.5 text-xs text-slate-400">Critères suggérés · Conseils pour affiner vos résultats</p>
           </div>
+          <button onClick={onClose}
+            className="rounded-xl p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+            <X size={18} />
+          </button>
         </div>
-      </div>
 
-      <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
+        <div className="flex-1 space-y-6 overflow-y-auto p-6">
 
           {/* ── Secteurs ── */}
           <section>
@@ -773,189 +673,167 @@ function ProspectionPage({
               ))}
             </div>
           </section>
-      </div>
-    </div>
-  )
-}
-
-// ─── UnlockWarningModal — avertissement IA avant consommation du crédit ───────
-interface UnlockWarning {
-  prospect:  ProspectResult
-  field:     'phone' | 'email'
-  score:     number
-  status:    EnrichBeforeUnlockResult['status']
-  message:   string
-}
-
-function UnlockWarningModal({
-  warning, onConfirm, onCancel, busy,
-}: {
-  warning:   UnlockWarning
-  onConfirm: () => void
-  onCancel:  () => void
-  busy:      boolean
-}) {
-  const isHomonym  = warning.status === 'possible_homonym'
-  const scoreColor = warning.score >= 60
-    ? 'text-amber-600' : 'text-red-500'
-  const Icon = warning.field === 'phone' ? Phone : Mail
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-100 dark:border-slate-800 p-6 flex flex-col gap-5">
-
-        {/* En-tête */}
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-200 dark:ring-amber-800/50">
-            <AlertCircle size={20} className="text-amber-500" />
-          </div>
-          <div>
-            <p className="font-bold text-slate-800 dark:text-slate-100">
-              {isHomonym ? 'Homonyme possible détecté' : 'Identification incertaine'}
-            </p>
-            <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Score de confiance IA : <span className={`font-bold ${scoreColor}`}>{warning.score} %</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Message IA */}
-        {warning.message && (
-          <p className="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed rounded-xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3 border border-slate-100 dark:border-slate-700/50">
-            {warning.message}
-          </p>
-        )}
-
-        {/* Avertissement crédit */}
-        <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3 border border-amber-100 dark:border-amber-800/40">
-          <Icon size={14} className="text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">
-            Si vous confirmez, <strong>1 crédit {warning.field === 'phone' ? 'téléphone' : 'e-mail'} sera consommé</strong> même si la fiche ne correspond pas à la bonne personne.
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-50"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="flex-1 rounded-xl bg-[#1B54FF] py-2.5 text-sm font-semibold text-white hover:bg-[#124bd2] transition disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {busy
-              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              : <Icon size={14} />}
-            Confirmer quand même
-          </button>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Prospect Detail Page ──────────────────────────────────────────────────────
-function ProspectPage({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
+// ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
+function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
   const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto bg-[#f5f7fc] dark:bg-slate-950">
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200/60 bg-white/90 px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
-        <button onClick={onClose}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300">
-          <ArrowLeft size={14} /> Retour
-        </button>
-        <span className="text-slate-200 dark:text-slate-700">/</span>
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{prospect.fullName}</span>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex w-full max-w-lg max-h-[88vh] flex-col overflow-y-auto bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
 
-      {/* Corps */}
-      <div className="mx-auto w-full max-w-2xl space-y-5 px-6 py-8">
-
-        {/* Avatar + identité */}
-        <div className="flex items-center gap-5 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-lg font-bold ${prospectAccent(prospect.jobTitle)}`}>
-            {prospectInitials(prospect.fullName)}
-          </div>
-          <div>
-            <h2 className="text-lg font-bold leading-snug text-slate-800 dark:text-slate-100">{prospect.fullName}</h2>
-            {prospect.jobTitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{prospect.jobTitle}</p>}
-            {prospect.companyName && (
-              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
-                <Building2 size={11} /> {prospect.companyName}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Coordonnées */}
-        <section>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-wrap gap-2">
-              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {!prospect.hasPhone && !prospect.hasEmail && (
-                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#124bd2]/10 border border-[#124bd2]/20 text-sm font-semibold text-[#124bd2]">
+              {prospectInitials(prospect.fullName)}
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 tracking-tight leading-snug">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-sm text-gray-400">{prospect.jobTitle}</p>}
+              {prospect.companyName && (
+                <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                  <Building2 size={11} /> {prospect.companyName}
+                </p>
               )}
             </div>
-            {/* Emails supplémentaires issus de la fusion */}
-            {prospect.emails.length > 1 && (
-              <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
-                {prospect.emails.slice(1).map((em, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 ring-1 ring-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
-                    <Mail size={12} className="shrink-0 text-slate-300" />
-                    <span className="truncate">{em}</span>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-        </section>
+          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-gray-300 transition hover:bg-gray-100 hover:text-gray-600">
+            <X size={18} />
+          </button>
+        </div>
 
-        {/* Entreprise */}
-        {prospect.companyName && (
+        {/* Corps */}
+        <div className="flex-1 space-y-6 px-6 py-5">
+
+          {/* Coordonnées */}
           <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Entreprise</p>
-            <div className="space-y-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <Row icon={<Building2 size={13} className="text-slate-300" />} label="Employeur" value={prospect.companyName} />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Coordonnées</p>
+              {prospect.mergedCount && prospect.mergedCount > 1 && (
+                <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                  <Database size={9} className="text-gray-300" /> {prospect.mergedCount} fiches fusionnées
+                </span>
+              )}
             </div>
-          </section>
-        )}
-
-        {/* Localisation */}
-        {(prospect.addresses.length > 0 || prospect.address || prospect.city || prospect.country || birthContext) && (
-          <section>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
-            <div className="space-y-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              {prospect.addresses.length > 1
-                ? prospect.addresses.map((a, i) => (
-                    <div key={i} className={i > 0 ? 'mt-1 border-t border-slate-100 pt-2 dark:border-slate-800' : ''}>
-                      {a.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label={i === 0 ? 'Adresse' : ''} value={a.address} />}
-                      {a.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label={i === 0 && !a.address ? 'Commune' : ''} value={`${a.city}${a.zipCode ? ` (${a.zipCode})` : ''}`} />}
-                    </div>
+            <div className="border-t border-gray-100">
+              {/* Téléphones */}
+              <ModalContactRowUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {prospect.phoneUnlocked
+                ? prospect.mobiles?.slice(1).map((m, i) => (
+                    <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
                   ))
-                : (
-                  <>
-                    {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
-                    {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
-                  </>
-                )
+                : prospect.mobilesLocked?.map((m, i) => (
+                    <ContactRowStatic key={i} kind="phone" value={m} unlocked={false} coloredIcon />
+                  ))
               }
-              {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
-              {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
+
+              {/* Emails */}
+              <ModalContactRowUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {prospect.emailUnlocked
+                ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                    <ContactRowStatic key={i} kind="email" value={e} unlocked coloredIcon />
+                  ))
+                : prospect.emailsLocked?.map((e, i) => (
+                    <ContactRowStatic key={i} kind="email" value={e} unlocked={false} coloredIcon />
+                  ))
+              }
+
+              {!prospect.hasPhone && !prospect.hasEmail && (
+                <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
+              )}
             </div>
           </section>
-        )}
+
+          {/* Entreprise */}
+          {prospect.companyName && (
+            <section>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Entreprise</p>
+              <div className="border-t border-gray-100">
+                <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 size={14} className="text-gray-300 shrink-0" />
+                    <span className="text-xs text-gray-400">Employeur</span>
+                  </div>
+                  <span className="text-xs text-gray-700 font-medium text-right">{prospect.companyName}</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Localisation */}
+          {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
+            <section>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Localisation</p>
+              <div className="border-t border-gray-100">
+                {prospect.allAddresses && prospect.allAddresses.length > 0
+                  ? prospect.allAddresses.map((addr, i) => (
+                      <div key={i} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <MapPin size={14} className="text-gray-300 shrink-0" />
+                          <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre adresse'}</span>
+                        </div>
+                        <span className="text-xs text-gray-700 font-medium text-right leading-relaxed">
+                          {[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
+                    ))
+                  : <>
+                      {prospect.address && (
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex items-center gap-2.5">
+                            <MapPin size={14} className="text-gray-300 shrink-0" />
+                            <span className="text-xs text-gray-400">Adresse</span>
+                          </div>
+                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.address}</span>
+                        </div>
+                      )}
+                      {prospect.city && (
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex items-center gap-2.5">
+                            <MapPin size={14} className="text-gray-300 shrink-0" />
+                            <span className="text-xs text-gray-400">Commune</span>
+                          </div>
+                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+                        </div>
+                      )}
+                    </>
+                }
+                {prospect.country && (
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <MapPin size={14} className="text-gray-300 shrink-0" />
+                      <span className="text-xs text-gray-400">Pays</span>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">{prospect.country}</span>
+                  </div>
+                )}
+                {birthContext && (
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <UserCircle2 size={14} className="text-gray-300 shrink-0" />
+                      <span className="text-xs text-gray-400">Homonymie</span>
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">{birthContext}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -981,6 +859,43 @@ function prospectAccent(jobTitle: string | null): string {
   if (t.includes('négociateur') || t.includes('conseiller'))
     return 'bg-amber-50 text-amber-600'
   return 'bg-slate-50 text-slate-500'
+}
+
+// Pill statique (même style que ContactUnlock) — sans bouton Débloquer
+// Utilisé pour les coordonnées supplémentaires des fiches fusionnées
+function ContactPill({ value, unlocked, kind }: { value: string; unlocked: boolean; kind: 'phone' | 'email' }) {
+  const isPhone = kind === 'phone'
+  const Icon = isPhone ? Phone : Mail
+  const ringClass = isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'
+  const textClass = isPhone ? 'text-[#124bd2]' : 'text-emerald-700'
+  const iconClass = isPhone ? 'text-[#124bd2]' : 'text-emerald-600'
+
+  if (unlocked) {
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    return (
+      <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${ringClass}`}>
+        <Icon size={14} className={iconClass} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-semibold tabular-nums animate-value-reveal truncate ${textClass}`}>
+          {value}
+        </a>
+        <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+          <img src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
+            style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />
+        </span>
+      </span>
+    )
+  }
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${ringClass}`}>
+      <Icon size={14} className={iconClass} />
+      <span className={`font-semibold tabular-nums ${textClass}`}>{value}</span>
+      <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+        <img src={isPhone ? lockBlueImg : lockGreenImg}
+          style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />
+      </span>
+    </span>
+  )
 }
 
 function Row({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
@@ -1034,108 +949,6 @@ function ContactChip({
   return <span className={className}>{content}</span>
 }
 
-// ─── EnrichmentPanel — données IA affichées dans la fiche ouverte ────────────
-function EnrichmentPanel({
-  data, loading,
-}: {
-  data:    EnrichBeforeUnlockResult | 'error' | undefined
-  loading: boolean
-}) {
-  if (loading) {
-    return (
-      <div className="mt-3 animate-pulse space-y-2">
-        <div className="h-5 w-32 rounded-full bg-slate-100 dark:bg-slate-800" />
-        <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
-        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
-        <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-slate-800" />
-      </div>
-    )
-  }
-  if (!data || data === 'error') return null
-
-  const score  = data.confidence_score
-  const enr    = data.safe_enrichments
-  const isHomonym = data.status === 'possible_homonym'
-
-  const badgeClass = score >= 80
-    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:ring-emerald-900/40'
-    : score >= 50
-    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:ring-amber-800/40'
-    : 'bg-red-50 text-red-600 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-400 dark:ring-red-900/40'
-
-  const statusLabel: Record<string, string> = {
-    confirmed:         'Profil confirmé',
-    likely:            'Profil probable',
-    uncertain:         'Profil incertain',
-    possible_homonym:  'Homonyme possible',
-    insufficient_data: 'Données limitées',
-  }
-
-  return (
-    <div className="mt-3 space-y-2.5">
-      {/* Badge de confiance */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badgeClass}`}>
-          {score >= 60
-            ? <ShieldCheck size={10} />
-            : <AlertCircle size={10} />}
-          {statusLabel[data.status] ?? data.status} · {score} %
-        </span>
-      </div>
-
-      {/* Avertissement homonyme */}
-      {isHomonym && (
-        <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          Plusieurs profils similaires trouvés — vérifiez avant de débloquer.
-        </p>
-      )}
-
-      {/* Données enrichies */}
-      {(enr.job_title || enr.company || enr.public_profile_url || enr.professional_location) && (
-        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-          {enr.job_title && (
-            <p className="flex items-center gap-1.5">
-              <Briefcase size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
-              {enr.job_title}
-            </p>
-          )}
-          {enr.company && (
-            <p className="flex items-center gap-1.5">
-              <Building2 size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
-              {enr.company}
-            </p>
-          )}
-          {enr.professional_location && (
-            <p className="flex items-center gap-1.5">
-              <MapPin size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
-              {enr.professional_location}
-            </p>
-          )}
-          {enr.public_profile_url && (
-            <a
-              href={enr.public_profile_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1.5 text-[#124bd2] hover:underline dark:text-blue-400"
-            >
-              <ExternalLink size={11} className="shrink-0" />
-              Voir le profil LinkedIn
-            </a>
-          )}
-        </div>
-      )}
-
-      {/* Message IA si incertitude */}
-      {data.user_facing_message && score < 70 && (
-        <p className="text-[11px] italic leading-relaxed text-slate-400 dark:text-slate-500">
-          {data.user_facing_message}
-        </p>
-      )}
-    </div>
-  )
-}
-
 // ─── Composant ProspectCard ────────────────────────────────────────────────────
 // ─── Champ de contact : masqué + bouton Débloquer, ou valeur complète ───────
 function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
@@ -1145,35 +958,30 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   onUnlock:  (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
-  const has      = kind === 'phone' ? prospect.hasPhone : prospect.hasEmail
-  const unlocked = kind === 'phone' ? prospect.phoneUnlocked : prospect.emailUnlocked
-  const value    = kind === 'phone' ? prospect.phone : prospect.email
-  const Icon     = kind === 'phone' ? Phone : Mail
+  const isPhone  = kind === 'phone'
+  const has      = isPhone ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = isPhone ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value    = isPhone ? prospect.phone : prospect.email
+  const Icon     = isPhone ? Phone : Mail
   if (!has) return null
 
   if (unlocked && value) {
-    const isMasked = kind === 'phone' && (prospect as any).phoneDemoMasked
-    const href = kind === 'phone' ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
-    if (isMasked) {
-      return (
-        <div className="group relative inline-flex flex-col gap-0.5">
-          <span className="inline-flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/50">
-            <Icon size={14} /> <span className="truncate tabular-nums">{value}</span>
-          </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500">
-            Version démo · numéro partiellement masqué.{' '}
-            <button className="text-[#1B54FF] hover:underline font-medium" onClick={() => window.location.assign('/?pricing=1')}>
-              Abonnez-vous
-            </button>{' '}pour l'afficher.
-          </span>
-        </div>
-      )
-    }
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
     return (
-      <a href={href} onClick={e => e.stopPropagation()}
-        className="inline-flex max-w-full items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-[#124bd2] ring-1 ring-blue-100/80 transition hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:ring-blue-900/60">
-        <Icon size={14} /> <span className="truncate">{value}</span>
-      </a>
+      <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'}`}>
+        <Icon size={14} className={isPhone ? 'text-[#124bd2]' : 'text-emerald-600'} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-semibold tabular-nums animate-value-reveal truncate ${isPhone ? 'text-[#124bd2]' : 'text-emerald-700'}`}>
+          {value}
+        </a>
+        <span className="ml-1 inline-flex items-center rounded-lg px-2.5 py-1">
+          <img
+            src={isPhone ? lockOpenBlueImg : lockOpenGreenImg}
+            style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }}
+            alt=""
+          />
+        </span>
+      </span>
     )
   }
 
@@ -1185,244 +993,465 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   }
 
   return (
-    <span className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-1.5 text-xs ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700">
-      <Icon size={14} className="text-slate-300 dark:text-slate-600" />
-      <span className="font-semibold tabular-nums text-slate-400">{value}</span>
+    <span className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs ring-1 ${isPhone ? 'bg-[#124bd2]/10 ring-[#124bd2]/20' : 'bg-emerald-500/10 ring-emerald-500/20'}`}>
+      <Icon size={14} className={isPhone ? 'text-[#124bd2]' : 'text-emerald-600'} />
+      <span className={`font-semibold tabular-nums ${isPhone ? 'text-[#124bd2]' : 'text-emerald-700'}`}>{value}</span>
       <button type="button" onClick={click} disabled={busy}
-        className="ml-1 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+        className={`ml-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${isPhone ? 'bg-[#124bd2]/20 hover:bg-[#124bd2]/30 text-[#124bd2]' : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700'}`}>
         {busy
-          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          : <KeyIcon kind={kind} size={22} className="text-white" />}
-        {canUnlock ? (kind === 'phone' ? 'Débloquer' : 'Débloquer') : 'Voir les offres'}
+          ? <span className={`h-3 w-3 animate-spin rounded-full border-2 border-t-transparent ${isPhone ? 'border-[#124bd2]' : 'border-emerald-600'}`} />
+          : <img src={isPhone ? lockBlueImg : lockGreenImg} style={{ height: '34px', width: '26px', objectFit: 'contain', mixBlendMode: 'multiply' }} alt="" />}
+        {canUnlock ? 'Débloquer' : 'Voir les offres'}
       </button>
     </span>
   )
 }
 
-function ProspectCard({
-  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full', canUnlock = false, onUnlock,
-  isExpanded, onExpand, enrichmentData, isEnrichmentLoading,
+// ─── Cadenas SVG "t!" — masque global référencé par id ───────────────────────
+// Le masque est déclaré une seule fois dans le DOM (voir GlobalSvgDefs),
+// tous les cadenas de la page l'utilisent via url(#trouve-t-mask).
+const PADLOCK_MASK_ID = 'trouve-t-mask'
+
+function GlobalSvgDefs() {
+  return (
+    <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+      <defs>
+        <mask id={PADLOCK_MASK_ID}>
+          <rect width="24" height="24" fill="white" />
+          <text
+            x="12.5" y="18.8" fill="black" textAnchor="middle"
+            style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontWeight: 900, fontSize: '9px', letterSpacing: '-0.5px' }}
+          >t!</text>
+        </mask>
+      </defs>
+    </svg>
+  )
+}
+
+function PadlockUnlockButton({
+  kind, onClick, busy, canUnlock,
 }: {
-  prospect:              ProspectResult
-  isFavorite:            boolean
-  onToggleFavorite:      (p: ProspectResult) => void
-  viewMode:              'grid' | 'list'
-  onDetail:              (p: ProspectResult) => void
-  accessLevel?:          AccessLevel
-  canUnlock?:            boolean
-  onUnlock?:             (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
-  isExpanded?:           boolean
-  onExpand?:             (p: ProspectResult) => void
-  enrichmentData?:       EnrichBeforeUnlockResult | 'error' | undefined
-  isEnrichmentLoading?:  boolean
+  kind:       'phone' | 'email'
+  onClick:    (e: React.MouseEvent) => void
+  busy?:      boolean
+  canUnlock?: boolean
 }) {
-  const noop = async () => {}
-  const initials = prospectInitials(prospect.fullName)
-  const accent   = prospectAccent(prospect.jobTitle)
+  const isPhone   = kind === 'phone'
+  const hoverText = isPhone ? 'group-hover:text-[#124bd2]' : 'group-hover:text-emerald-500'
+  const hoverBg   = isPhone ? 'hover:bg-blue-50'           : 'hover:bg-emerald-50'
 
-  if (viewMode === 'list') {
-    const isLimited = accessLevel === 'limited'
-    const showExpand = !isLimited && !!onExpand
+  if (!canUnlock) {
     return (
-      <div className={`rounded-2xl border bg-white transition dark:bg-slate-900 ${
-        isExpanded ? 'border-blue-200 dark:border-blue-900' : 'border-slate-200 dark:border-slate-800'
-      } ${isLimited ? '' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
-        <div className={`group flex items-center gap-4 px-5 py-3.5 ${showExpand ? 'cursor-pointer' : ''}`}
-          onClick={showExpand ? () => onExpand!(prospect) : undefined}>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
-            {isLimited ? '' : initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            {isLimited ? (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
-                <BlurPill w="w-40" />
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-                    className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
-                    {prospect.fullName}
-                  </button>
-                  {prospect.mergedCount > 1 && (
-                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#1B54FF] dark:bg-blue-950/40 dark:text-blue-400">
-                      ×{prospect.mergedCount}
-                    </span>
-                  )}
-                  {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
-                </div>
-                <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
-                  {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
-                  {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
-                  {prospect.birthYear ? ` · Né(e) ${prospect.birthYear}` : ''}
-                </p>
-              </>
-            )}
-          </div>
-          <div className="hidden shrink-0 items-center gap-2 sm:flex" onClick={e => e.stopPropagation()}>
-            {isLimited ? (
-              <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
-            ) : (
-              <>
-                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-              </>
-            )}
-          </div>
-          {!isLimited && (
-            <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
-              <button
-                onClick={() => onToggleFavorite(prospect)}
-                aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                className={`rounded-lg p-1.5 transition opacity-0 group-hover:opacity-100 ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-              >
-                <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-              </button>
-              {showExpand && (
-                <button
-                  onClick={e => { e.stopPropagation(); onExpand!(prospect) }}
-                  className={`rounded-lg p-1.5 transition ${isExpanded ? 'text-[#124bd2]' : 'text-slate-300 hover:text-[#124bd2]'}`}
-                  aria-label={isExpanded ? 'Fermer la fiche' : 'Ouvrir la fiche'}
-                >
-                  {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                </button>
-              )}
-              <button onClick={() => onDetail(prospect)}
-                className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
-                <ArrowRight size={15} />
-              </button>
-            </div>
-          )}
-        </div>
+      <button type="button" onClick={onClick} disabled={busy}
+        className="text-[11px] font-medium text-gray-400 hover:text-[#124bd2] transition-colors disabled:opacity-50 px-1">
+        Voir les offres
+      </button>
+    )
+  }
 
-        {/* Panneau enrichissement IA — affiché quand la fiche est ouverte */}
-        {isExpanded && (
-          <div className="border-t border-slate-100 px-5 pb-4 pt-3 dark:border-slate-800">
-            <EnrichmentPanel data={enrichmentData} loading={!!isEnrichmentLoading} />
-          </div>
-        )}
+  return (
+    <button type="button" onClick={onClick} disabled={busy}
+      className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all duration-200 ${hoverBg} active:scale-95 disabled:opacity-50`}>
+      {busy ? (
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          className={`w-4 h-4 text-gray-300 transition-colors duration-200 ${hoverText}`}
+          fill="none">
+          {/* Anse */}
+          <path d="M7 10V7A5 5 0 0117 7V10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          {/* Corps avec "t!" découpé */}
+          <rect x="3" y="10" width="18" height="12" rx="3"
+            fill="currentColor" mask={`url(#${PADLOCK_MASK_ID})`} />
+        </svg>
+      )}
+      <span className={`text-[11px] font-medium text-gray-400 transition-colors duration-200 ${hoverText}`}>
+        Débloquer
+      </span>
+    </button>
+  )
+}
+
+// ─── Ligne de contact Apple-style (grille + modale) ──────────────────────────
+function ContactRowStatic({
+  kind, value, unlocked, onUnlock, busy, canUnlock, coloredIcon,
+}: {
+  kind:         'phone' | 'email'
+  value:        string
+  unlocked:     boolean
+  onUnlock?:    (e: React.MouseEvent) => void
+  busy?:        boolean
+  canUnlock?:   boolean
+  coloredIcon?: boolean  // icône bleue (phone) ou verte (email) pour la modale
+}) {
+  const isPhone   = kind === 'phone'
+  const Icon      = isPhone ? Phone : Mail
+  const iconClass = coloredIcon
+    ? (isPhone ? 'text-[#124bd2]' : 'text-emerald-500')
+    : 'text-gray-300'
+
+  if (unlocked) {
+    const href      = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    const rowHoverBg   = isPhone ? 'hover:bg-blue-50'            : 'hover:bg-emerald-50'
+    const childHover   = isPhone ? 'group-hover:text-[#124bd2]'  : 'group-hover:text-emerald-500'
+    return (
+      <div className={`group flex items-center py-3.5 border-b border-gray-100 last:border-0 rounded-lg transition-colors cursor-pointer -mx-1 px-1 ${rowHoverBg}`}>
+        <Icon size={15} className={`${iconClass} shrink-0 mr-3 transition-colors ${childHover}`} />
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`font-mono text-xs text-gray-700 flex-1 min-w-0 truncate transition-colors animate-value-reveal ${childHover}`}>
+          {value}
+        </a>
       </div>
     )
   }
 
-  // Vue grille
+  return (
+    <div className="flex items-center justify-between py-3.5 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+        <Icon size={15} className={`${iconClass} shrink-0`} />
+        <span className="font-mono text-xs text-gray-500 tracking-wide truncate">{value}</span>
+      </div>
+      {onUnlock && (
+        <PadlockUnlockButton kind={kind} onClick={onUnlock} busy={busy} canUnlock={canUnlock} />
+      )}
+    </div>
+  )
+}
+
+// Ligne unlock pour la modale — gère le busy state, icône colorée
+function ModalContactRowUnlock({ prospect, kind, canUnlock, onUnlock }: {
+  prospect:  ProspectResult
+  kind:      'phone' | 'email'
+  canUnlock: boolean
+  onUnlock:  (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const isPhone = kind === 'phone'
+  const has     = isPhone ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = isPhone ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value   = isPhone ? prospect.phone : prospect.email
+  if (!has || !value) return null
+
+  const click = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try { await onUnlock(prospect, kind) } finally { setBusy(false) }
+  }
+
+  return (
+    <ContactRowStatic
+      kind={kind}
+      value={kind === 'phone' ? value : value}
+      unlocked={!!unlocked}
+      onUnlock={unlocked ? undefined : click}
+      busy={busy}
+      canUnlock={canUnlock}
+      coloredIcon
+    />
+  )
+}
+
+function ProspectCard({
+  prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full', canUnlock = false, onUnlock,
+}: {
+  prospect:          ProspectResult
+  isFavorite:        boolean
+  onToggleFavorite:  (p: ProspectResult) => void
+  viewMode:          'grid' | 'list'
+  onDetail:          (p: ProspectResult) => void
+  accessLevel?:      AccessLevel
+  canUnlock?:        boolean
+  onUnlock?:         (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+}) {
+  const noop = async () => {}
+  const initials = prospectInitials(prospect.fullName)
+  const accent   = prospectAccent(prospect.jobTitle)
+  const [phoneBusy, setPhoneBusy] = useState(false)
+  const [emailBusy, setEmailBusy] = useState(false)
+
+  if (viewMode === 'list') {
+    const isLimited = accessLevel === 'limited'
+
+    const unlockPhoneList = async (e: React.MouseEvent) => {
+      e.stopPropagation(); if (phoneBusy) return
+      setPhoneBusy(true); try { await (onUnlock ?? noop)(prospect, 'phone') } finally { setPhoneBusy(false) }
+    }
+    const unlockEmailList = async (e: React.MouseEvent) => {
+      e.stopPropagation(); if (emailBusy) return
+      setEmailBusy(true); try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
+    }
+
+    // Compile toutes les lignes téléphone (principale + fusionnées) — filtre les nulls DB
+    const phoneRows: { value: string; unlocked: boolean }[] = []
+    if (prospect.hasPhone && prospect.phone) {
+      phoneRows.push({ value: prospect.phone, unlocked: !!prospect.phoneUnlocked })
+    }
+    if (prospect.phoneUnlocked) {
+      prospect.mobiles?.forEach(m => {
+        if (!m) return
+        const fmt = formatPhone(m) ?? m
+        if (fmt && fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
+      })
+    } else {
+      prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
+    }
+
+    // Compile toutes les lignes email (principale + fusionnées) — filtre les nulls DB
+    const emailRows: { value: string; unlocked: boolean }[] = []
+    if (prospect.hasEmail && prospect.email) {
+      emailRows.push({ value: prospect.email, unlocked: !!prospect.emailUnlocked })
+    }
+    if (prospect.emailUnlocked) {
+      prospect.allEmails?.forEach(em => { if (em && em !== prospect.email) emailRows.push({ value: em, unlocked: true }) })
+    } else {
+      prospect.emailsLocked?.forEach(em => { if (em) emailRows.push({ value: em, unlocked: false }) })
+    }
+
+    return (
+      <div
+        className={`group flex items-start gap-4 bg-white border border-gray-100 rounded-xl px-5 py-4 transition-all duration-200 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:shadow-md hover:border-gray-200'}`}
+        onClick={() => !isLimited && onDetail(prospect)}
+      >
+        {/* Avatar — aligné en haut */}
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+          {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
+        </div>
+
+        {/* Identité */}
+        <div className="min-w-0 w-52 shrink-0 pt-0.5">
+          {isLimited ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
+              <BlurPill w="w-40" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-900 truncate">{prospect.fullName}</span>
+                {prospect.mergedCount && prospect.mergedCount > 1 && (
+                  <span className="shrink-0 flex items-center gap-1 rounded-md bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400 border border-gray-100">
+                    <Database size={8} />×{prospect.mergedCount}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5 truncate">
+                {[prospect.jobTitle, prospect.companyName, prospect.city].filter(Boolean).join(' · ')}
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Coordonnées multi-lignes */}
+        {!isLimited && (
+          <div className="hidden md:flex items-start gap-8 flex-1 min-w-0 pt-0.5">
+
+            {/* Colonne Téléphones */}
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              {phoneRows.map((p, i) => (
+                <div key={i} className="flex items-center gap-2 min-w-0">
+                  {p.unlocked ? (
+                    <a href={`tel:${(p.value ?? '').replace(/\s/g, '')}`} onClick={e => e.stopPropagation()}
+                      className="font-mono text-sm text-[#124bd2] hover:underline truncate flex-1">
+                      {p.value}
+                    </a>
+                  ) : (
+                    <>
+                      <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{p.value}</span>
+                      <PadlockUnlockButton kind="phone" onClick={unlockPhoneList} busy={phoneBusy} canUnlock={canUnlock} />
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Colonne Emails */}
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              {emailRows.map((e, i) => (
+                <div key={i} className="flex items-center gap-2 min-w-0">
+                  {e.unlocked ? (
+                    <a href={`mailto:${e.value}`} onClick={ev => ev.stopPropagation()}
+                      className="font-mono text-sm text-emerald-600 hover:underline truncate flex-1">
+                      {e.value}
+                    </a>
+                  ) : (
+                    <>
+                      <span className="font-mono text-sm text-gray-300 tracking-wide truncate flex-1">{e.value}</span>
+                      <PadlockUnlockButton kind="email" onClick={unlockEmailList} busy={emailBusy} canUnlock={canUnlock} />
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+          </div>
+        )}
+        {isLimited && (
+          <div className="hidden md:flex items-center gap-4 flex-1 pt-0.5">
+            <BlurPill w="w-32" /><BlurPill w="w-40" />
+          </div>
+        )}
+
+        {/* Actions droite */}
+        <div className={`flex shrink-0 items-center gap-1.5 pt-0.5 transition-opacity duration-200 ${isLimited ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
+          <button onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
+            aria-label={isFavorite ? 'Retirer' : 'Ajouter aux favoris'}
+            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}>
+            <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
+          <span className="text-xs text-gray-400 flex items-center gap-0.5 pr-1">
+            Fiche <ChevronRight size={13} />
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // Vue grille — Apple-style
   const isLimited = accessLevel === 'limited'
+
+  const unlockPhone = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (phoneBusy) return
+    setPhoneBusy(true)
+    try { await (onUnlock ?? noop)(prospect, 'phone') } finally { setPhoneBusy(false) }
+  }
+
+  const unlockEmail = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (emailBusy) return
+    setEmailBusy(true)
+    try { await (onUnlock ?? noop)(prospect, 'email') } finally { setEmailBusy(false) }
+  }
+
+  const primaryAddress = prospect.allAddresses?.[0]
+  const addressSubtitle = primaryAddress
+    ? [primaryAddress.rue, [primaryAddress.cp, primaryAddress.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    : prospect.city
+      ? [prospect.zipCode, prospect.city].filter(Boolean).join(' ')
+      : null
+
   return (
     <div
-      className={`card-lift group flex flex-col rounded-2xl border bg-white p-5 transition dark:bg-slate-900 ${
-        isLimited
-          ? 'cursor-default border-slate-200 dark:border-slate-800'
-          : isExpanded
-          ? 'cursor-pointer border-blue-200 shadow-sm ring-2 ring-[#1B54FF]/10 dark:border-blue-800'
-          : 'cursor-pointer border-slate-200 hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:hover:border-blue-900'
-      }`}
-      onClick={() => !isLimited && onExpand && onExpand(prospect)}
+      className={`group flex flex-col rounded-2xl bg-white border border-[#E5E7EB] p-5 shadow-sm transition duration-200 hover:shadow-md ${isLimited ? 'cursor-default' : 'cursor-pointer'}`}
+      onClick={() => !isLimited && onDetail(prospect)}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
-          {isLimited ? <Lock size={14} className="text-slate-300 dark:text-slate-600" /> : initials}
+      {/* Header — initiales + nom + sous-titre */}
+      <div className="flex items-start justify-between gap-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+            {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            {isLimited ? (
+              <div className="space-y-1.5 pt-0.5">
+                <BlurPill w="w-32" h="h-3.5" />
+                <BlurPill w="w-20" />
+              </div>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-gray-900 tracking-tight leading-snug truncate">{prospect.fullName}</p>
+                {(prospect.jobTitle || addressSubtitle) && (
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">
+                    {prospect.jobTitle ?? addressSubtitle}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {!isLimited && (
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
             aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}`}
+            className={`shrink-0 transition ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'}`}
           >
             <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
         )}
       </div>
 
-      {/* Identité */}
-      <div className="mt-3">
-        {isLimited ? (
-          <div className="space-y-1.5">
-            <BlurPill w="w-36" h="h-4" />
-            <BlurPill w="w-24" />
-            <BlurPill w="w-28" />
-          </div>
-        ) : (
-          <>
-            <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">
-              {prospect.fullName}
-              {prospect.mergedCount > 1 && (
-                <span className="ml-1.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#1B54FF] dark:bg-blue-950/40 dark:text-blue-400">
-                  ×{prospect.mergedCount}
-                </span>
-              )}
-            </p>
-            {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
-            {prospect.companyName && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
-                <Building2 size={10} className="shrink-0" /> {prospect.companyName}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="my-3 h-px bg-slate-100 dark:bg-slate-800" />
-
-      {/* Coordonnées */}
+      {/* Section Coordonnées */}
       {isLimited ? (
         <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2"><Phone size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-28" /></div>
-          <div className="flex items-center gap-2"><Mail size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-32" /></div>
-          <div className="flex items-center gap-2"><MapPin size={11} className="shrink-0 text-slate-200 dark:text-slate-700" /><BlurPill w="w-20" /></div>
+          <div className="flex items-center gap-2"><Phone size={11} className="text-gray-200" /><BlurPill w="w-28" /></div>
+          <div className="flex items-center gap-2"><Mail size={11} className="text-gray-200" /><BlurPill w="w-32" /></div>
+          <div className="flex items-center gap-2"><MapPin size={11} className="text-gray-200" /><BlurPill w="w-20" /></div>
         </div>
       ) : (
-        <div className="flex-1 space-y-2 text-xs text-slate-500 dark:text-slate-400">
-          {/* Téléphone */}
-          {prospect.hasPhone
-            ? <div><ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
-            : <ContactChip icon={<Phone size={14} />} value="—" muted />}
+        <div className="flex-1">
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Coordonnées</p>
+          <div className="border-t border-gray-100">
+            {/* Téléphones */}
+            {prospect.hasPhone && (
+              <ContactRowStatic
+                kind="phone"
+                value={prospect.phone ?? ''}
+                unlocked={!!prospect.phoneUnlocked}
+                onUnlock={prospect.phoneUnlocked ? undefined : unlockPhone}
+                busy={phoneBusy}
+                canUnlock={canUnlock}
+              />
+            )}
+            {prospect.phoneUnlocked
+              ? prospect.mobiles?.slice(1).map((m, i) => (
+                  <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked />
+                ))
+              : prospect.mobilesLocked?.map((m, i) => (
+                  <ContactRowStatic key={i} kind="phone" value={m} unlocked={false}
+                    onUnlock={unlockPhone} busy={phoneBusy} canUnlock={canUnlock} />
+                ))
+            }
 
-          {/* Email */}
-          {prospect.hasEmail
-            ? <div><ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} /></div>
-            : <ContactChip icon={<Mail size={14} />} value="—" muted />}
+            {/* Emails */}
+            {prospect.hasEmail && (
+              <ContactRowStatic
+                kind="email"
+                value={prospect.email ?? ''}
+                unlocked={!!prospect.emailUnlocked}
+                onUnlock={prospect.emailUnlocked ? undefined : unlockEmail}
+                busy={emailBusy}
+                canUnlock={canUnlock}
+              />
+            )}
+            {prospect.emailUnlocked
+              ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                  <ContactRowStatic key={i} kind="email" value={e} unlocked />
+                ))
+              : prospect.emailsLocked?.map((e, i) => (
+                  <ContactRowStatic key={i} kind="email" value={e} unlocked={false}
+                    onUnlock={unlockEmail} busy={emailBusy} canUnlock={canUnlock} />
+                ))
+            }
 
-          {/* City */}
-          {prospect.city && (
-            <p className="flex items-center gap-2">
-              <MapPin size={11} className="shrink-0 text-slate-300" />
-              <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
-            </p>
-          )}
-          {/* Année de naissance — aide à identifier la bonne fiche avant déblocage */}
-          {prospect.birthYear && (
-            <p className="flex items-center gap-2">
-              <Calendar size={11} className="shrink-0 text-slate-300" />
-              <span>Né(e) en {prospect.birthYear}</span>
-            </p>
-          )}
+            {!prospect.hasPhone && !prospect.hasEmail && (
+              <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
+            )}
+          </div>
         </div>
       )}
 
       {/* Footer */}
-      <div className="mt-4">
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+        {prospect.mergedCount && prospect.mergedCount > 1 && !isLimited ? (
+          <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+            <Database size={9} className="text-gray-300" />
+            {prospect.mergedCount} fiches fusionnées
+          </span>
+        ) : <span />}
         {isLimited ? (
-          <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-100 py-2 text-xs font-medium text-slate-300 dark:border-slate-800 dark:text-slate-600">
-            <Lock size={11} /> Accès restreint
-          </div>
+          <span className="flex items-center gap-1 text-xs font-medium text-gray-300">
+            <Lock size={10} /> Accès restreint
+          </span>
         ) : (
           <button
             onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:text-[#124bd2] hover:bg-blue-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
+            className="text-xs font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
           >
             Voir la fiche <ArrowRight size={12} />
           </button>
         )}
       </div>
-
-      {/* Panneau enrichissement IA — affiché quand la fiche est ouverte */}
-      {isExpanded && (
-        <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-          <EnrichmentPanel data={enrichmentData} loading={!!isEnrichmentLoading} />
-        </div>
-      )}
     </div>
   )
 }
@@ -1563,7 +1592,9 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
           <div key={list.id} onClick={() => onOpenList(list.id)}
             className="card-lift flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white p-5 transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-2xl">{list.emoji}</span>
+              {isListColor(list.emoji)
+                ? <ListColorDot color={list.emoji} size="lg" />
+                : <span className="text-2xl">{list.emoji}</span>}
               <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</span>
             </div>
             <p className="font-semibold text-slate-800 dark:text-slate-100">{list.name}</p>
@@ -1609,14 +1640,19 @@ function SingleListView({ list, onBack, onExport, onRemove, onGoSearch }: {
         )}
         <button onClick={onBack} className="hover:text-[#124bd2] transition font-medium">Mes listes</button>
         <ChevronRight size={12} className="text-slate-300" />
-        <span className="text-slate-600 dark:text-slate-300 font-medium truncate max-w-[180px]">{list.emoji} {list.name}</span>
+        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium truncate max-w-[180px]">
+          {isListColor(list.emoji) ? <ListColorDot color={list.emoji} size="sm" /> : list.emoji}
+          {list.name}
+        </span>
       </nav>
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <button onClick={onBack} className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#124bd2] transition font-medium">
           <ChevronLeft size={13} /> Mes listes
         </button>
         <span className="text-slate-300">|</span>
-        <span className="text-xl">{list.emoji}</span>
+        {isListColor(list.emoji)
+          ? <ListColorDot color={list.emoji} size="lg" />
+          : <span className="text-xl">{list.emoji}</span>}
         <div className="flex-1">
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{list.name}</h2>
           <p className="text-xs text-slate-400">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</p>
@@ -1661,10 +1697,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
   onConfirm: (listId: string, newName?: string, newEmoji?: string) => void; onClose: () => void
 }) {
   const [newName, setNewName] = useState('')
-  const [newEmoji, setNewEmoji] = useState('📋')
+  const [newEmoji, setNewEmoji] = useState('blue')
   const [selected, setSelected] = useState<string>('')
   const isNewList = prospect?.id === '__new_list__'
-  const EMOJIS = ['📋','🏗','🏠','🏥','💼','🎯','🌍','⭐','🔑','📊']
 
   if (!prospect) return null
 
@@ -1688,7 +1723,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
             {lists.map(l => (
               <label key={l.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-2.5 transition ${selected === l.id ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : 'border-slate-200 dark:border-slate-700'}`}>
                 <input type="radio" name="list-pick" value={l.id} checked={selected === l.id} onChange={() => setSelected(l.id)} className="accent-[#124bd2]" />
-                <span className="text-base">{l.emoji}</span>
+                {isListColor(l.emoji)
+                  ? <ListColorDot color={l.emoji} size="md" />
+                  : <span className="text-base">{l.emoji}</span>}
                 <span className="flex-1 text-sm font-semibold">{l.name}</span>
                 <span className="text-xs text-slate-400">{l.contacts.length}</span>
               </label>
@@ -1702,11 +1739,9 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
           </p>
           <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex : BTP Lyon, Médecins Paris…"
             className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800" />
-          <div className="mt-2 flex gap-1.5 flex-wrap">
-            {EMOJIS.map(e => (
-              <button key={e} type="button" onClick={() => setNewEmoji(e)}
-                className={`rounded-lg p-1.5 text-base transition ${newEmoji === e ? 'bg-blue-100 ring-1 ring-blue-400' : 'hover:bg-slate-100'}`}>{e}</button>
-            ))}
+          <div className="mt-3">
+            <p className="mb-2 text-xs text-slate-400">Couleur</p>
+            <ListColorPicker value={newEmoji} onChange={setNewEmoji} />
           </div>
         </div>
 
@@ -1723,7 +1758,7 @@ function AddToListPopup({ prospect, lists, onConfirm, onClose }: {
 }
 
 // ─── User Menu dropdown ────────────────────────────────────────────────────────
-function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void; onOpenProspection: () => void }) {
+function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection, placement = 'below' }: { account: Account; onLogout: () => void; onOpenAccount: (tab?: string) => void; onOpenProspection: () => void; placement?: 'below' | 'above' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -1759,7 +1794,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
       {/* Trigger — initiale + nom complet + chevron */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
+        className={`flex items-center gap-2 rounded-2xl border border-slate-200 bg-white pl-1.5 pr-3 py-1.5 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800 ${placement === 'above' ? 'w-full' : ''}`}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B54FF] text-white text-xs font-bold shrink-0">
           {initial}
@@ -1773,7 +1808,7 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
 
       {/* Dropdown */}
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+        <div className={`animate-scale-in absolute z-50 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 ${placement === 'above' ? 'bottom-full left-0 mb-2' : 'top-full right-0 mt-2'}`}>
           {/* Header — username affiché une seule fois ici */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B54FF] text-white text-sm font-bold">
@@ -1803,15 +1838,14 @@ function UserMenu({ account, onLogout, onOpenAccount, onOpenProspection }: { acc
 
           {/* Separator + Logout */}
           <div className="border-t border-slate-100 py-1.5 dark:border-slate-800">
-            <button
-              onClick={() => { setOpen(false); onLogout() }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
-                <LogOut size={15} className="text-red-500" />
-              </span>
-              <span className="font-medium">Déconnexion</span>
-            </button>
+            <LogoutDialog onConfirm={() => { setOpen(false); onLogout() }}>
+              <button className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/40">
+                  <LogOut size={15} className="text-red-500" />
+                </span>
+                <span className="font-medium">Déconnexion</span>
+              </button>
+            </LogoutDialog>
           </div>
         </div>
       )}
@@ -1842,8 +1876,9 @@ interface AdvancedFiltersProps {
   // Réseaux sociaux
   linkedin: string; setLinkedin: (v: string) => void
   // Actions
-  onSearch: () => void
-  onReset:  () => void
+  onSearch:        () => void
+  onAddressSelect: (result: import('@/components/ui/address-autocomplete').AddressResult) => void
+  onReset:         () => void
 }
 
 function AdvSection({
@@ -1926,12 +1961,12 @@ function AdvSelect({
 function AdvancedFilters(props: AdvancedFiltersProps) {
   const {
     firstName, setFirstName, lastName, setLastName, jobTitle, setJobTitle,
+    birthYear, setBirthYear,
     city, setCity, address, setAddress, zipCode, setZipCode, department, setDepartment,
     phone, setPhone, email, setEmail,
     companyName, setCompanyName, activityCode, setActivityCode, employeeRange, setEmployeeRange, legalForm, setLegalForm,
     linkedin, setLinkedin,
-    birthYear, setBirthYear,
-    onSearch, onReset,
+    onSearch, onAddressSelect, onReset,
   } = props
 
   const [open, setOpen] = useState<string[]>(['civil', 'origin', 'contact', 'address', 'networks', 'other'])
@@ -1946,8 +1981,27 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <AdvInput label="Prénom" value={firstName} onChange={setFirstName} onEnter={onSearch} placeholder="Jean" />
           <AdvInput label="Nom" value={lastName} onChange={setLastName} onEnter={onSearch} placeholder="Dupont" />
-          <AdvInput label="Année de naissance" value={birthYear} onChange={v => setBirthYear(v.replace(/\D/g,'').slice(0,4))} onEnter={onSearch} placeholder="1985" />
           <AdvInput label="Poste / Titre" value={jobTitle} onChange={setJobTitle} onEnter={onSearch} placeholder="Directeur commercial" />
+          <div>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Année de naissance
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={birthYear}
+                onChange={e => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={e => { if (e.key === 'Enter' && firstName && lastName) onSearch() }}
+                placeholder={firstName && lastName ? '1985' : 'Nom + Prénom requis'}
+                disabled={!firstName || !lastName}
+                maxLength={4}
+                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white placeholder:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+            </div>
+            {(!firstName || !lastName) && (
+              <p className="mt-1 text-[10px] text-slate-400">Renseignez Nom et Prénom pour activer</p>
+            )}
+          </div>
         </div>
       </AdvSection>
 
@@ -1986,7 +2040,17 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
       <AdvSection id="address" icon={<MapPin size={15} />} title="Adresse"
         color="bg-emerald-50 text-emerald-600" open={open.includes('address')} onToggle={() => tog('address')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="Rue / Adresse" value={address} onChange={setAddress} onEnter={onSearch} placeholder="122 Boulevard Murat" />
+          <AddressAutocomplete
+              label="Rue / Adresse"
+              value={address}
+              placeholder="122 Boulevard Murat"
+              onSelect={result => {
+                setAddress(result.adresse)
+                setCity(result.ville)
+                setZipCode(result.codePostal)
+                onAddressSelect(result)
+              }}
+            />
           <AdvInput label="Ville" value={city} onChange={setCity} onEnter={onSearch} placeholder="Paris" />
           <AdvInput label="Code postal" value={zipCode}
             onChange={v => setZipCode(v.replace(/\D/g, '').slice(0, 5))}
@@ -2032,6 +2096,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   // État de recherche
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
+  const [identityInput, setIdentityInput] = useState('')   // omnibar : "Jean Dupont"
   const [searchMode, setSearchMode]     = useState<'exact' | 'starts_with' | 'ends_with' | 'contains'>('exact')
   const [searchTel, setSearchTel]       = useState('')
   const [department, setDepartment]     = useState('')
@@ -2041,11 +2106,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [employeeRange, setEmployeeRange] = useState('')
   const [legalForm, setLegalForm]       = useState('')
   // Filtres avancés — champs texte (libres)
-  const [identityInput, setIdentityInput]   = useState('')
-  const [advBirthYear, setAdvBirthYear]     = useState('')
   const [advFirstName, setAdvFirstName]     = useState('')
   const [advLastName, setAdvLastName]       = useState('')
   const [advJobTitle, setAdvJobTitle]       = useState('')
+  const [advBirthYear, setAdvBirthYear]     = useState('')
   const [advCity, setAdvCity]               = useState('')
   const [advAddress, setAdvAddress]         = useState('')
   const [advPhone, setAdvPhone]             = useState('')
@@ -2055,8 +2119,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   const [page, setPage]                 = useState(1)
   const [perPage, setPerPage]           = useState(20)
   const [viewMode, setViewMode]         = useState<'grid' | 'list'>('grid')
+  const bounceKey = (e: React.MouseEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    el.classList.remove('key-animate')
+    void el.offsetWidth
+    el.classList.add('key-animate')
+  }
+
   const [showFilters, setShowFilters]                   = useState(false)
-const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
+  const [showProspectionPanel, setShowProspectionPanel] = useState(false)
+  const [searchTransition, setSearchTransition]         = useState<'hidden' | 'visible' | 'leaving'>('hidden')
   const [transitionQuery, setTransitionQuery]           = useState('')
   const transitionStartRef                              = useRef(0)
 
@@ -2073,13 +2145,15 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const [showRecent, setShowRecent]           = useState(false)
   const [recentSearches, setRecentSearches]   = useState<string[]>([])
   const [favorites, setFavorites]             = useState<Set<string>>(() => new Set(loadStoredFavs().map(f => f.id)))
-  const [lists, setLists]                     = useState<ProspectList[]>(loadLists)
+  const isDemoAccount = account.id.startsWith('demo-')
+  const [lists, setLists]                     = useState<ProspectList[]>(() => isDemoAccount ? [] : loadLists())
   const [activeListId, setActiveListId]       = useState<string | null>(null)
   const [addPopupProspect, setAddPopupProspect] = useState<ProspectResult | null>(null)
   const [appView, setAppView]                 = useState<AppView>('search')
   const [usedQuota]                           = useState(account.monthlyUsage)
   const [darkMode, setDarkMode]               = useState(() => document.documentElement.classList.contains('dark'))
   const [showMobileMenu, setShowMobileMenu]   = useState(false)
+  const [showBuyKeys, setShowBuyKeys]         = useState(false)
 
   // Compteur de recherches pour modes demo / limited
   const DEMO_COUNT_KEY = `trouve_demo_count_${account.id}`
@@ -2090,13 +2164,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const [showConversionModal, setShowConversionModal]     = useState(false)
   const [showDemoRequestModal, setShowDemoRequestModal]   = useState(false)
   const [creditBalance, setCreditBalance]                 = useState<CreditBalance | null>(null)
-  const [unlockWarning, setUnlockWarning]                 = useState<UnlockWarning | null>(null)
-  const [unlockConfirmBusy, setUnlockConfirmBusy]         = useState(false)
-
-  // ── Enrichissement à l'ouverture d'une fiche ────────────────────────────────
-  const [expandedCardId, setExpandedCardId]               = useState<string | null>(null)
-  const [enrichmentCache, setEnrichmentCache]             = useState<Record<string, EnrichBeforeUnlockResult | 'error'>>({})
-  const [enrichingIds, setEnrichingIds]                   = useState<Record<string, true>>({})
 
   // ── Crédits démo (trial) ────────────────────────────────────────────────────
   const isTrialAccount = account.status === 'trial'
@@ -2105,23 +2172,24 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   )
   const [showDemoToast, setShowDemoToast] = useState(false)
   const demoLocked = isTrialAccount && demoCredits.phone === 0
+  const accountIdRef = useRef(account.id)
+  useEffect(() => { accountIdRef.current = account.id }, [account.id])
 
   // Solde de crédits (abonnés).
+  const PLATFORM_ADMINS = ['contact@trouve.fr', 'yassine.irh@gmail.com']
   useEffect(() => {
-    if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-')) {
-      const fetchCredits = () =>
-        getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
-      fetchCredits()
-      // Rafraîchit quand l'utilisateur revient sur l'onglet (ex: après admin panel)
-      const onVisible = () => { if (document.visibilityState === 'visible') fetchCredits() }
-      document.addEventListener('visibilitychange', onVisible)
-      return () => document.removeEventListener('visibilitychange', onVisible)
+    if (PLATFORM_ADMINS.includes(account.email)) {
+      setCreditBalance({ phoneCredits: 999999, emailCredits: 999999, unlimited: true })
+      return
     }
-  }, [accessLevel, account.id])
+    if ((accessLevel === 'full' || accessLevel === 'trial') && !account.id.startsWith('demo-') && !account.id.startsWith('preview-')) {
+      getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
+    }
+  }, [accessLevel, account.id, account.email])
 
   // Crédits clés simulés en mode démo
   useEffect(() => {
-    if (account.id.startsWith('demo-')) {
+    if (account.id.startsWith('demo-') || account.id.startsWith('preview-')) {
       const total = account.role === 'agent' ? 50 : 100
       const used  = account.role === 'agent' ? 23 : 4
       setCreditBalance({
@@ -2134,31 +2202,60 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
     }
   }, [account.id, account.role])
 
-  // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
-  // Effectue le déblocage réel (consomme 1 crédit)
-  const doUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
-    try {
-      const value = await unlockContactField(prospect.id, field)
-      const patch = field === 'phone'
-        ? { phone: value, phoneUnlocked: true }
-        : { email: value, emailUnlocked: true }
-      setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
-      setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
-      getCreditBalance().then(setCreditBalance).catch(() => {})
-    } catch (e) {
-      if (e instanceof UnlockError) {
-        if (e.code === 'no_subscription')    { setError('Abonnement requis pour debloquer des contacts. Abonnez-vous pour continuer.'); return }
-        if (e.code === 'no_phone_credits')   { setError('Vous n\'avez plus de credits telephone disponibles ce mois-ci.'); return }
-        if (e.code === 'no_email_credits')   { setError('Vous n\'avez plus de credits email disponibles ce mois-ci.'); return }
-        if (e.code === 'no_credits')         { setError('Vous n\'avez plus de credits disponibles ce mois-ci.'); return }
-        if (e.code === 'not_approved')       { setError('Votre compte n\'est pas encore approuve. Contactez-nous si besoin.'); return }
-        if (e.code === 'no_data')            { setError('Ce contact ne dispose pas de cette information.'); return }
-      }
-      setError('Deblocage impossible pour le moment. Reessayez.')
-    }
-  }, [])
+  // ── Notifications admin ──────────────────────────────────────────────────────
+  const [pendingCount, setPendingCount] = useState<number>(0)
+  const [adminBannerDismissed, setAdminBannerDismissed] = useState(false)
+  const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>([])
 
+  useEffect(() => {
+    if (account.role !== 'admin' || isDemoAccount) return
+    const load = async () => {
+      const { data: { session } } = await getSupabaseClient().auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      const r = await fetch('/api/admin/users?status=pending&limit=50', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null)
+      if (!r?.ok) return
+      const d = await r.json()
+      const count = d.total ?? 0
+      setPendingCount(count)
+      if (count > 0) {
+        setAdminNotifications([{
+          id: 'pending-accounts',
+          title: `${count} demande${count > 1 ? 's' : ''} d'accès en attente`,
+          description: `${count} compte${count > 1 ? 's' : ''} nécessite${count > 1 ? 'nt' : ''} une validation dans le dashboard admin.`,
+          timestamp: new Date(),
+          read: false,
+          action: () => setAppView('admin'),
+        }])
+      }
+    }
+    load()
+  }, [account.role, isDemoAccount])
+
+  // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    const isDemoAccount = accountIdRef.current.startsWith('demo-') || accountIdRef.current.startsWith('preview-')
+    // ── Mode démo : simule le déblocage avec données partielles ─────────────
+    if (isDemoAccount) {
+      await new Promise(res => setTimeout(res, 500 + Math.random() * 300))
+      if (field === 'phone') {
+        const r = () => String(Math.floor(Math.random() * 90) + 10)
+        const fakePhone = `06 ${r()} ${r()} ${r()} ${r()}`
+        const patch = { phone: fakePhone, phoneUnlocked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      } else {
+        const names   = ['jean.dupont', 'marie.martin', 'pierre.durand', 'sophie.leblanc']
+        const domains = ['gmail.com', 'yahoo.fr', 'outlook.fr', 'hotmail.com']
+        const fakeEmail = `${names[Math.floor(Math.random() * names.length)]}@${domains[Math.floor(Math.random() * domains.length)]}`
+        const patch = { email: fakeEmail, emailUnlocked: true }
+        setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+        setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      }
+      return
+    }
     // ── Mode trial : crédits locaux ──────────────────────────────────────────
     if (isTrialAccount) {
       if (field === 'phone') {
@@ -2166,6 +2263,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         const next = consumePhoneCredit()
         setDemoCredits(next)
         if (next.phone === 3) setShowDemoToast(true)
+        // Masquage partiel : affiche seulement 6 chiffres
         const raw = prospect.phone ?? '06 XX XX •• ••'
         const digits = raw.replace(/\D/g, '')
         const partial = digits.slice(0, 4).replace(/(\d{2})(\d{2})/, '$1 $2') + ' •• ••'
@@ -2183,53 +2281,39 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
       return
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
+    try {
+      const primaryValue = await unlockContactField(prospect.id, field)
 
-    // ── Vérification IA — utilise le cache si la fiche a déjà été ouverte ────
-    const cached = enrichmentCache[prospect.id]
-    if (cached && cached !== 'error') {
-      if (cached.show_warning) {
-        setUnlockWarning({ prospect, field, score: cached.confidence_score, status: cached.status, message: cached.user_facing_message })
+      // Déblocage en lot : uniquement les fiches qui ont réellement ce champ
+      const revealed: string[] = [primaryValue]
+      const fieldIds   = field === 'phone' ? (prospect.phoneIds ?? []) : (prospect.emailIds ?? [])
+      const secondaryIds = fieldIds.filter(id => id !== prospect.id)
+
+      await Promise.allSettled(
+        secondaryIds.map(async (secId) => {
+          try {
+            const v = await unlockContactField(secId, field)
+            if (v && !revealed.includes(v)) revealed.push(v)
+          } catch { /* ignore si crédit insuffisant */ }
+        })
+      )
+
+      const patch: Partial<ProspectResult> = field === 'phone'
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [] }
+        : { email: primaryValue, emailUnlocked: true, allEmails: revealed, emailsLocked: [] }
+
+      setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
+      setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
+      getCreditBalance().then(setCreditBalance).catch(() => {})
+    } catch (e) {
+      if (e instanceof UnlockError &&
+          ['no_subscription', 'no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
+        window.location.assign('/?pricing=1')
         return
       }
-      await doUnlock(prospect, field)
-      return
+      setError('Déblocage impossible pour le moment. Réessayez.')
     }
-
-    // Pas de cache → appel IA de fallback (ProspectPage ou unlock sans expand)
-    try {
-      const enrichResult = await enrichBeforeUnlock(prospect, field)
-      setEnrichmentCache(prev => ({ ...prev, [prospect.id]: enrichResult }))
-      if (enrichResult.show_warning) {
-        setUnlockWarning({ prospect, field, score: enrichResult.confidence_score, status: enrichResult.status, message: enrichResult.user_facing_message })
-        return
-      }
-    } catch {
-      // En cas d'échec IA, on ne bloque pas l'utilisateur
-    }
-
-    await doUnlock(prospect, field)
-  }, [accessLevel, isTrialAccount, demoCredits, doUnlock, enrichmentCache])
-
-  // Enrichissement au clic sur une fiche — déclenché avant l'unlock
-  const handleCardExpand = useCallback(async (prospect: ProspectResult) => {
-    const id = prospect.id
-    if (expandedCardId === id) { setExpandedCardId(null); return }
-    setExpandedCardId(id)
-    // Déjà en cache ou en cours → ne pas re-fetcher
-    if (enrichmentCache[id] !== undefined || enrichingIds[id]) return
-    // Enrichissement uniquement pour les abonnés full
-    if (accessLevel !== 'full') return
-
-    setEnrichingIds(prev => ({ ...prev, [id]: true }))
-    try {
-      const result = await enrichContactPreview(id)
-      setEnrichmentCache(prev => ({ ...prev, [id]: result }))
-    } catch {
-      setEnrichmentCache(prev => ({ ...prev, [id]: 'error' }))
-    } finally {
-      setEnrichingIds(prev => { const { [id]: _, ...rest } = prev; return rest })
-    }
-  }, [expandedCardId, enrichmentCache, enrichingIds, accessLevel])
+  }, [accessLevel, isTrialAccount])
 
   // Sync dark mode with <html> class
   useEffect(() => {
@@ -2242,7 +2326,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const debounceRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeFiltersCount = [
     department, activityCode, zipCode, employeeRange, legalForm,
-    advFirstName, advLastName, advBirthYear, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
+    advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin,
   ].filter(Boolean).length
 
   // Charger les recherches récentes
@@ -2263,18 +2347,40 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // Construit la requête FTS en combinant la barre principale + tous les champs avancés texte
   const buildQuery = () =>
-    [identityInput, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+    [identityInput, inputValue, advFirstName, advLastName, advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
       .map(s => s.trim()).filter(Boolean).join(' ')
 
   // ─── Lancer une recherche ───────────────────────────────────────────────────
   const doSearch = useCallback(async (params: ProspectSearchParams, pg = 1) => {
     setLoading(true); setError(null)
 
-    // Recherche unifiée : données réelles masquées côté serveur pour tous les
-    // niveaux. La recherche ne consomme jamais de crédit (seul l'unlock le fait).
     const isEmpty = !params.query?.trim() && !params.department && !params.activityCode &&
                     !params.zipCode && !params.employeeRange && !params.legalForm
+
+
+    // Mode démo : résultats fictifs sans appel API
+    if (account.id.startsWith('demo-')) {
+      await new Promise(res => setTimeout(res, 500 + Math.random() * 400))
+      const res = generateSearchDemoResults({ ...params, page: pg }, perPage)
+      setResults(res.results)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
+      setPage(pg)
+      setHasSearched(true)
+      if (!isEmpty) {
+        setDemoSearchCount(prev => {
+          const next = prev + 1
+          localStorage.setItem(DEMO_COUNT_KEY, String(next))
+          if (maxSearches !== undefined && next >= maxSearches) setTimeout(() => setShowConversionModal(true), 400)
+          return next
+        })
+      }
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await searchProspects({ ...params, page: pg, perPage: params.perPage ?? perPage })
       setResults(res.results)
@@ -2309,7 +2415,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
     }
   }, [accessLevel, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
 
-  // Réinitialise tous les filtres avancés et relance la recherche vide
   const handleResetFilters = useCallback(() => {
     setIdentityInput(''); setAdvFirstName(''); setAdvLastName('')
     setAdvBirthYear(''); setAdvJobTitle('')
@@ -2318,49 +2423,44 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
     setDepartment(''); setActivityCode(''); setActiveOnly(true)
     setZipCode(''); setEmployeeRange(''); setLegalForm('')
     setPage(1)
-    doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
-  }, [doSearch])
+    doSearch({ query: inputValue, department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+  }, [doSearch, inputValue])
 
-  // Supprime un filtre précis et relance la recherche avec les autres valeurs intactes
   const clearFilter = useCallback((patch: Record<string, string>) => {
-    if ('advFirstName'   in patch) setAdvFirstName(patch.advFirstName ?? '')
-    if ('advLastName'    in patch) setAdvLastName(patch.advLastName ?? '')
-    if ('advBirthYear'   in patch) setAdvBirthYear(patch.advBirthYear ?? '')
-    if ('advJobTitle'    in patch) setAdvJobTitle(patch.advJobTitle ?? '')
-    if ('advCity'        in patch) setAdvCity(patch.advCity ?? '')
-    if ('advAddress'     in patch) setAdvAddress(patch.advAddress ?? '')
-    if ('advPhone'       in patch) setAdvPhone(patch.advPhone ?? '')
-    if ('advEmail'       in patch) setAdvEmail(patch.advEmail ?? '')
-    if ('advCompanyName' in patch) setAdvCompanyName(patch.advCompanyName ?? '')
-    if ('advLinkedin'    in patch) setAdvLinkedin(patch.advLinkedin ?? '')
-    if ('department'     in patch) setDepartment(patch.department ?? '')
-    if ('activityCode'   in patch) setActivityCode(patch.activityCode ?? '')
-    if ('employeeRange'  in patch) setEmployeeRange(patch.employeeRange ?? '')
-    if ('legalForm'      in patch) setLegalForm(patch.legalForm ?? '')
-    if ('zipCode'        in patch) setZipCode(patch.zipCode ?? '')
-
-    const get = (k: string, cur: string) => (k in patch) ? (patch[k] ?? '') : cur
-    const fn    = get('advFirstName',  advFirstName)
-    const ln    = get('advLastName',   advLastName)
-    const by    = get('advBirthYear',  advBirthYear)
-    const ct    = get('advCity',       advCity)
-    const dp    = get('department',    department)
-    const zc    = get('zipCode',       zipCode)
-    const ac    = get('activityCode',  activityCode)
-    const er    = get('employeeRange', employeeRange)
-    const lf    = get('legalForm',     legalForm)
-    const ph    = get('advPhone',      advPhone)
-    const ident = identityInput.trim()
-    const q     = ident || [ln, fn].filter(Boolean).join(' ')
+    const get = (key: string, cur: string) => key in patch ? '' : cur
+    if ('advFirstName'   in patch) setAdvFirstName('')
+    if ('advLastName'    in patch) setAdvLastName('')
+    if ('advBirthYear'   in patch) setAdvBirthYear('')
+    if ('advJobTitle'    in patch) setAdvJobTitle('')
+    if ('advCity'        in patch) setAdvCity('')
+    if ('advAddress'     in patch) setAdvAddress('')
+    if ('advPhone'       in patch) setAdvPhone('')
+    if ('advEmail'       in patch) setAdvEmail('')
+    if ('advCompanyName' in patch) setAdvCompanyName('')
+    if ('advLinkedin'    in patch) setAdvLinkedin('')
+    if ('department'     in patch) setDepartment('')
+    if ('zipCode'        in patch) setZipCode('')
+    if ('activityCode'   in patch) setActivityCode('')
+    if ('employeeRange'  in patch) setEmployeeRange('')
+    if ('legalForm'      in patch) setLegalForm('')
+    setPage(1)
     doSearch({
-      query: q, identity: ident || undefined,
-      nom:    !ident ? ln || undefined : undefined,
-      prenom: !ident ? fn || undefined : undefined,
-      birthYear: by || undefined, city: ct, tel: searchTel || ph, searchMode,
-      department: dp, activityCode: ac, activeOnly, zipCode: zc, employeeRange: er, legalForm: lf,
+      query:         get('identityInput', identityInput),
+      department:    get('department',    department),
+      activityCode:  get('activityCode',  activityCode),
+      activeOnly,
+      zipCode:       get('zipCode',       zipCode),
+      employeeRange: get('employeeRange', employeeRange),
+      legalForm:     get('legalForm',     legalForm),
+      nom:           get('advLastName',   advLastName) || undefined,
+      prenom:        get('advFirstName',  advFirstName) || undefined,
+      city:          get('advCity',       advCity) || undefined,
+      address:       get('advAddress',    advAddress) || undefined,
+      tel:           get('advPhone',      advPhone) || undefined,
+      birthYear:     get('advBirthYear',  advBirthYear) || undefined,
     })
-  }, [advFirstName, advLastName, advBirthYear, advCity, department, zipCode, activityCode,
-      employeeRange, legalForm, advPhone, identityInput, searchTel, searchMode, activeOnly, doSearch])
+  }, [doSearch, identityInput, department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+      advLastName, advFirstName, advCity, advAddress, advPhone, advBirthYear])
 
   // Debounce search-as-you-type (barre principale uniquement)
   // Ferme l'overlay de transition quand la recherche se termine (minimum 650ms d'affichage)
@@ -2389,13 +2489,13 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
       transitionStartRef.current = Date.now()
     }
     doSearch({
-      query:    label,
+      query: label,
       identity: ident || undefined,
-      nom:      !ident ? advLastName  : undefined,
-      prenom:   !ident ? advFirstName : undefined,
-      birthYear: advBirthYear || undefined,
-      city: advCity, tel: searchTel || advPhone, searchMode,
+      nom:    !ident ? advLastName  : undefined,
+      prenom: !ident ? advFirstName : undefined,
+      city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
       department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+      birthYear: advBirthYear,
     })
   }
 
@@ -2408,13 +2508,13 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const handlePageChange = (pg: number) => {
     const ident = identityInput.trim()
     doSearch({
-      query:    buildQuery(),
+      query: buildQuery(),
       identity: ident || undefined,
-      nom:      !ident ? advLastName  : undefined,
-      prenom:   !ident ? advFirstName : undefined,
-      birthYear: advBirthYear || undefined,
-      city: advCity, tel: searchTel || advPhone, searchMode,
+      nom:    !ident ? advLastName  : undefined,
+      prenom: !ident ? advFirstName : undefined,
+      city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
       department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+      birthYear: advBirthYear,
     }, pg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -2424,12 +2524,33 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   }
 
   const handleAddToListConfirm = (listId: string, newListName?: string, newListEmoji?: string) => {
+    const isRealProspect = addPopupProspect?.id !== '__new_list__' && !!addPopupProspect?.fullName
+
+    if (isDemoAccount) {
+      let target = listId
+      let next = [...lists]
+      if (newListName) {
+        const newList: ProspectList = { id: Date.now().toString(), name: newListName, emoji: newListEmoji ?? 'blue', contacts: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        next = [...next, newList]
+        target = newList.id
+      }
+      const idx = next.findIndex(l => l.id === target)
+      if (isRealProspect && idx !== -1 && !next[idx].contacts.some(c => c.id === addPopupProspect!.id)) {
+        next = next.map((l, i) => i !== idx ? l : { ...l, contacts: [...l.contacts, { id: addPopupProspect!.id, name: addPopupProspect!.fullName, jobTitle: addPopupProspect!.jobTitle ?? '', companyName: addPopupProspect!.companyName ?? '', city: addPopupProspect!.city ?? '', phone: addPopupProspect!.phone ?? '', email: addPopupProspect!.email ?? '', savedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() })
+      }
+      const allIds = new Set<string>()
+      next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+      setLists(next)
+      setFavorites(allIds)
+      setAddPopupProspect(null)
+      return
+    }
     let targetId = listId
     if (newListName) {
-      const created = createList(newListName, newListEmoji ?? '📋')
+      const created = createList(newListName, newListEmoji ?? 'blue')
       targetId = created.id
     }
-    if (addPopupProspect) {
+    if (isRealProspect && addPopupProspect) {
       addToList(targetId, addPopupProspect)
       const updated = loadLists()
       setLists(updated)
@@ -2437,11 +2558,21 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
       updated.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
       setFavorites(allIds)
       saveFavorite(account, { targetName: addPopupProspect.fullName, targetCity: addPopupProspect.city ?? undefined }).catch(() => {})
+    } else if (!isRealProspect && newListName) {
+      setLists(loadLists())
     }
     setAddPopupProspect(null)
   }
 
   const handleRemoveFromList = (listId: string, contactId: string) => {
+    if (isDemoAccount) {
+      const next = lists.map(l => l.id !== listId ? l : { ...l, contacts: l.contacts.filter(c => c.id !== contactId), updatedAt: new Date().toISOString() })
+      const allIds = new Set<string>()
+      next.forEach(l => l.contacts.forEach(c => allIds.add(c.id)))
+      setLists(next)
+      setFavorites(allIds)
+      return
+    }
     removeFromList(listId, contactId)
     const updated = loadLists()
     setLists(updated)
@@ -2451,6 +2582,11 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   }
 
   const handleDeleteList = (listId: string) => {
+    if (isDemoAccount) {
+      setLists(prev => prev.filter(l => l.id !== listId))
+      if (activeListId === listId) { setActiveListId(null); setAppView('lists') }
+      return
+    }
     deleteList(listId)
     const updated = loadLists()
     setLists(updated)
@@ -2465,7 +2601,9 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-[#0d1424]">
+    <>
+    <GlobalSvgDefs />
+    <div className="flex min-h-screen bg-[#F5F5F7] dark:bg-[#0d1424]">
 
       {/* Hard-lock démo : modal non-fermable quand crédits phone = 0 */}
       {demoLocked && (
@@ -2538,7 +2676,10 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     }`}>
                     {appView === 'admin' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />}
                     <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                    Dashboard
+                    <span className="flex-1 text-left">Dashboard</span>
+                    {pendingCount > 0 && (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
+                    )}
                   </button>
                 </>
               )}
@@ -2567,6 +2708,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
           {([
             { key: 'search',  label: 'Recherche',  icon: Search },
             { key: 'history', label: 'Historique', icon: History },
+            { key: 'bulk',    label: 'Bulk',        icon: Users },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setAppView(key)}
               className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
@@ -2608,7 +2750,9 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                   ? 'bg-blue-50 text-blue-700 font-medium'
                   : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800'
               }`}>
-              <span className="text-sm leading-none">{list.emoji}</span>
+              {isListColor(list.emoji)
+                ? <ListColorDot color={list.emoji} size="sm" />
+                : <span className="text-sm leading-none">{list.emoji}</span>}
               <span className="flex-1 truncate text-left text-xs">{list.name}</span>
               <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">{list.contacts.length}</span>
             </button>
@@ -2632,70 +2776,112 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />
                 )}
                 <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                Dashboard
+                <span className="flex-1 text-left">Dashboard</span>
+                {pendingCount > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
+                )}
               </button>
             </>
           )}
         </nav>
 
-        {/* Jauge crédits démo */}
-        {isTrialAccount && (
-          <DemoCreditsBar phone={demoCredits.phone} email={demoCredits.email} />
-        )}
+        {/* ── Bas de sidebar : crédits + profil ────────────────────────────── */}
+        <div className="mt-auto flex flex-col gap-0">
 
-        {/* Solde de crédits (abonnés) / recherches démo */}
-        {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
-          <div className="space-y-3 border-t border-white/8 px-4 py-4">
-            {creditBalance && (
-              <>
-                <div className="flex items-center gap-3">
-                  <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 dark:text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.phoneCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-white/40">Téléphone direct</p>
+          {/* Jauge crédits démo */}
+          {isTrialAccount && (
+            <div className="px-4 pt-4">
+              <DemoCreditsBar phone={demoCredits.phone} email={demoCredits.email} />
+            </div>
+          )}
+
+          {/* Compteurs de clés */}
+          {(creditBalance || ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined)) && (
+            <div className="px-4 pt-5 pb-4 border-t border-gray-100 dark:border-gray-800">
+              {creditBalance && (
+                <div className="flex flex-col gap-3">
+
+                  {/* Compteurs sur une ligne */}
+                  <div className="flex items-center justify-center gap-5">
+                    <div className="flex items-center gap-2">
+                      <img src={keyBlueImg} alt="clé téléphone"
+                        style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
+                        {creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}
+                      </span>
+                    </div>
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+                    <div className="flex items-center gap-2">
+                      <img src={keyGreenImg} alt="clé email"
+                        style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
+                        {creditBalance.unlimited ? '∞' : creditBalance.emailCredits}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Bouton Recharger — outline ghost */}
+                  {!creditBalance.unlimited && (
+                    <button onClick={() => setShowBuyKeys(true)}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-[#124bd2] hover:text-[#124bd2] hover:bg-blue-50 active:scale-95 transition-all duration-200 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
+                      <Plus size={14} />
+                      Recharger
+                    </button>
+                  )}
+
                 </div>
-                <div className="flex items-center gap-3">
-                  <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 dark:text-white/90">
-                      {creditBalance.unlimited ? '∞' : `${creditBalance.emailCredits} restantes`}
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-white/40">Email direct</p>
-                  </div>
+              )}
+
+              {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-gray-400">Recherches démo</span>
+                  <span className="text-xs font-bold tabular-nums text-gray-700">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
                 </div>
-              </>
-            )}
-            {(accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/55">Recherches démo</span>
-                <span className="text-xs font-bold tabular-nums text-white">{Math.max(0, maxSearches - demoSearchCount)} / {maxSearches}</span>
-              </div>
-            )}
+              )}
+            </div>
+          )}
+
+          {/* Profil utilisateur */}
+          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-3">
+            <UserMenu
+              account={account}
+              onLogout={onLogout}
+              onOpenAccount={onOpenAccount}
+              onOpenProspection={() => setShowProspectionPanel(true)}
+              placement="above"
+            />
           </div>
-        )}
 
-      {/* ── Bannière paiement pour comptes trial/pending ─────────────── */}
-      {(account.status === 'trial' || account.status === 'pending') && (
-        <div className="border-t border-amber-200/40 bg-gradient-to-b from-amber-500/10 to-amber-600/5 px-4 py-4">
-          <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">Accès d'essai actif</p>
-          <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-            Souscrivez pour un accès complet et illimité.
-          </p>
-          <button
-            onClick={() => setShowConversionModal(true)}
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#124bd2] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#0b3fbc]">
-            <Zap size={11} /> Choisir un plan
-          </button>
         </div>
-      )}
 
       </aside>
 
       {/* ── Zone principale ──────────────────────────────────────────────── */}
       <div className="lg:ml-60 flex flex-1 flex-col pt-14 lg:pt-0 pb-16 lg:pb-0">
+
+        {/* Bandeau notification admin — demandes en attente */}
+        {account.role === 'admin' && !adminBannerDismissed && pendingCount > 0 && (
+          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-5 py-3 dark:bg-amber-950/30 dark:border-amber-800">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+              <Bell size={14} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="flex-1 text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">{pendingCount} demande{pendingCount > 1 ? 's' : ''} d'accès</span> en attente de validation.
+            </p>
+            <button
+              onClick={() => setAppView('admin')}
+              className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700"
+            >
+              Voir le dashboard
+            </button>
+            <button
+              onClick={() => setAdminBannerDismissed(true)}
+              className="shrink-0 rounded-lg p-1.5 text-amber-500 transition hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Vue Historique */}
         {appView === 'history' && (
@@ -2727,91 +2913,57 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
 
-        {/* Vue Détail prospect */}
-        {appView === 'prospect' && selectedCompany && accessLevel !== 'limited' && (
-          <ProspectPage
-            prospect={selectedCompany}
-            onClose={() => { setAppView('search'); setSelectedCompany(null) }}
-            canUnlock={accessLevel === 'full'}
-            onUnlock={handleUnlock}
-          />
-        )}
-
-        {/* Vue Aide à la prospection */}
-        {appView === 'prospection' && (
-          <ProspectionPage
-            onClose={() => setAppView('search')}
-            onApply={(recipe) => {
-              setInputValue(recipe.query)
-              setQuery(recipe.query)
-              if (recipe.department) setDepartment(recipe.department)
-              if (recipe.activityCode) setActivityCode(recipe.activityCode)
-              setAppView('search')
-              doSearch({
-                query: recipe.query,
-                department: recipe.department ?? department,
-                activityCode: recipe.activityCode ?? activityCode,
-                activeOnly,
-                zipCode,
-                employeeRange,
-                legalForm,
-              })
-            }}
-          />
-        )}
-
         {/* Vue Admin */}
         {appView === 'admin' && account.role === 'admin' && (
           <div className="flex flex-1 flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
               <div className="flex items-center gap-3">
+                <NotificationPopover
+                  notifications={adminNotifications}
+                  onMarkAsRead={(id) => setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
+                  onMarkAllAsRead={() => setAdminNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                />
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setAppView('prospection')} />
               </div>
             </div>
             <AdminPage account={account} />
           </div>
         )}
 
+        {/* Vue Bulk */}
+        {appView === 'bulk' && (
+          <BulkSearchView
+            account={account}
+            creditBalance={creditBalance}
+            onCreditRefresh={() => {
+              if (!account.id.startsWith('demo-') && !account.id.startsWith('preview-')) {
+                getCreditBalance().then(b => { if (b !== null) setCreditBalance(b) }).catch(() => {})
+              }
+            }}
+            onOpenBuyKeys={() => setShowBuyKeys(true)}
+          />
+        )}
+
         {/* Vue Recherche */}
         {appView === 'search' && (
-          <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col overflow-x-hidden">
 
             {/* En-tête 3 colonnes */}
-            <div className="mb-7 flex items-center justify-between">
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-2 px-6 pt-8 lg:px-10">
               {/* Gauche — titre */}
               <div>
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
+                <p className="font-mono text-[13px] font-semibold uppercase tracking-[0.22em] text-[#124bd2] dark:text-blue-400">
                   Recherche professionnelle
                 </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
+                <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-[#07113d] dark:text-slate-100">
                   {hasSearched && query ? `"${query}"` : 'Recherche par indices'}
                 </h1>
               </div>
 
-              {/* Centre — compteur de clés */}
-              {accessLevel === 'full' && account.role !== 'agent' && (
-                <div className="hidden items-center gap-6 sm:flex">
-                  <div className="flex items-center gap-3">
-                    <img src={keyBlueImg} alt="clé téléphone" style={{ height: '64px', width: 'auto' }} />
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.phoneCredits} restantes`) : '— restantes'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <img src={keyGreenImg} alt="clé email" style={{ height: '64px', width: 'auto' }} />
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      {creditBalance ? (creditBalance.unlimited ? '∞ restantes' : `${creditBalance.emailCredits} restantes`) : '— restantes'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {/* Droite — contrôles */}
               <div className="flex items-center gap-2">
                 <ThemeToggle size="sm" />
-                <UserMenu account={account} onLogout={onLogout} onOpenAccount={onOpenAccount} onOpenProspection={() => setAppView('prospection')} />
               </div>
             </div>
 
@@ -2864,6 +3016,30 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                   </button>
                 </div>
 
+                {/* Ligne adresse */}
+                <div className="mt-3">
+                  <AddressAutocomplete
+                    value={advAddress}
+                    placeholder="Rechercher par adresse… ex: 10 Rue de la Paix Paris"
+                    onSelect={result => {
+                      setAdvAddress(result.adresse)
+                      setAdvCity(result.ville)
+                      setZipCode(result.codePostal)
+                      const ident = identityInput.trim()
+                      doSearch({
+                        query: ident,
+                        identity: ident || undefined,
+                        address: result.adresse,
+                        city: result.ville,
+                        zipCode: result.codePostal,
+                        tel: searchTel,
+                        searchMode, department, activityCode, activeOnly,
+                        employeeRange, legalForm, birthYear: advBirthYear,
+                      })
+                    }}
+                  />
+                </div>
+
                 {/* Recherche avancée — toggle + effacer */}
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -2881,8 +3057,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                       )}
                       {showFilters ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
-
-                    {/* Bouton effacer — visible dès qu'un filtre est renseigné */}
                     {activeFiltersCount > 0 && (
                       <button
                         type="button"
@@ -2893,7 +3067,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                       </button>
                     )}
                   </div>
-
                   {results.length > 0 && (
                     <button onClick={() => exportProspectsCSV(results, query)}
                       className="flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200">
@@ -2904,7 +3077,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
               </form>
             </div>
 
-            {/* ── Filtres actifs — chips toujours visibles quand des filtres sont posés ── */}
+            {/* Chips filtres actifs */}
             {activeFiltersCount > 0 && (
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {advFirstName   && <FilterChip label={`Prénom : ${advFirstName}`}       onRemove={() => clearFilter({ advFirstName: '' })} />}
@@ -2922,13 +3095,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 {employeeRange  && <FilterChip label={`Effectif : ${employeeRange}`}     onRemove={() => clearFilter({ employeeRange: '' })} />}
                 {legalForm      && <FilterChip label={`Forme : ${legalForm}`}            onRemove={() => clearFilter({ legalForm: '' })} />}
                 {advLinkedin    && <FilterChip label={`LinkedIn : ${advLinkedin}`}       onRemove={() => clearFilter({ advLinkedin: '' })} />}
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="ml-1 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-red-800/50 dark:hover:bg-red-950/20 dark:hover:text-red-400"
-                >
-                  <X size={11} /> Tout effacer
-                </button>
               </div>
             )}
 
@@ -2938,8 +3104,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 // Identité professionnelle
                 firstName={advFirstName}       setFirstName={v => { setAdvFirstName(v); setPage(1) }}
                 lastName={advLastName}         setLastName={v => { setAdvLastName(v); setPage(1) }}
-                birthYear={advBirthYear}       setBirthYear={v => { setAdvBirthYear(v); setPage(1) }}
                 jobTitle={advJobTitle}         setJobTitle={v => { setAdvJobTitle(v); setPage(1) }}
+                birthYear={advBirthYear}       setBirthYear={v => { setAdvBirthYear(v); setPage(1) }}
                 // Adresse
                 city={advCity}                 setCity={v => { setAdvCity(v); setPage(1) }}
                 address={advAddress}           setAddress={v => { setAdvAddress(v); setPage(1) }}
@@ -2957,15 +3123,34 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 linkedin={advLinkedin}         setLinkedin={v => { setAdvLinkedin(v); setPage(1) }}
                 onSearch={() => {
                   const ident = identityInput.trim()
-                  const q = ident || [advLastName, advFirstName].filter(Boolean).join(' ')
-                  setQuery(q)
+                  const q = [ident || [advFirstName, advLastName].filter(Boolean).join(' '),
+                              advJobTitle, advCity, advAddress, advPhone, advEmail, advCompanyName, advLinkedin]
+                    .map(s => s.trim()).filter(Boolean).join(' ')
+                  setQuery(ident || inputValue)
                   doSearch({
-                    query: q, identity: ident || undefined,
+                    query: q,
+                    identity: ident || undefined,
                     nom:    !ident ? advLastName  : undefined,
                     prenom: !ident ? advFirstName : undefined,
-                    birthYear: advBirthYear || undefined,
-                    city: advCity, tel: searchTel || advPhone, searchMode,
+                    city: advCity, address: advAddress, tel: searchTel || advPhone, searchMode,
                     department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
+                    birthYear: advBirthYear,
+                  })
+                }}
+                onAddressSelect={result => {
+                  setAdvAddress(result.adresse)
+                  setAdvCity(result.ville)
+                  setZipCode(result.codePostal)
+                  const ident = identityInput.trim()
+                  doSearch({
+                    query: ident,
+                    identity: ident || undefined,
+                    address: result.adresse,
+                    city: result.ville,
+                    zipCode: result.codePostal,
+                    tel: searchTel || advPhone,
+                    searchMode, department, activityCode, activeOnly,
+                    employeeRange, legalForm, birthYear: advBirthYear,
                   })
                 }}
                 onReset={handleResetFilters}
@@ -3059,8 +3244,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                 </p>
                 <button
                   onClick={() => {
-                    setInputValue(''); setQuery(''); setIdentityInput('')
-                    setAdvFirstName(''); setAdvLastName(''); setAdvBirthYear(''); setAdvJobTitle('')
+                    setInputValue(''); setIdentityInput(''); setQuery('')
+                    setAdvFirstName(''); setAdvLastName(''); setAdvJobTitle(''); setAdvBirthYear('')
                     setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
                     setAdvCompanyName(''); setAdvLinkedin('')
                     setDepartment(''); setActivityCode(''); setActiveOnly(true)
@@ -3082,10 +3267,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="grid" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }}
-                        accessLevel={accessLevel} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock}
-                        isExpanded={expandedCardId === p.id} onExpand={handleCardExpand}
-                        enrichmentData={enrichmentCache[p.id]} isEnrichmentLoading={!!enrichingIds[p.id]} />
+                        viewMode="grid" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
                 ) : (
@@ -3093,10 +3276,8 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="list" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }}
-                        accessLevel={accessLevel} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock}
-                        isExpanded={expandedCardId === p.id} onExpand={handleCardExpand}
-                        enrichmentData={enrichmentCache[p.id]} isEnrichmentLoading={!!enrichingIds[p.id]} />
+                        viewMode="list" onDetail={setSelectedCompany} accessLevel={accessLevel}
+                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
                     ))}
                   </div>
                 )}
@@ -3142,6 +3323,11 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         )}
       </div>
 
+      {/* Slide-over détail prospect */}
+      {selectedCompany && accessLevel !== 'limited' && (
+        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
+      )}
+
       {/* Modal de conversion (fin de quota démo/limité) */}
       {showConversionModal && (
         <ConversionModal
@@ -3157,21 +3343,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         <DemoRequestModal
           account={account}
           onClose={() => setShowDemoRequestModal(false)}
-        />
-      )}
-
-      {/* Modal avertissement IA avant unlock */}
-      {unlockWarning && (
-        <UnlockWarningModal
-          warning={unlockWarning}
-          busy={unlockConfirmBusy}
-          onCancel={() => setUnlockWarning(null)}
-          onConfirm={async () => {
-            setUnlockConfirmBusy(true)
-            await doUnlock(unlockWarning.prospect, unlockWarning.field)
-            setUnlockConfirmBusy(false)
-            setUnlockWarning(null)
-          }}
         />
       )}
 
@@ -3233,8 +3404,32 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         </div>
       )}
 
+      {/* Aide à la prospection */}
+      {showProspectionPanel && (
+        <ProspectionPanel
+          onClose={() => setShowProspectionPanel(false)}
+          onApply={(recipe) => {
+            setInputValue(recipe.query)
+            setQuery(recipe.query)
+            if (recipe.department) setDepartment(recipe.department)
+            if (recipe.activityCode) setActivityCode(recipe.activityCode)
+            setShowProspectionPanel(false)
+            setAppView('search')
+            doSearch({
+              query: recipe.query,
+              department: recipe.department ?? department,
+              activityCode: recipe.activityCode ?? activityCode,
+              activeOnly,
+              zipCode,
+              employeeRange,
+              legalForm,
+            })
+          }}
+        />
+      )}
+
       {/* ── Bottom nav mobile ────────────────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#07113d] py-1 pb-[env(safe-area-inset-bottom,0px)]">
         {([
           { key: 'search',  label: 'Recherche', icon: Search },
           { key: 'history', label: 'Historique', icon: History },
@@ -3247,6 +3442,9 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
           </button>
         ))}
       </nav>
+
+      <BuyKeysModal open={showBuyKeys} onClose={() => setShowBuyKeys(false)} />
     </div>
+    </>
   )
 }

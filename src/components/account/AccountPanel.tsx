@@ -1,13 +1,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { LogoutDialog } from '@/components/ui/logout-dialog'
 import {
-  ArrowDown,
-  ArrowLeft,
   BadgeCheck,
   BarChart3,
   Building2,
   Gift,
   Link,
-  BriefcaseBusiness,
   Check,
   Clock3,
   CreditCard,
@@ -16,22 +14,16 @@ import {
   EyeOff,
   History,
   KeyRound,
-  Lock,
   LogOut,
   Mail,
-  MapPin,
   MessageSquare,
-  Phone,
   Plus,
-  Search,
   ShieldCheck,
   Sparkles,
-  Target,
   TrendingUp,
   UserRound,
   UsersRound,
   X,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import trouveLogo from '@/assets/trouve-logo.png'
@@ -58,8 +50,7 @@ import {
   type UserRole,
 } from '@/lib/accountStore'
 import RegisterWizard from '@/components/auth/RegisterWizard'
-import DevicesSection from '@/components/account/DevicesSection'
-import { databaseModeLabel, getSupabaseClient } from '@/lib/supabase'
+import { databaseModeLabel } from '@/lib/supabase'
 
 export type AccountPanelView = 'login' | 'register' | 'workspace' | 'profil' | 'abonnement' | 'dashboard' | 'parrainage'
 
@@ -120,9 +111,7 @@ export default function AccountPanel({
   )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(() => {
-    try { return localStorage.getItem('trouve_remember_me_v1') !== '0' } catch { return true }
-  })
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('trouve_remember_me_v1') !== '0')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)
@@ -209,14 +198,12 @@ export default function AccountPanel({
     setLoginLoading(true)
     setLoginError('')
     try {
-      try {
-        localStorage.setItem('trouve_remember_me_v1', rememberMe ? '1' : '0')
-        if (rememberMe) {
-          sessionStorage.removeItem('trouve_session_only_v1')
-        } else {
-          sessionStorage.setItem('trouve_session_only_v1', '1')
-        }
-      } catch { /* storage inaccessible (navigation privée restreinte) */ }
+      localStorage.setItem('trouve_remember_me_v1', rememberMe ? '1' : '0')
+      if (rememberMe) {
+        sessionStorage.removeItem('trouve_session_only_v1')
+      } else {
+        sessionStorage.setItem('trouve_session_only_v1', '1')
+      }
       // Filet de sécurité global : si authenticate() ne répond pas en 12 s,
       // on débloque l'UI avec un message clair plutôt que de rester bloqué.
       const deadline = new Promise<never>((_, reject) =>
@@ -274,31 +261,33 @@ export default function AccountPanel({
     const oauthEnabled = oauthPreview || import.meta.env.VITE_OAUTH_ENABLED === '1'
 
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#f4f7ff] text-[#07113d]">
-        <div className="flex min-h-screen items-center justify-center px-4 py-10">
-          <aside className="relative w-full max-w-[460px] rounded-2xl bg-white px-7 py-8 shadow-[0_4px_32px_-4px_rgba(7,17,61,0.12)] sm:px-10">
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm text-[#07113d]">
+        <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
+        <div className="relative w-full max-w-md">
+          <aside className="relative flex flex-col rounded-2xl bg-white px-6 py-8 shadow-2xl sm:px-9">
             <button
               type="button"
               aria-label="Fermer"
               onClick={onClose}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-blue-200 hover:text-[#124bd2]"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-200 hover:text-[#124bd2]"
             >
-              <X size={17} />
+              <X size={15} />
             </button>
 
             <img src={trouveLogo} alt="trouvé!" className="h-8 w-fit sm:h-9" />
 
-            <div className="mt-8 max-w-[440px]">
-              {!isRegister && (
-                <>
-                  <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight text-[#07113d]">
-                    Bienvenue
-                  </h1>
-                  <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                    Connectez-vous à votre espace professionnel.
-                  </p>
-                </>
-              )}
+            <div className="mt-7 max-w-[440px]">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-[#124bd2]">
+                Accès professionnel
+              </p>
+              <h1 className="mt-3 text-2xl font-bold tracking-tight text-[#07113d]">
+                {isRegister ? 'Créer votre accès trouvé!' : 'Bienvenue'}
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {isRegister
+                  ? 'Créez votre accès professionnel et soumettez votre demande à valider.'
+                  : 'Connectez-vous à votre compte pour continuer.'}
+              </p>
 
               {oauthEnabled && (<>
               <div className="mt-5 space-y-3">
@@ -306,7 +295,7 @@ export default function AccountPanel({
                   type="button"
                   onClick={() => void handleOAuth('google')}
                   disabled={Boolean(oauthLoading)}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-300 hover:shadow-md"
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
                 >
                   <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-lg font-bold text-[#4285f4]">G</span>
                   {oauthLoading === 'google'
@@ -317,7 +306,7 @@ export default function AccountPanel({
                   type="button"
                   onClick={() => void handleOAuth('azure')}
                   disabled={Boolean(oauthLoading)}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-300 hover:shadow-md"
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-[#07113d] shadow-sm transition hover:border-blue-200 hover:shadow-md"
                 >
                   <span className="grid h-5 w-5 grid-cols-2 gap-0.5">
                     <span className="bg-[#f25022]" />
@@ -329,24 +318,24 @@ export default function AccountPanel({
                     ? 'Ouverture Microsoft...'
                     : isRegister ? "S'inscrire avec Microsoft" : 'Se connecter avec Microsoft'}
                 </button>
-                <p className="text-xs leading-5 text-slate-400">
+                <p className="text-xs leading-5 text-slate-500">
                   {oauthPreview
                     ? 'Mode preview local : Google/Microsoft ouvrent un compte démo validé, sans quitter le site.'
                     : isRegister
-                      ? 'Adresse professionnelle requise (@votreentreprise.fr).'
-                      : 'Connexion réservée aux adresses professionnelles.'}
+                      ? 'Adresse professionnelle requise (@votreentreprise.fr). Votre accès sera validé sous 24–48h.'
+                      : 'Connexion réservée aux adresses professionnelles (@votreentreprise.fr).'}
                 </p>
               </div>
 
-              <div className="my-5 flex items-center gap-4 text-xs text-slate-400">
+              <div className="my-4 flex items-center gap-4 text-sm text-slate-400">
                 <span className="h-px flex-1 bg-slate-200" />
-                ou par e-mail
+                ou
                 <span className="h-px flex-1 bg-slate-200" />
               </div>
               </>)}
 
               {isRegister ? (
-                <div className="mt-2">
+                <div className="mt-5">
                   <RegisterWizard
                     onComplete={async () => {
                       try {
@@ -361,60 +350,56 @@ export default function AccountPanel({
                   />
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />
-                    <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} />
-                    <div className="flex items-center justify-between gap-3 pt-1 text-sm">
-                      <label className="inline-flex cursor-pointer items-center gap-2 text-slate-500">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(event) => setRememberMe(event.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-[#0757f8] focus:ring-[#0757f8]"
-                        />
-                        <span>Rester connecté</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${encodeURIComponent(email || '(à renseigner)')}`, '_blank')}
-                        className="text-xs font-semibold text-[#0757f8] hover:underline"
-                      >
-                        Mot de passe oublié ?
-                      </button>
-                    </div>
-                    {loginError && (
-                      <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{loginError}</p>
-                    )}
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <AuthInput id="login-email" label="Adresse e-mail pro" type="email" icon={Mail} value={email} onChange={setEmail} />
+                  <AuthInput id="login-password" label="Mot de passe" type="password" icon={KeyRound} value={password} onChange={setPassword} />
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(event) => setRememberMe(event.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-[#0757f8] focus:ring-[#0757f8]"
+                      />
+                      <span>Rester connecté</span>
+                    </label>
                     <button
-                      disabled={loginLoading}
-                      className="h-12 w-full rounded-xl bg-[#1B54FF] text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(27,84,255,0.55)] transition hover:bg-[#0048dd] active:scale-[0.98] disabled:opacity-60"
+                      type="button"
+                      onClick={() => window.open(`mailto:contact@trouve.fr?subject=Réinitialisation mot de passe&body=Email : ${encodeURIComponent(email || '(à renseigner)')}`, '_blank')}
+                      className="font-semibold text-[#0757f8] hover:underline"
                     >
-                      {loginLoading ? 'Connexion...' : 'Se connecter'}
+                      Mot de passe oublié ?
                     </button>
-                  </form>
-                </div>
+                  </div>
+                  {loginError && (
+                    <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{loginError}</p>
+                  )}
+                  <button
+                    disabled={loginLoading}
+                    className="h-12 w-full rounded-xl bg-[#0757f8] text-sm font-semibold text-white shadow-[0_18px_42px_-20px_rgba(7,87,248,0.8)] transition hover:bg-[#0048dd] disabled:opacity-60"
+                  >
+                    {loginLoading ? 'Connexion...' : 'Se connecter'}
+                  </button>
+                </form>
               )}
 
               {!requestCreated && (
-                <div className="mt-5">
-                  {!isRegister && (
-                    <button
-                      type="button"
-                      onClick={() => setView('register')}
-                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1B54FF] text-sm font-semibold text-[#1B54FF] transition hover:bg-blue-50"
-                    >
-                      Pas encore de compte — S'inscrire
-                    </button>
-                  )}
-                </div>
+                <p className="mt-6 text-center text-sm text-slate-500">
+                  {isRegister ? 'Déjà un compte ? ' : 'Pas encore de compte ? '}
+                  <button
+                    type="button"
+                    onClick={() => setView(isRegister ? 'login' : 'register')}
+                    className="font-bold text-[#0757f8]"
+                  >
+                    {isRegister ? 'Se connecter' : "S'inscrire ici"}
+                  </button>
+                </p>
               )}
             </div>
 
-            <div className="mt-8 flex items-center justify-center gap-5 border-t border-slate-100 pt-5 text-[11px] text-slate-400">
-              <span className="flex items-center gap-1.5"><ShieldCheck size={13} className="text-emerald-400" />Sécurisé</span>
-              <span className="flex items-center gap-1.5"><Lock size={13} className="text-emerald-400" />RGPD</span>
-              <span className="flex items-center gap-1.5"><BadgeCheck size={13} className="text-emerald-400" />Non revendu</span>
+            <div className="mt-auto hidden items-center gap-3 pb-2 pt-12 text-xs leading-5 text-slate-500 sm:flex">
+              <ShieldCheck className="shrink-0 text-[#0757f8]" size={20} />
+              <span>Vos données sont sécurisées et ne sont jamais revendues.</span>
             </div>
           </aside>
         </div>
@@ -432,26 +417,27 @@ export default function AccountPanel({
     workspace:   'Compte professionnel',
   }
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#f5f7fc] dark:bg-slate-950">
-      {/* ── Top navbar ── */}
-      <nav className="sticky top-0 z-10 border-b border-slate-200/60 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3 sm:px-6">
-          <img src={trouveLogo} alt="trouvé!" className="h-7 w-fit" />
-          <span className="text-slate-300 dark:text-slate-600">/</span>
-          <button type="button" onClick={onClose}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200">
-            <ArrowLeft size={14} />
-            Retour
-          </button>
-          <span className="text-slate-300 dark:text-slate-600">/</span>
-          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            {sectionTitles[view as AccountPanelView] ?? 'Mon compte'}
-          </span>
-        </div>
-      </nav>
+  const [entered, setEntered] = useState(false)
+  useEffect(() => { const t = requestAnimationFrame(() => setEntered(true)); return () => cancelAnimationFrame(t) }, [])
 
-      <section className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <button aria-label="Fermer" className="absolute inset-0" onClick={onClose} />
+      <section
+        className={`relative w-full max-w-[580px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-2xl transition-all duration-300 ease-out sm:p-8 ${entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+      >
+        <header className="mb-6 flex items-start justify-between">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-blue-600">Espace sécurisé</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+              {sectionTitles[view as AccountPanelView] ?? 'Accès trouvé!'}
+            </h2>
+          </div>
+          <button type="button" aria-label="Fermer" onClick={onClose}
+            className="rounded-full border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-50 dark:hover:bg-slate-800">
+            <X size={18} />
+          </button>
+        </header>
 
 
         {(drawerView === 'login' || drawerView === 'register') && !requestCreated && (
@@ -598,10 +584,12 @@ export default function AccountPanel({
             {currentAccount.role !== 'admin' && (
               <SubscriptionPanel quota={currentAccount.quota} monthlyUsage={currentAccount.monthlyUsage} isDemo={currentAccount.id === 'demo-preview'} onRequestAuth={() => setView('login')} />
             )}
-            <button type="button" onClick={onLogout}
-              className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
-              <LogOut size={15} /> Se déconnecter
-            </button>
+            <LogoutDialog onConfirm={onLogout}>
+              <button type="button"
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                <LogOut size={15} /> Se déconnecter
+              </button>
+            </LogoutDialog>
           </div>
         )}
 
@@ -633,87 +621,8 @@ export default function AccountPanel({
       </section>
     </div>
   )
-
 }
 
-function AuthShowcase() {
-  return (
-    <section className="relative hidden min-h-screen items-center justify-center overflow-hidden bg-[#f3f7ff] p-5 lg:flex">
-      <div className="absolute inset-4 rounded-[32px] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(240,246,255,0.72)_48%,rgba(232,241,255,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_30px_100px_-70px_rgba(7,39,115,0.7)]" />
-      <div className="absolute left-20 top-20 h-72 w-72 rounded-full bg-blue-200/30 blur-[90px]" />
-      <div className="absolute bottom-16 right-16 h-80 w-80 rounded-full bg-indigo-200/30 blur-[90px]" />
-
-      <div className="relative z-10 w-full max-w-[900px]">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight text-[#07113d] xl:text-4xl">
-            <span className="block text-[#0757f8]">Retrouvez un 06, un 07</span>
-            ou un email direct
-          </h2>
-          <div className="mx-auto mt-1 h-2.5 w-48 rounded-full bg-[#0757f8]/15" />
-          <p className="mt-4 text-base leading-7 text-slate-500">
-            Nom, prénom, ville, adresse, téléphone, email ou réseau public.
-            <span className="block">Croisez les indices, puis débloquez le contact après validation.</span>
-          </p>
-        </div>
-
-        <div className="mx-auto mt-6 flex max-w-3xl items-center gap-4 rounded-2xl border border-white/80 bg-white p-2.5 shadow-[0_24px_80px_-50px_rgba(7,39,115,0.8)]">
-          <Search className="ml-3 text-slate-400" size={22} />
-          <span className="flex-1 text-left text-lg text-slate-400">Ex : Camille Moreau, Paris 16, 06 42 18 74 93</span>
-          <button className="rounded-xl bg-[#0757f8] px-6 py-3.5 text-base font-bold text-white shadow-[0_14px_35px_-18px_rgba(7,87,248,0.85)]">
-            Rechercher
-          </button>
-        </div>
-
-        <div className="mt-3 flex justify-center text-[#0757f8]">
-          <ArrowDown size={24} />
-        </div>
-
-        <div className="relative mx-auto mt-3 max-w-3xl">
-          <div className="absolute inset-x-[-70px] top-10 -z-10 h-[180px] bg-[radial-gradient(#2f7dff_1px,transparent_1px)] [background-size:18px_18px] opacity-20" />
-          <div className="grid gap-5 rounded-[26px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_-58px_rgba(7,39,115,0.9)] md:grid-cols-[1fr_210px]">
-            <div className="flex gap-5">
-              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-blue-100 to-slate-200">
-                <div className="absolute left-1/2 top-7 h-10 w-10 -translate-x-1/2 rounded-full bg-[#f1c5a5]" />
-                <div className="absolute bottom-0 left-1/2 h-16 w-20 -translate-x-1/2 rounded-t-[28px] bg-[#10245c]" />
-                <div className="absolute left-1/2 top-[44px] h-10 w-14 -translate-x-1/2 rounded-b-full bg-[#f1c5a5]" />
-                <div className="absolute left-1/2 top-[39px] h-5 w-12 -translate-x-1/2 rounded-full border-2 border-[#07113d]/60" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-[#07113d]">Camille Moreau</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">Paris 16<br />Profil public cohérent</p>
-                  </div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-[0_12px_28px_-16px_rgba(16,185,129,0.9)]">
-                    Contact trouvé <BadgeCheck size={14} />
-                  </span>
-                </div>
-                <div className="mt-5 space-y-2.5 text-[15px] font-medium text-[#07113d]">
-                  <InfoLine icon={Phone} label="06 42 18 74 93" />
-                  <InfoLine icon={Mail} label="camille.moreau@gmail.com" />
-                  <InfoLine icon={MapPin} label="Paris 16 · adresse cohérente" />
-                  <InfoLine icon={BriefcaseBusiness} label="Entreprise associée détectée" />
-                  <InfoLine icon={UsersRound} label="Homonymes filtrés" />
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <ProofCard icon={Zap} title="Résultat instantané" detail="en 2,3 secondes" />
-              <ProofCard icon={Target} title="Informations fiables" detail="Mises à jour en continu" />
-              <ProofCard icon={ShieldCheck} title="Données sécurisées" detail="Confidentielles & RGPD" />
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-7 grid max-w-4xl grid-cols-3 rounded-[24px] border border-white/80 bg-white/70 p-5 text-center shadow-[0_24px_70px_-60px_rgba(7,39,115,0.75)] backdrop-blur">
-          <Metric value="267M+" label="Données" />
-          <Metric value="25+" label="Critères" framed />
-          <Metric value="<1s" label="Résultats" />
-        </div>
-      </div>
-    </section>
-  )
-}
 
 function AuthInput({
   id,
@@ -740,67 +649,32 @@ function AuthInput({
   const EyeIcon = showPwd ? EyeOff : Eye
 
   return (
-    <div className="flex-1">
-      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </label>
-      <div className="relative">
-        {Icon && <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={17} />}
-        <input
-          id={id}
-          required
-          type={effectiveType}
-          minLength={minLength}
-          inputMode={inputMode}
-          value={value}
-          placeholder=""
-          onChange={(event) => onChange(event.target.value)}
-          className={`h-[50px] w-full rounded-xl border border-slate-200 bg-white text-sm font-medium text-[#07113d] outline-none transition focus:border-[#0757f8] focus:ring-4 focus:ring-blue-50 ${
-            Icon ? 'pl-11' : 'pl-4'
-          } ${isPassword ? 'pr-12' : 'pr-4'}`}
-        />
-        {isPassword && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setShowPwd(v => !v)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-            aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-          >
-            <EyeIcon size={18} />
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function InfoLine({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon size={18} className="text-[#0757f8]" />
-      <span>{label}</span>
-    </div>
-  )
-}
-
-function ProofCard({ icon: Icon, title, detail }: { icon: LucideIcon; title: string; detail: string }) {
-  return (
-    <div className="flex items-center gap-4 rounded-2xl bg-[#f3f7ff] p-4">
-      <Icon size={25} className="text-[#0757f8]" />
-      <div>
-        <p className="text-sm font-bold text-[#07113d]">{title}</p>
-        <p className="mt-1 text-xs text-slate-500">{detail}</p>
-      </div>
-    </div>
-  )
-}
-
-function Metric({ value, label, framed = false }: { value: string; label: string; framed?: boolean }) {
-  return (
-    <div className={framed ? 'border-x border-slate-200' : ''}>
-      <p className="text-3xl font-extrabold tracking-tight text-[#0757f8]">{value}</p>
-      <p className="mt-2 text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
+    <div className="relative flex-1">
+      {Icon && <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />}
+      <input
+        id={id}
+        required
+        type={effectiveType}
+        minLength={minLength}
+        inputMode={inputMode}
+        value={value}
+        placeholder={label}
+        onChange={(event) => onChange(event.target.value)}
+        className={`h-[50px] w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-[#07113d] dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-[#0757f8] focus:ring-4 focus:ring-blue-100 ${
+          Icon ? 'pl-12' : 'pl-4'
+        } ${isPassword ? 'pr-12' : 'pr-4'}`}
+      />
+      {isPassword && (
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShowPwd(v => !v)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+          aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        >
+          <EyeIcon size={19} />
+        </button>
+      )}
     </div>
   )
 }
@@ -1061,14 +935,13 @@ function Workspace({
         <SubscriptionPanel quota={account.quota} monthlyUsage={account.monthlyUsage} isDemo={account.id === 'demo-preview'} onRequestAuth={onRequestAuth} />
       )}
 
-      <button
-        type="button"
-        onClick={onLogout}
-        className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-      >
-        <LogOut size={15} />
-        Se déconnecter
-      </button>
+      <LogoutDialog onConfirm={onLogout}>
+        <button type="button"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          <LogOut size={15} /> Se déconnecter
+        </button>
+      </LogoutDialog>
     </div>
   )
 }
@@ -1190,14 +1063,6 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
         </div>
       </div>
 
-      {/* Appareils connectés */}
-      <div>
-        <p className="mb-2.5 flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-          <KeyRound size={15} className="text-blue-700" /> Appareils connectés
-        </p>
-        <DevicesSection />
-      </div>
-
       {/* Zone sensible */}
       <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-4">
         <p className="mb-1 text-sm font-bold text-red-600 dark:text-red-400">Zone sensible</p>
@@ -1222,10 +1087,12 @@ function ProfilSection({ account, onLogout }: { account: Account; onLogout: () =
         </div>
       </div>
 
-      <button type="button" onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
-        <LogOut size={15} /> Se déconnecter
-      </button>
+      <LogoutDialog onConfirm={onLogout}>
+        <button type="button"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800">
+          <LogOut size={15} /> Se déconnecter
+        </button>
+      </LogoutDialog>
     </div>
   )
 }
@@ -1568,34 +1435,14 @@ const PLANS_INFO = [
 function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth }: { quota: number; monthlyUsage: number; isDemo?: boolean; onRequestAuth?: () => void }) {
   const currentPlan = quota >= 10000 ? PLANS_INFO[2] : quota >= 4000 ? PLANS_INFO[1] : PLANS_INFO[0]
   const usagePct = Math.min(100, Math.round((monthlyUsage / quota) * 100))
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
-  const [checkoutError, setCheckoutError]     = useState<string | null>(null)
-  const [isAnnual, setIsAnnual]               = useState(false)
 
-  const handleCheckout = async (planCode: string) => {
+  const contactUpgrade = (planName: string) => {
     if (isDemo) { onRequestAuth?.(); return }
-    if (planCode === 'reseau' || planCode === 'entreprise') {
-      window.open('mailto:contact@trouve.fr?subject=Offre Entreprise sur mesure', '_blank')
-      return
-    }
-    setCheckoutLoading(planCode)
-    setCheckoutError(null)
-    try {
-      const { data: { session } } = await getSupabaseClient().auth.getSession()
-      if (!session?.access_token) { onRequestAuth?.(); return }
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ plan_code: planCode, period: isAnnual ? 'annual' : 'monthly' }),
-      })
-      const data = await res.json()
-      if (data.url) { window.location.href = data.url }
-      else setCheckoutError(data.error ?? 'Une erreur est survenue.')
-    } catch {
-      setCheckoutError('Service momentanément indisponible. Réessayez.')
-    } finally {
-      setCheckoutLoading(null)
-    }
+    window.open(`mailto:contact@trouve.fr?subject=Upgrade vers ${planName}&body=Bonjour, je souhaite passer au plan ${planName}.`, '_blank')
+  }
+  const contactAddon = (addon: string) => {
+    if (isDemo) { onRequestAuth?.(); return }
+    window.open(`mailto:contact@trouve.fr?subject=Add-on : ${addon}&body=Bonjour, je souhaite ajouter : ${addon}.`, '_blank')
   }
 
   return (
@@ -1632,20 +1479,6 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
         </div>
       </div>
 
-      {/* Toggle annuel pour upgrade */}
-      {PLANS_INFO.filter(p => p.searches > currentPlan.searches).length > 0 && (
-        <div className="flex items-center gap-2 text-xs">
-          <button onClick={() => setIsAnnual(false)}
-            className={`rounded-lg px-3 py-1.5 font-semibold transition ${!isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-            Mensuel
-          </button>
-          <button onClick={() => setIsAnnual(true)}
-            className={`rounded-lg px-3 py-1.5 font-semibold transition ${isAnnual ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-            Annuel <span className="font-bold text-emerald-500">−20 %</span>
-          </button>
-        </div>
-      )}
-
       {/* Upgrade options */}
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Passer à</p>
@@ -1654,19 +1487,13 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
             <div className="flex items-center gap-2">
               {plan.recommended && <Sparkles size={13} className="text-amber-500" />}
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {plan.name} · {isAnnual ? Math.round(plan.price * 0.8) : plan.price} €/mois
-                  {isAnnual && <span className="ml-1.5 text-[10px] font-bold text-emerald-500">−20 %</span>}
-                </p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{plan.name} · {plan.price} €/mois</p>
                 <p className="text-xs text-slate-400">{plan.searches.toLocaleString('fr-FR')} recherches · {plan.seats} compte{plan.seats > 1 ? 's' : ''}</p>
               </div>
             </div>
-            <button type="button" onClick={() => handleCheckout(plan.code)}
-              disabled={checkoutLoading !== null}
-              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc] disabled:opacity-60">
-              {checkoutLoading === plan.code
-                ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                : <><TrendingUp size={11} /> Payer</>}
+            <button type="button" onClick={() => contactUpgrade(plan.name)}
+              className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
+              <TrendingUp size={11} /> Upgrade
             </button>
           </div>
         ))}
@@ -1676,28 +1503,19 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Réseau · Sur devis</p>
               <p className="text-xs text-slate-400">Utilisateurs illimités · Infrastructure dédiée</p>
             </div>
-            <button type="button" onClick={() => handleCheckout('reseau')}
+            <button type="button" onClick={() => contactUpgrade('Réseau')}
               className="flex items-center gap-1.5 rounded-lg bg-[#124bd2] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0b3fbc]">
               Contacter
             </button>
           </div>
         )}
-        {checkoutError && (
-          <p className="rounded-xl bg-red-50 dark:bg-red-950/30 px-3 py-2 text-xs text-red-700 dark:text-red-400">{checkoutError}</p>
-        )}
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 text-[10px] text-slate-400">
-          {['Stripe sécurisé', 'Facture TVA auto', 'Résiliable'].map(t => (
-            <span key={t} className="flex items-center gap-1"><Zap size={8} className="text-emerald-400" />{t}</span>
-          ))}
-        </div>
       </div>
 
       {/* Add-ons */}
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Acheter en plus</p>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button"
-            onClick={() => window.open('mailto:contact@trouve.fr?subject=Add-on : +500 recherches', '_blank')}
+          <button type="button" onClick={() => contactAddon('+500 recherches — 49 €')}
             className="flex flex-col items-start rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/20">
             <div className="flex items-center gap-1.5">
               <Plus size={13} className="text-blue-600" />
@@ -1706,8 +1524,7 @@ function SubscriptionPanel({ quota, monthlyUsage, isDemo = false, onRequestAuth 
             <span className="mt-1 text-lg font-bold text-[#124bd2]">49 €</span>
             <span className="text-[10px] text-slate-400">Valable 30 jours</span>
           </button>
-          <button type="button"
-            onClick={() => window.open('mailto:contact@trouve.fr?subject=Add-on : Siège supplémentaire', '_blank')}
+          <button type="button" onClick={() => contactAddon('Siège supplémentaire — 59 €/mois')}
             className="flex flex-col items-start rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/20">
             <div className="flex items-center gap-1.5">
               <CreditCard size={13} className="text-blue-600" />

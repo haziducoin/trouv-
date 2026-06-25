@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Users, TrendingUp, Search, CreditCard, RefreshCw, Check, X,
   ChevronDown, AlertCircle, Shield, Building2, Clock,
-  ArrowUpRight, ArrowDownRight, Minus,
+  ArrowUpRight, ArrowDownRight, Minus, UserPlus, Phone, Mail, Eye, EyeOff, Copy,
 } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase'
+import { Switch } from '@/components/ui/switch'
 import type { Account } from '@/lib/accountStore'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -233,6 +234,223 @@ function UserActions({ user, token, onRefresh }: {
   )
 }
 
+// ─── Create user modal ────────────────────────────────────────────────────────
+
+function CreateUserModal({ token, onClose, onCreated }: {
+  token: string; onClose: () => void; onCreated: () => void
+}) {
+  const [email,        setEmail]      = useState('')
+  const [password,     setPassword]   = useState('')
+  const [showPwd,      setShowPwd]    = useState(false)
+  const [phoneCr,      setPhoneCr]    = useState(50)
+  const [emailCr,      setEmailCr]    = useState(50)
+  const [unlimited,    setUnlimited]  = useState(false)
+  const [busy,         setBusy]       = useState(false)
+  const [error,        setError]      = useState<string | null>(null)
+  const [result,       setResult]     = useState<{ email: string; tempPassword: string | null } | null>(null)
+  const [copied,       setCopied]     = useState(false)
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      const r = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim() || undefined,
+          phoneCredits: unlimited ? 0 : phoneCr,
+          emailCredits: unlimited ? 0 : emailCr,
+          unlimited,
+        }),
+      })
+      const json = await r.json()
+      if (!r.ok) { setError(json.error ?? 'Erreur serveur'); return }
+      setResult({ email: json.email, tempPassword: json.tempPassword })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur réseau')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
+              <UserPlus size={15} className="text-blue-600" />
+            </div>
+            <h2 className="text-sm font-semibold text-gray-900">Créer un compte client</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+            <X size={15} />
+          </button>
+        </div>
+
+        {result ? (
+          /* ── Succès ── */
+          <div className="px-6 py-6">
+            <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-4 py-3">
+              <Check size={15} className="shrink-0 text-green-600" />
+              <p className="text-sm font-medium text-green-800">Compte créé avec succès</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1 text-xs font-medium text-gray-500">Email</p>
+                <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
+                  {result.email}
+                </p>
+              </div>
+              {result.tempPassword && (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-gray-500">Mot de passe temporaire</p>
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 font-mono text-sm font-semibold text-amber-800">
+                      {result.tempPassword}
+                    </p>
+                    <button
+                      onClick={() => copy(result.tempPassword!)}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <Copy size={12} />
+                      {copied ? 'Copié !' : 'Copier'}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-amber-600">Communiquez ce mot de passe au client — il ne sera plus affiché.</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={() => { setResult(null); setEmail(''); setPassword(''); setPhoneCr(50); setEmailCr(50); setUnlimited(false) }}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Créer un autre
+              </button>
+              <button onClick={() => { onCreated(); onClose() }}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                Fermer
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── Formulaire ── */
+          <form onSubmit={submit} className="px-6 py-5 space-y-4">
+            {/* Email */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <Mail size={12} /> Email
+              </label>
+              <input
+                type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="client@exemple.fr"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            {/* Mot de passe */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-gray-700">
+                <Eye size={12} /> Mot de passe <span className="text-gray-400 font-normal">(laisser vide pour générer)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none"
+                />
+                <button type="button" onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Crédits */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-700">Crédits alloués</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Illimité</span>
+                  <Switch
+                    checked={unlimited}
+                    onCheckedChange={setUnlimited}
+                  />
+                </div>
+              </div>
+              {!unlimited && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 flex items-center gap-1 text-xs text-gray-500">
+                      <Phone size={11} /> Téléphone
+                    </label>
+                    <input
+                      type="number" min={0} max={99999} value={phoneCr}
+                      onChange={e => setPhoneCr(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 flex items-center gap-1 text-xs text-gray-500">
+                      <Mail size={11} /> Email
+                    </label>
+                    <input
+                      type="number" min={0} max={99999} value={emailCr}
+                      onChange={e => setEmailCr(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+              {unlimited && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700 font-medium">
+                  Ce compte aura des déblocages illimités.
+                </div>
+              )}
+            </div>
+
+            {/* Résumé */}
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-500">
+              Compte créé en statut <span className="font-semibold text-green-700">approuvé</span> — le client peut se connecter immédiatement.
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600">
+                <AlertCircle size={13} /> {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                Annuler
+              </button>
+              <button type="submit" disabled={busy}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                {busy
+                  ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  : <><UserPlus size={14} /> Créer le compte</>
+                }
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AdminPage({ account }: { account: Account }) {
@@ -248,6 +466,7 @@ export default function AdminPage({ account }: { account: Account }) {
   const [usersLoading,setUsersL]  = useState(true)
   const [error,       setError]   = useState<string | null>(null)
   const [tab,         setTab]     = useState<'overview' | 'users' | 'searches'>('overview')
+  const [showCreate,  setCreate]  = useState(false)
 
   // Charger le token JWT une fois
   useEffect(() => { getToken().then(setToken) }, [])
@@ -522,8 +741,22 @@ export default function AdminPage({ account }: { account: Account }) {
                 </button>
               ))}
             </div>
-            <span className="ml-auto text-xs text-gray-400">{userTotal} utilisateur{userTotal > 1 ? 's' : ''}</span>
+            <span className="text-xs text-gray-400">{userTotal} utilisateur{userTotal > 1 ? 's' : ''}</span>
+            <button
+              onClick={() => setCreate(true)}
+              className="ml-auto flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <UserPlus size={12} /> Créer un compte
+            </button>
           </div>
+
+          {showCreate && token && (
+            <CreateUserModal
+              token={token}
+              onClose={() => setCreate(false)}
+              onCreated={() => loadUsers(token, userPage, statusFilter, searchQuery)}
+            />
+          )}
 
           {/* Table */}
           {usersLoading ? (

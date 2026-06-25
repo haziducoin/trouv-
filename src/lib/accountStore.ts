@@ -5,6 +5,12 @@ export type UserRole = 'agent' | 'agence' | 'admin'
 export type AccessStatus = 'pending' | 'trial' | 'approved' | 'rejected' | 'suspended'
 export type OAuthProvider = 'google' | 'azure'
 
+// ─── Admins plateforme — exemptés du filtre email personnel ─────────────────
+const PLATFORM_ADMIN_EMAILS = new Set([
+  'contact@trouve.fr',
+  'yassine.irh@gmail.com',
+])
+
 // ─── Domaines email personnels bloqués ───────────────────────────────────────
 const PERSONAL_EMAIL_DOMAINS = new Set([
   'gmail.com', 'googlemail.com', 'googlemail.co.uk',
@@ -20,7 +26,9 @@ const PERSONAL_EMAIL_DOMAINS = new Set([
 ])
 
 export function isPersonalEmail(email: string): boolean {
-  const domain = email.split('@')[1]?.toLowerCase() ?? ''
+  const normalized = email.trim().toLowerCase()
+  if (PLATFORM_ADMIN_EMAILS.has(normalized)) return false
+  const domain = normalized.split('@')[1] ?? ''
   return PERSONAL_EMAIL_DOMAINS.has(domain)
 }
 
@@ -262,7 +270,7 @@ async function fetchRemoteProfiles(accountId?: string) {
   let query = supabase
     .from('profiles')
     .select(
-      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations!organization_id(siren, legal_name), monthly_usage(period_start, searches_used)',
+      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations!profiles_organization_id_fkey ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
     )
     .order('created_at', { ascending: false })
 
@@ -738,7 +746,7 @@ export async function getDemoRequests(): Promise<DemoRequest[]> {
       .from('demo_requests')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) throw new Error(error.message)
+    if (error) return []
     return (data ?? []).map((r: Record<string, any>) => ({
       id:        r.id,
       userId:    r.user_id,
@@ -845,13 +853,14 @@ export async function acceptCgu(version = '1.0'): Promise<void> {
 
 export async function recordSearch(queryLabel: string, filters: Record<string, unknown>, resultCount: number) {
   if (usesRemoteDatabase && !getActiveOAuthPreviewAccount()) {
-    // Enregistrement analytique secondaire — les erreurs ne doivent jamais
-    // bloquer l'affichage des résultats (quota atteint, compte non approuvé…).
-    await getSupabaseClient().rpc('record_search', {
+    const { error } = await getSupabaseClient().rpc('record_search', {
       p_query_label: queryLabel,
       p_filters: filters,
       p_result_count: resultCount,
-    }).catch(() => {})
+    })
+    if (error) {
+      throw new Error(`Recherche non enregistrée : ${error.message}`)
+    }
     return
   }
 
