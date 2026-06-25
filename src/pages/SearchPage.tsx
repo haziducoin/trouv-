@@ -2306,9 +2306,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
       getCreditBalance().then(setCreditBalance).catch(() => {})
     } catch (e) {
-      if (e instanceof UnlockError &&
-          ['no_subscription', 'no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
-        window.location.assign('/?pricing=1')
+      if (e instanceof UnlockError) {
+        if (e.code === 'no_subscription') {
+          setError('Aucun abonnement actif. Contactez-nous à contact@trouve.fr.')
+        } else if (e.code === 'no_phone_credits' || e.code === 'no_credits') {
+          setError('Plus de crédits téléphone. Rechargez depuis le menu en bas à gauche.')
+        } else if (e.code === 'no_email_credits') {
+          setError('Plus de crédits email. Rechargez depuis le menu en bas à gauche.')
+        } else {
+          setError('Déblocage impossible pour le moment. Réessayez.')
+        }
         return
       }
       setError('Déblocage impossible pour le moment. Réessayez.')
