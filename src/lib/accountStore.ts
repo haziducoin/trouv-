@@ -9,6 +9,7 @@ export type OAuthProvider = 'google' | 'azure'
 const PLATFORM_ADMIN_EMAILS = new Set([
   'contact@trouve.fr',
   'yassine.irh@gmail.com',
+  'boucheseichehugo@gmail.com',
 ])
 
 // ─── Domaines email personnels bloqués ───────────────────────────────────────
