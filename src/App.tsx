@@ -407,6 +407,17 @@ export default function App() {
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />
+      {accountPanel && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <AccountPanel
+            initialView={accountPanel}
+            currentAccount={null}
+            onAuthenticated={handleAuthenticated}
+            onClose={() => setAccountPanel(null)}
+            onLogout={handleLogout}
+          />
+        </div>
+      )}
       <Analytics />
       <SpeedInsights />
     </>
