@@ -276,6 +276,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (action === 'approve') { await supabaseAdmin.from('profiles').update({ access_status: 'approved' }).eq('id', userId); res.json({ ok: true }); return }
       if (action === 'block')   { await supabaseAdmin.from('profiles').update({ access_status: 'blocked'  }).eq('id', userId); res.json({ ok: true }); return }
+      if (action === 'delete_account') {
+        await supabaseAdmin.from('profiles').delete().eq('id', userId)
+        const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(userId)
+        if (delErr) { res.status(500).json({ error: delErr.message }); return }
+        res.json({ ok: true }); return
+      }
       res.status(400).json({ error: 'Action inconnue' }); return
     }
     res.status(405).json({ error: 'Method not allowed' }); return

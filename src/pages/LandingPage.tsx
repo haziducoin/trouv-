@@ -24,7 +24,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import AccountPanel, { type AccountPanelView } from '@/components/account/AccountPanel'
+import { type AccountPanelView } from '@/components/account/AccountPanel'
 import ChatWidget from '@/components/ChatWidget'
 import { NavBar } from '@/components/ui/tubelight-navbar'
 import { PricingSection } from '@/components/ui/pricing'
@@ -1097,19 +1097,6 @@ export default function LandingPage({
         </div>
       </footer>
       <ChatWidget />
-      {accountPanel && (
-        <AccountPanel
-          initialView={accountPanel}
-          currentAccount={currentAccount}
-          onAuthenticated={(a) => {
-            setCurrentAccount(a)
-            onAuthenticated?.(a)
-          }}
-          onClose={() => setAccountPanel(null)}
-          onLogout={logout}
-        />
-      )}
-
       {/* ── Overlay transition Démo ── */}
       {demoTransition !== 'hidden' && (
         <div

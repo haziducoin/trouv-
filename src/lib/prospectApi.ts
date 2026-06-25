@@ -11,6 +11,12 @@ function fixMojibake(str: string): string {
   }
 }
 
+function extractYear(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const m = String(dateStr).match(/\b(19|20)\d{2}\b/)
+  return m ? m[0] : null
+}
+
 function toTitleCase(str: string | null | undefined): string | null {
   if (!str) return null
   const fixed = fixMojibake(str)
@@ -65,6 +71,10 @@ export interface ProspectResult {
   birthCity?:    string | null
   isActive:      boolean
   createdAt:     string
+  // Déduplication — tableaux issus de la fusion d'enregistrements homonymes
+  emails:        string[]
+  addresses:     Array<{ address: string | null; city: string | null; zipCode: string | null }>
+  mergedCount:   number
 }
 
 export interface ProspectSearchParams {
@@ -101,6 +111,30 @@ function mapRow(row: Record<string, any>): ProspectResult {
   const phoneUnlocked = !!row.phone_unlocked
   const emailUnlocked = !!row.email_unlocked
 
+  // Emails : tableau fusionné si disponible, sinon email principal
+  const primaryEmail = emailUnlocked ? (row.email_value ?? null) : (row.email_masked ?? null)
+  const emails: string[] = emailUnlocked
+    ? (Array.isArray(row.emails_values) && row.emails_values.length > 0
+        ? row.emails_values
+        : primaryEmail ? [primaryEmail] : [])
+    : (Array.isArray(row.emails_masked) && row.emails_masked.length > 0
+        ? row.emails_masked
+        : primaryEmail ? [primaryEmail] : [])
+
+  // Adresses : tableau fusionné si disponible, sinon adresse principale
+  const rawAdresses: Array<{ adresse: string | null; code_postal: string | null; ville: string | null }> =
+    Array.isArray(row.adresses) && row.adresses.length > 0
+      ? row.adresses
+      : (row.adresse || row.ville)
+        ? [{ adresse: row.adresse ?? null, code_postal: row.code_postal ?? null, ville: row.ville ?? null }]
+        : []
+
+  const addresses = rawAdresses.map(a => ({
+    address: a.adresse ?? null,
+    city:    toTitleCase(a.ville) ?? null,
+    zipCode: a.code_postal ?? null,
+  }))
+
   return {
     id:            String(row.id),
     firstName,
@@ -119,19 +153,22 @@ function mapRow(row: Record<string, any>): ProspectResult {
     phoneMobile:   null,
     hasEmail:      !!row.has_email,
     emailUnlocked,
-    email:         emailUnlocked ? (row.email_value ?? null) : (row.email_masked ?? null),
+    email:         primaryEmail,
     linkedinUrl:   null,
     website:       null,
-    address:       row.adresse ?? null,
-    city:          row.ville ?? null,
-    zipCode:       row.code_postal ?? null,
+    address:       addresses[0]?.address ?? null,
+    city:          addresses[0]?.city    ?? null,
+    zipCode:       addresses[0]?.zipCode ?? null,
     department:    null,
     region:        null,
     country:       null,
-    birthYear:     row.date_naissance ? String(row.date_naissance).substring(0, 4) : null,
+    birthYear:     extractYear(row.date_naissance),
     birthCity:     null,
     isActive:      true,
     createdAt:     new Date().toISOString(),
+    emails,
+    addresses,
+    mergedCount:   typeof row.merged_count === 'number' ? row.merged_count : 1,
   }
 }
 
@@ -215,6 +252,81 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     perPage:    pp,
     totalPages: Math.ceil(total / pp),
   }
+}
+
+// ─── Enrichissement avant unlock (ne consomme PAS de crédit) ────────────────
+
+export interface EnrichBeforeUnlockResult {
+  confidence_score:    number
+  status:              'confirmed' | 'likely' | 'uncertain' | 'possible_homonym' | 'insufficient_data'
+  user_facing_message: string
+  show_warning:        boolean
+  safe_enrichments: {
+    company:               string | null
+    job_title:             string | null
+    public_profile_url:    string | null
+    professional_location: string | null
+  }
+}
+
+export async function enrichBeforeUnlock(
+  prospect: ProspectResult,
+  field: UnlockField,
+): Promise<EnrichBeforeUnlockResult> {
+  const supabase = getSupabaseClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Session expirée')
+
+  const resp = await fetch('/api/enrich', {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      contact_id:        prospect.id,
+      unlock_type:       field,
+      prenom:            prospect.firstName,
+      nom:               prospect.lastName,
+      ville:             prospect.city ?? null,
+      entreprise:        prospect.companyName ?? null,
+      annee_naissance:   prospect.birthYear ?? null,
+      tel_masque:        !prospect.phoneUnlocked ? (prospect.phone ?? null) : null,
+      email_masque:      !prospect.emailUnlocked ? (prospect.email ?? null) : null,
+      adresse_partielle: prospect.address ?? null,
+    }),
+    signal: AbortSignal.timeout(12000),
+  })
+
+  if (!resp.ok) {
+    // Erreur IA → on ne bloque pas l'unlock, on laisse passer sans warning
+    return {
+      confidence_score:    50,
+      status:              'uncertain',
+      user_facing_message: '',
+      show_warning:        false,
+      safe_enrichments:    { company: null, job_title: null, public_profile_url: null, professional_location: null },
+    }
+  }
+
+  return resp.json() as Promise<EnrichBeforeUnlockResult>
+}
+
+// ─── Enrichissement à l'ouverture d'une fiche (sans consommer de crédit) ─────
+export async function enrichContactPreview(contactId: string): Promise<EnrichBeforeUnlockResult> {
+  const supabase = getSupabaseClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Session expirée')
+
+  const resp = await fetch('/api/enrich', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body:    JSON.stringify({ contact_id: contactId }),
+    signal:  AbortSignal.timeout(15000),
+  })
+
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  return resp.json() as Promise<EnrichBeforeUnlockResult>
 }
 
 // ─── Déblocage d'un champ (consomme 1 crédit, idempotent) ───────────────────

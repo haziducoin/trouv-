@@ -262,7 +262,7 @@ async function fetchRemoteProfiles(accountId?: string) {
   let query = supabase
     .from('profiles')
     .select(
-      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations!profiles_organization_id_fkey ( siren, legal_name ), monthly_usage ( period_start, searches_used )',
+      'id, organization_id, first_name, last_name, professional_email, role, access_status, monthly_search_quota, created_at, last_login_at, function_title, website, cgu_accepted, cgu_accepted_at, organizations!organization_id(siren, legal_name), monthly_usage(period_start, searches_used)',
     )
     .order('created_at', { ascending: false })
 
@@ -845,14 +845,13 @@ export async function acceptCgu(version = '1.0'): Promise<void> {
 
 export async function recordSearch(queryLabel: string, filters: Record<string, unknown>, resultCount: number) {
   if (usesRemoteDatabase && !getActiveOAuthPreviewAccount()) {
-    const { error } = await getSupabaseClient().rpc('record_search', {
+    // Enregistrement analytique secondaire — les erreurs ne doivent jamais
+    // bloquer l'affichage des résultats (quota atteint, compte non approuvé…).
+    await getSupabaseClient().rpc('record_search', {
       p_query_label: queryLabel,
       p_filters: filters,
       p_result_count: resultCount,
-    })
-    if (error) {
-      throw new Error(`Recherche non enregistrée : ${error.message}`)
-    }
+    }).catch(() => {})
     return
   }
 

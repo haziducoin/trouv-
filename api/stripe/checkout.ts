@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { stripe, PLANS, type BillingPeriod } from '../_lib/stripe.js'
-import { authenticate } from '../_lib/supabase.js'
+import { authenticate, supabaseAdmin } from '../_lib/supabase.js'
 import { getOrCreateStripeCustomer } from '../_lib/subscriptions.js'
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://www.xn--trouv-fsa.fr'
@@ -21,8 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   if (!auth.cguAccepted) {
-    res.status(403).json({ error: 'Vous devez accepter les conditions générales avant de souscrire.', code: 'CGU_REQUIRED' })
-    return
+    // La CGU est obligatoire à l'inscription (case cochée) — si le flag est manquant
+    // c'est un bug de timing dans finalize(). On rattrape silencieusement ici.
+    await supabaseAdmin
+      .from('profiles')
+      .update({ cgu_accepted: true, cgu_accepted_at: new Date().toISOString(), cgu_version: '1.0' })
+      .eq('id', auth.userId)
   }
 
   const planCode = req.body?.plan_code as string

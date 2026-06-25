@@ -22,6 +22,7 @@ import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/se
 import {
   searchProspects, exportProspectsCSV,
   unlockContactField, getCreditBalance, UnlockError,
+  enrichBeforeUnlock, enrichContactPreview, type EnrichBeforeUnlockResult,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
 import { formatBirthContext } from '@/lib/privacy'
@@ -170,6 +171,22 @@ function QuotaBar({ used, total }: { used: number; total: number }) {
         &thinsp;/&thinsp;{total.toLocaleString('fr-FR')}
       </span>
     </div>
+  )
+}
+
+// ─── FilterChip — chip de filtre actif supprimable ────────────────────────────
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 py-1 pl-3 pr-1.5 text-xs font-medium text-blue-700 dark:border-blue-800/50 dark:bg-blue-950/30 dark:text-blue-300">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="flex h-4 w-4 items-center justify-center rounded-full text-blue-400 transition hover:bg-blue-200 hover:text-blue-700 dark:text-blue-500 dark:hover:bg-blue-900 dark:hover:text-blue-300"
+      >
+        <X size={9} />
+      </button>
+    </span>
   )
 }
 
@@ -761,6 +778,89 @@ function ProspectionPage({
   )
 }
 
+// ─── UnlockWarningModal — avertissement IA avant consommation du crédit ───────
+interface UnlockWarning {
+  prospect:  ProspectResult
+  field:     'phone' | 'email'
+  score:     number
+  status:    EnrichBeforeUnlockResult['status']
+  message:   string
+}
+
+function UnlockWarningModal({
+  warning, onConfirm, onCancel, busy,
+}: {
+  warning:   UnlockWarning
+  onConfirm: () => void
+  onCancel:  () => void
+  busy:      boolean
+}) {
+  const isHomonym  = warning.status === 'possible_homonym'
+  const scoreColor = warning.score >= 60
+    ? 'text-amber-600' : 'text-red-500'
+  const Icon = warning.field === 'phone' ? Phone : Mail
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-100 dark:border-slate-800 p-6 flex flex-col gap-5">
+
+        {/* En-tête */}
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-200 dark:ring-amber-800/50">
+            <AlertCircle size={20} className="text-amber-500" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-800 dark:text-slate-100">
+              {isHomonym ? 'Homonyme possible détecté' : 'Identification incertaine'}
+            </p>
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Score de confiance IA : <span className={`font-bold ${scoreColor}`}>{warning.score} %</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Message IA */}
+        {warning.message && (
+          <p className="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed rounded-xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3 border border-slate-100 dark:border-slate-700/50">
+            {warning.message}
+          </p>
+        )}
+
+        {/* Avertissement crédit */}
+        <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3 border border-amber-100 dark:border-amber-800/40">
+          <Icon size={14} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">
+            Si vous confirmez, <strong>1 crédit {warning.field === 'phone' ? 'téléphone' : 'e-mail'} sera consommé</strong> même si la fiche ne correspond pas à la bonne personne.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 rounded-xl bg-[#1B54FF] py-2.5 text-sm font-semibold text-white hover:bg-[#124bd2] transition disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {busy
+              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              : <Icon size={14} />}
+            Confirmer quand même
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Prospect Detail Page ──────────────────────────────────────────────────────
 function ProspectPage({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
   const noopUnlock = async () => {}
@@ -800,11 +900,24 @@ function ProspectPage({ prospect, onClose, canUnlock = false, onUnlock }: { pros
         {/* Coordonnées */}
         <section>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordonnées</p>
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-            <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-            {!prospect.hasPhone && !prospect.hasEmail && (
-              <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap gap-2">
+              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+              {!prospect.hasPhone && !prospect.hasEmail && (
+                <p className="text-xs text-slate-400">Aucune coordonnée disponible</p>
+              )}
+            </div>
+            {/* Emails supplémentaires issus de la fusion */}
+            {prospect.emails.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
+                {prospect.emails.slice(1).map((em, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 ring-1 ring-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
+                    <Mail size={12} className="shrink-0 text-slate-300" />
+                    <span className="truncate">{em}</span>
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </section>
@@ -820,12 +933,24 @@ function ProspectPage({ prospect, onClose, canUnlock = false, onUnlock }: { pros
         )}
 
         {/* Localisation */}
-        {(prospect.address || prospect.city || prospect.country || birthContext) && (
+        {(prospect.addresses.length > 0 || prospect.address || prospect.city || prospect.country || birthContext) && (
           <section>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Localisation</p>
             <div className="space-y-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
-              {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+              {prospect.addresses.length > 1
+                ? prospect.addresses.map((a, i) => (
+                    <div key={i} className={i > 0 ? 'mt-1 border-t border-slate-100 pt-2 dark:border-slate-800' : ''}>
+                      {a.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label={i === 0 ? 'Adresse' : ''} value={a.address} />}
+                      {a.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label={i === 0 && !a.address ? 'Commune' : ''} value={`${a.city}${a.zipCode ? ` (${a.zipCode})` : ''}`} />}
+                    </div>
+                  ))
+                : (
+                  <>
+                    {prospect.address && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Adresse" value={prospect.address} />}
+                    {prospect.city && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Commune" value={`${prospect.city}${prospect.zipCode ? ` (${prospect.zipCode})` : ''}`} />}
+                  </>
+                )
+              }
               {prospect.country && <Row icon={<MapPin size={13} className="text-slate-300" />} label="Pays" value={prospect.country} />}
               {birthContext && <Row icon={<UserCircle2 size={13} className="text-slate-300" />} label="Homonymie" value={birthContext} />}
             </div>
@@ -909,6 +1034,108 @@ function ContactChip({
   return <span className={className}>{content}</span>
 }
 
+// ─── EnrichmentPanel — données IA affichées dans la fiche ouverte ────────────
+function EnrichmentPanel({
+  data, loading,
+}: {
+  data:    EnrichBeforeUnlockResult | 'error' | undefined
+  loading: boolean
+}) {
+  if (loading) {
+    return (
+      <div className="mt-3 animate-pulse space-y-2">
+        <div className="h-5 w-32 rounded-full bg-slate-100 dark:bg-slate-800" />
+        <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
+        <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+        <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-slate-800" />
+      </div>
+    )
+  }
+  if (!data || data === 'error') return null
+
+  const score  = data.confidence_score
+  const enr    = data.safe_enrichments
+  const isHomonym = data.status === 'possible_homonym'
+
+  const badgeClass = score >= 80
+    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:ring-emerald-900/40'
+    : score >= 50
+    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:ring-amber-800/40'
+    : 'bg-red-50 text-red-600 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-400 dark:ring-red-900/40'
+
+  const statusLabel: Record<string, string> = {
+    confirmed:         'Profil confirmé',
+    likely:            'Profil probable',
+    uncertain:         'Profil incertain',
+    possible_homonym:  'Homonyme possible',
+    insufficient_data: 'Données limitées',
+  }
+
+  return (
+    <div className="mt-3 space-y-2.5">
+      {/* Badge de confiance */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badgeClass}`}>
+          {score >= 60
+            ? <ShieldCheck size={10} />
+            : <AlertCircle size={10} />}
+          {statusLabel[data.status] ?? data.status} · {score} %
+        </span>
+      </div>
+
+      {/* Avertissement homonyme */}
+      {isHomonym && (
+        <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          Plusieurs profils similaires trouvés — vérifiez avant de débloquer.
+        </p>
+      )}
+
+      {/* Données enrichies */}
+      {(enr.job_title || enr.company || enr.public_profile_url || enr.professional_location) && (
+        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+          {enr.job_title && (
+            <p className="flex items-center gap-1.5">
+              <Briefcase size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
+              {enr.job_title}
+            </p>
+          )}
+          {enr.company && (
+            <p className="flex items-center gap-1.5">
+              <Building2 size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
+              {enr.company}
+            </p>
+          )}
+          {enr.professional_location && (
+            <p className="flex items-center gap-1.5">
+              <MapPin size={11} className="shrink-0 text-slate-300 dark:text-slate-600" />
+              {enr.professional_location}
+            </p>
+          )}
+          {enr.public_profile_url && (
+            <a
+              href={enr.public_profile_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1.5 text-[#124bd2] hover:underline dark:text-blue-400"
+            >
+              <ExternalLink size={11} className="shrink-0" />
+              Voir le profil LinkedIn
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Message IA si incertitude */}
+      {data.user_facing_message && score < 70 && (
+        <p className="text-[11px] italic leading-relaxed text-slate-400 dark:text-slate-500">
+          {data.user_facing_message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Composant ProspectCard ────────────────────────────────────────────────────
 // ─── Champ de contact : masqué + bouton Débloquer, ou valeur complète ───────
 function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
@@ -974,15 +1201,20 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
 
 function ProspectCard({
   prospect, isFavorite, onToggleFavorite, viewMode, onDetail, accessLevel = 'full', canUnlock = false, onUnlock,
+  isExpanded, onExpand, enrichmentData, isEnrichmentLoading,
 }: {
-  prospect:          ProspectResult
-  isFavorite:        boolean
-  onToggleFavorite:  (p: ProspectResult) => void
-  viewMode:          'grid' | 'list'
-  onDetail:          (p: ProspectResult) => void
-  accessLevel?:      AccessLevel
-  canUnlock?:        boolean
-  onUnlock?:         (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+  prospect:              ProspectResult
+  isFavorite:            boolean
+  onToggleFavorite:      (p: ProspectResult) => void
+  viewMode:              'grid' | 'list'
+  onDetail:              (p: ProspectResult) => void
+  accessLevel?:          AccessLevel
+  canUnlock?:            boolean
+  onUnlock?:             (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+  isExpanded?:           boolean
+  onExpand?:             (p: ProspectResult) => void
+  enrichmentData?:       EnrichBeforeUnlockResult | 'error' | undefined
+  isEnrichmentLoading?:  boolean
 }) {
   const noop = async () => {}
   const initials = prospectInitials(prospect.fullName)
@@ -990,56 +1222,84 @@ function ProspectCard({
 
   if (viewMode === 'list') {
     const isLimited = accessLevel === 'limited'
+    const showExpand = !isLimited && !!onExpand
     return (
-      <div className={`group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
-          {isLimited ? '' : initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          {isLimited ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
-              <BlurPill w="w-40" />
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => onDetail(prospect)}
-                  className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
-                  {prospect.fullName}
-                </button>
-                {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+      <div className={`rounded-2xl border bg-white transition dark:bg-slate-900 ${
+        isExpanded ? 'border-blue-200 dark:border-blue-900' : 'border-slate-200 dark:border-slate-800'
+      } ${isLimited ? '' : 'hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}>
+        <div className={`group flex items-center gap-4 px-5 py-3.5 ${showExpand ? 'cursor-pointer' : ''}`}
+          onClick={showExpand ? () => onExpand!(prospect) : undefined}>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${isLimited ? 'bg-slate-100 dark:bg-slate-800' : accent}`}>
+            {isLimited ? '' : initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            {isLimited ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2"><BlurPill w="w-32" /><BlurPill w="w-20" /></div>
+                <BlurPill w="w-40" />
               </div>
-              <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
-                {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
-                {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
-              </p>
-            </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button onClick={e => { e.stopPropagation(); onDetail(prospect) }}
+                    className="font-semibold text-slate-800 hover:text-[#124bd2] hover:underline text-left dark:text-slate-100">
+                    {prospect.fullName}
+                  </button>
+                  {prospect.mergedCount > 1 && (
+                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#1B54FF] dark:bg-blue-950/40 dark:text-blue-400">
+                      ×{prospect.mergedCount}
+                    </span>
+                  )}
+                  {prospect.jobTitle && <span className="text-xs text-slate-400">{prospect.jobTitle}</span>}
+                </div>
+                <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+                  {prospect.companyName}{prospect.companyName && prospect.city ? ' · ' : ''}{prospect.city}
+                  {prospect.zipCode ? ` (${prospect.zipCode})` : ''}
+                  {prospect.birthYear ? ` · Né(e) ${prospect.birthYear}` : ''}
+                </p>
+              </>
+            )}
+          </div>
+          <div className="hidden shrink-0 items-center gap-2 sm:flex" onClick={e => e.stopPropagation()}>
+            {isLimited ? (
+              <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
+            ) : (
+              <>
+                <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+                <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
+              </>
+            )}
+          </div>
+          {!isLimited && (
+            <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => onToggleFavorite(prospect)}
+                aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                className={`rounded-lg p-1.5 transition opacity-0 group-hover:opacity-100 ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+              >
+                <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+              {showExpand && (
+                <button
+                  onClick={e => { e.stopPropagation(); onExpand!(prospect) }}
+                  className={`rounded-lg p-1.5 transition ${isExpanded ? 'text-[#124bd2]' : 'text-slate-300 hover:text-[#124bd2]'}`}
+                  aria-label={isExpanded ? 'Fermer la fiche' : 'Ouvrir la fiche'}
+                >
+                  {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+              )}
+              <button onClick={() => onDetail(prospect)}
+                className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
+                <ArrowRight size={15} />
+              </button>
+            </div>
           )}
         </div>
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          {isLimited ? (
-            <><BlurPill w="w-24" /><BlurPill w="w-28" /></>
-          ) : (
-            <>
-              <ContactUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-              <ContactUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noop} />
-            </>
-          )}
-        </div>
-        {!isLimited && (
-          <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-            <button
-              onClick={() => onToggleFavorite(prospect)}
-              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-              className={`rounded-lg p-1.5 transition ${isFavorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
-            >
-              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-            </button>
-            <button onClick={() => onDetail(prospect)}
-              className="rounded-lg p-1.5 text-slate-300 transition hover:text-[#124bd2]">
-              <ArrowRight size={15} />
-            </button>
+
+        {/* Panneau enrichissement IA — affiché quand la fiche est ouverte */}
+        {isExpanded && (
+          <div className="border-t border-slate-100 px-5 pb-4 pt-3 dark:border-slate-800">
+            <EnrichmentPanel data={enrichmentData} loading={!!isEnrichmentLoading} />
           </div>
         )}
       </div>
@@ -1050,8 +1310,14 @@ function ProspectCard({
   const isLimited = accessLevel === 'limited'
   return (
     <div
-      className={`card-lift group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition dark:border-slate-800 dark:bg-slate-900 ${isLimited ? 'cursor-default' : 'cursor-pointer hover:border-blue-200 hover:shadow-sm dark:hover:border-blue-900'}`}
-      onClick={() => !isLimited && onDetail(prospect)}
+      className={`card-lift group flex flex-col rounded-2xl border bg-white p-5 transition dark:bg-slate-900 ${
+        isLimited
+          ? 'cursor-default border-slate-200 dark:border-slate-800'
+          : isExpanded
+          ? 'cursor-pointer border-blue-200 shadow-sm ring-2 ring-[#1B54FF]/10 dark:border-blue-800'
+          : 'cursor-pointer border-slate-200 hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:hover:border-blue-900'
+      }`}
+      onClick={() => !isLimited && onExpand && onExpand(prospect)}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
@@ -1081,7 +1347,11 @@ function ProspectCard({
           <>
             <p className="font-semibold leading-snug text-slate-800 group-hover:text-[#124bd2] transition dark:text-slate-100">
               {prospect.fullName}
-              {prospect.birthYear && <span className="ml-1.5 text-xs font-normal text-slate-400">· {prospect.birthYear}</span>}
+              {prospect.mergedCount > 1 && (
+                <span className="ml-1.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-[#1B54FF] dark:bg-blue-950/40 dark:text-blue-400">
+                  ×{prospect.mergedCount}
+                </span>
+              )}
             </p>
             {prospect.jobTitle && <p className="mt-0.5 text-xs text-slate-400">{prospect.jobTitle}</p>}
             {prospect.companyName && (
@@ -1121,6 +1391,13 @@ function ProspectCard({
               <span>{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
             </p>
           )}
+          {/* Année de naissance — aide à identifier la bonne fiche avant déblocage */}
+          {prospect.birthYear && (
+            <p className="flex items-center gap-2">
+              <Calendar size={11} className="shrink-0 text-slate-300" />
+              <span>Né(e) en {prospect.birthYear}</span>
+            </p>
+          )}
         </div>
       )}
 
@@ -1139,6 +1416,13 @@ function ProspectCard({
           </button>
         )}
       </div>
+
+      {/* Panneau enrichissement IA — affiché quand la fiche est ouverte */}
+      {isExpanded && (
+        <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <EnrichmentPanel data={enrichmentData} loading={!!isEnrichmentLoading} />
+        </div>
+      )}
     </div>
   )
 }
@@ -1806,6 +2090,13 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   const [showConversionModal, setShowConversionModal]     = useState(false)
   const [showDemoRequestModal, setShowDemoRequestModal]   = useState(false)
   const [creditBalance, setCreditBalance]                 = useState<CreditBalance | null>(null)
+  const [unlockWarning, setUnlockWarning]                 = useState<UnlockWarning | null>(null)
+  const [unlockConfirmBusy, setUnlockConfirmBusy]         = useState(false)
+
+  // ── Enrichissement à l'ouverture d'une fiche ────────────────────────────────
+  const [expandedCardId, setExpandedCardId]               = useState<string | null>(null)
+  const [enrichmentCache, setEnrichmentCache]             = useState<Record<string, EnrichBeforeUnlockResult | 'error'>>({})
+  const [enrichingIds, setEnrichingIds]                   = useState<Record<string, true>>({})
 
   // ── Crédits démo (trial) ────────────────────────────────────────────────────
   const isTrialAccount = account.status === 'trial'
@@ -1844,6 +2135,29 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
   }, [account.id, account.role])
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
+  // Effectue le déblocage réel (consomme 1 crédit)
+  const doUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    try {
+      const value = await unlockContactField(prospect.id, field)
+      const patch = field === 'phone'
+        ? { phone: value, phoneUnlocked: true }
+        : { email: value, emailUnlocked: true }
+      setResults(prev => prev.map(p => p.id === prospect.id ? { ...p, ...patch } : p))
+      setSelectedCompany(prev => prev?.id === prospect.id ? { ...prev, ...patch } : prev)
+      getCreditBalance().then(setCreditBalance).catch(() => {})
+    } catch (e) {
+      if (e instanceof UnlockError) {
+        if (e.code === 'no_subscription')    { setError('Abonnement requis pour debloquer des contacts. Abonnez-vous pour continuer.'); return }
+        if (e.code === 'no_phone_credits')   { setError('Vous n\'avez plus de credits telephone disponibles ce mois-ci.'); return }
+        if (e.code === 'no_email_credits')   { setError('Vous n\'avez plus de credits email disponibles ce mois-ci.'); return }
+        if (e.code === 'no_credits')         { setError('Vous n\'avez plus de credits disponibles ce mois-ci.'); return }
+        if (e.code === 'not_approved')       { setError('Votre compte n\'est pas encore approuve. Contactez-nous si besoin.'); return }
+        if (e.code === 'no_data')            { setError('Ce contact ne dispose pas de cette information.'); return }
+      }
+      setError('Deblocage impossible pour le moment. Reessayez.')
+    }
+  }, [])
+
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
     // ── Mode trial : crédits locaux ──────────────────────────────────────────
     if (isTrialAccount) {
@@ -1852,7 +2166,6 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         const next = consumePhoneCredit()
         setDemoCredits(next)
         if (next.phone === 3) setShowDemoToast(true)
-        // Masquage partiel : affiche seulement 6 chiffres
         const raw = prospect.phone ?? '06 XX XX •• ••'
         const digits = raw.replace(/\D/g, '')
         const partial = digits.slice(0, 4).replace(/(\d{2})(\d{2})/, '$1 $2') + ' •• ••'
@@ -1870,23 +2183,53 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
       return
     }
     if (accessLevel !== 'full') { window.location.assign('/?pricing=1'); return }
-    try {
-      const value = await unlockContactField(prospect.id, field)
-      const patch = field === 'phone'
-        ? { phone: value, phoneUnlocked: true }
-        : { email: value, emailUnlocked: true }
-      setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
-      setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
-      getCreditBalance().then(setCreditBalance).catch(() => {})
-    } catch (e) {
-      if (e instanceof UnlockError &&
-          ['no_subscription', 'no_credits', 'no_phone_credits', 'no_email_credits'].includes(e.code)) {
-        window.location.assign('/?pricing=1')
+
+    // ── Vérification IA — utilise le cache si la fiche a déjà été ouverte ────
+    const cached = enrichmentCache[prospect.id]
+    if (cached && cached !== 'error') {
+      if (cached.show_warning) {
+        setUnlockWarning({ prospect, field, score: cached.confidence_score, status: cached.status, message: cached.user_facing_message })
         return
       }
-      setError('Déblocage impossible pour le moment. Réessayez.')
+      await doUnlock(prospect, field)
+      return
     }
-  }, [accessLevel])
+
+    // Pas de cache → appel IA de fallback (ProspectPage ou unlock sans expand)
+    try {
+      const enrichResult = await enrichBeforeUnlock(prospect, field)
+      setEnrichmentCache(prev => ({ ...prev, [prospect.id]: enrichResult }))
+      if (enrichResult.show_warning) {
+        setUnlockWarning({ prospect, field, score: enrichResult.confidence_score, status: enrichResult.status, message: enrichResult.user_facing_message })
+        return
+      }
+    } catch {
+      // En cas d'échec IA, on ne bloque pas l'utilisateur
+    }
+
+    await doUnlock(prospect, field)
+  }, [accessLevel, isTrialAccount, demoCredits, doUnlock, enrichmentCache])
+
+  // Enrichissement au clic sur une fiche — déclenché avant l'unlock
+  const handleCardExpand = useCallback(async (prospect: ProspectResult) => {
+    const id = prospect.id
+    if (expandedCardId === id) { setExpandedCardId(null); return }
+    setExpandedCardId(id)
+    // Déjà en cache ou en cours → ne pas re-fetcher
+    if (enrichmentCache[id] !== undefined || enrichingIds[id]) return
+    // Enrichissement uniquement pour les abonnés full
+    if (accessLevel !== 'full') return
+
+    setEnrichingIds(prev => ({ ...prev, [id]: true }))
+    try {
+      const result = await enrichContactPreview(id)
+      setEnrichmentCache(prev => ({ ...prev, [id]: result }))
+    } catch {
+      setEnrichmentCache(prev => ({ ...prev, [id]: 'error' }))
+    } finally {
+      setEnrichingIds(prev => { const { [id]: _, ...rest } = prev; return rest })
+    }
+  }, [expandedCardId, enrichmentCache, enrichingIds, accessLevel])
 
   // Sync dark mode with <html> class
   useEffect(() => {
@@ -1965,6 +2308,59 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
       setLoading(false)
     }
   }, [accessLevel, maxSearches, perPage, DEMO_COUNT_KEY]) // eslint-disable-line
+
+  // Réinitialise tous les filtres avancés et relance la recherche vide
+  const handleResetFilters = useCallback(() => {
+    setIdentityInput(''); setAdvFirstName(''); setAdvLastName('')
+    setAdvBirthYear(''); setAdvJobTitle('')
+    setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
+    setAdvCompanyName(''); setAdvLinkedin('')
+    setDepartment(''); setActivityCode(''); setActiveOnly(true)
+    setZipCode(''); setEmployeeRange(''); setLegalForm('')
+    setPage(1)
+    doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
+  }, [doSearch])
+
+  // Supprime un filtre précis et relance la recherche avec les autres valeurs intactes
+  const clearFilter = useCallback((patch: Record<string, string>) => {
+    if ('advFirstName'   in patch) setAdvFirstName(patch.advFirstName ?? '')
+    if ('advLastName'    in patch) setAdvLastName(patch.advLastName ?? '')
+    if ('advBirthYear'   in patch) setAdvBirthYear(patch.advBirthYear ?? '')
+    if ('advJobTitle'    in patch) setAdvJobTitle(patch.advJobTitle ?? '')
+    if ('advCity'        in patch) setAdvCity(patch.advCity ?? '')
+    if ('advAddress'     in patch) setAdvAddress(patch.advAddress ?? '')
+    if ('advPhone'       in patch) setAdvPhone(patch.advPhone ?? '')
+    if ('advEmail'       in patch) setAdvEmail(patch.advEmail ?? '')
+    if ('advCompanyName' in patch) setAdvCompanyName(patch.advCompanyName ?? '')
+    if ('advLinkedin'    in patch) setAdvLinkedin(patch.advLinkedin ?? '')
+    if ('department'     in patch) setDepartment(patch.department ?? '')
+    if ('activityCode'   in patch) setActivityCode(patch.activityCode ?? '')
+    if ('employeeRange'  in patch) setEmployeeRange(patch.employeeRange ?? '')
+    if ('legalForm'      in patch) setLegalForm(patch.legalForm ?? '')
+    if ('zipCode'        in patch) setZipCode(patch.zipCode ?? '')
+
+    const get = (k: string, cur: string) => (k in patch) ? (patch[k] ?? '') : cur
+    const fn    = get('advFirstName',  advFirstName)
+    const ln    = get('advLastName',   advLastName)
+    const by    = get('advBirthYear',  advBirthYear)
+    const ct    = get('advCity',       advCity)
+    const dp    = get('department',    department)
+    const zc    = get('zipCode',       zipCode)
+    const ac    = get('activityCode',  activityCode)
+    const er    = get('employeeRange', employeeRange)
+    const lf    = get('legalForm',     legalForm)
+    const ph    = get('advPhone',      advPhone)
+    const ident = identityInput.trim()
+    const q     = ident || [ln, fn].filter(Boolean).join(' ')
+    doSearch({
+      query: q, identity: ident || undefined,
+      nom:    !ident ? ln || undefined : undefined,
+      prenom: !ident ? fn || undefined : undefined,
+      birthYear: by || undefined, city: ct, tel: searchTel || ph, searchMode,
+      department: dp, activityCode: ac, activeOnly, zipCode: zc, employeeRange: er, legalForm: lf,
+    })
+  }, [advFirstName, advLastName, advBirthYear, advCity, department, zipCode, activityCode,
+      employeeRange, legalForm, advPhone, identityInput, searchTel, searchMode, activeOnly, doSearch])
 
   // Debounce search-as-you-type (barre principale uniquement)
   // Ferme l'overlay de transition quand la recherche se termine (minimum 650ms d'affichage)
@@ -2495,6 +2891,34 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
               </form>
             </div>
 
+            {/* ── Filtres actifs — chips toujours visibles quand des filtres sont posés ── */}
+            {activeFiltersCount > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {advFirstName   && <FilterChip label={`Prénom : ${advFirstName}`}       onRemove={() => clearFilter({ advFirstName: '' })} />}
+                {advLastName    && <FilterChip label={`Nom : ${advLastName}`}            onRemove={() => clearFilter({ advLastName: '' })} />}
+                {advBirthYear   && <FilterChip label={`Né(e) en ${advBirthYear}`}        onRemove={() => clearFilter({ advBirthYear: '' })} />}
+                {advJobTitle    && <FilterChip label={`Poste : ${advJobTitle}`}          onRemove={() => clearFilter({ advJobTitle: '' })} />}
+                {advCity        && <FilterChip label={`Ville : ${advCity}`}              onRemove={() => clearFilter({ advCity: '' })} />}
+                {advAddress     && <FilterChip label={`Adresse : ${advAddress}`}         onRemove={() => clearFilter({ advAddress: '' })} />}
+                {zipCode        && <FilterChip label={`CP : ${zipCode}`}                 onRemove={() => clearFilter({ zipCode: '' })} />}
+                {department     && <FilterChip label={departmentLabel(department)}        onRemove={() => clearFilter({ department: '' })} />}
+                {advPhone       && <FilterChip label={`Tél : ${advPhone}`}               onRemove={() => clearFilter({ advPhone: '' })} />}
+                {advEmail       && <FilterChip label={`Email : ${advEmail}`}             onRemove={() => clearFilter({ advEmail: '' })} />}
+                {advCompanyName && <FilterChip label={`Société : ${advCompanyName}`}     onRemove={() => clearFilter({ advCompanyName: '' })} />}
+                {activityCode   && <FilterChip label={`NAF : ${activityCode}`}           onRemove={() => clearFilter({ activityCode: '' })} />}
+                {employeeRange  && <FilterChip label={`Effectif : ${employeeRange}`}     onRemove={() => clearFilter({ employeeRange: '' })} />}
+                {legalForm      && <FilterChip label={`Forme : ${legalForm}`}            onRemove={() => clearFilter({ legalForm: '' })} />}
+                {advLinkedin    && <FilterChip label={`LinkedIn : ${advLinkedin}`}       onRemove={() => clearFilter({ advLinkedin: '' })} />}
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="ml-1 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-red-800/50 dark:hover:bg-red-950/20 dark:hover:text-red-400"
+                >
+                  <X size={11} /> Tout effacer
+                </button>
+              </div>
+            )}
+
             {/* Panneau de recherche avancée (conservé) */}
             {showFilters && (
               <AdvancedFilters
@@ -2531,16 +2955,7 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     department, activityCode, activeOnly, zipCode, employeeRange, legalForm,
                   })
                 }}
-                onReset={() => {
-                  setIdentityInput(''); setAdvFirstName(''); setAdvLastName('')
-                  setAdvBirthYear(''); setAdvJobTitle('')
-                  setAdvCity(''); setAdvAddress(''); setAdvPhone(''); setAdvEmail('')
-                  setAdvCompanyName(''); setAdvLinkedin('')
-                  setDepartment(''); setActivityCode(''); setActiveOnly(true)
-                  setZipCode(''); setEmployeeRange(''); setLegalForm('')
-                  setPage(1)
-                  doSearch({ query: '', department: '', activityCode: '', activeOnly: true, zipCode: '', employeeRange: '', legalForm: '' })
-                }}
+                onReset={handleResetFilters}
               />
             )}
 
@@ -2654,8 +3069,10 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="grid" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }} accessLevel={accessLevel}
-                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
+                        viewMode="grid" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }}
+                        accessLevel={accessLevel} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock}
+                        isExpanded={expandedCardId === p.id} onExpand={handleCardExpand}
+                        enrichmentData={enrichmentCache[p.id]} isEnrichmentLoading={!!enrichingIds[p.id]} />
                     ))}
                   </div>
                 ) : (
@@ -2663,8 +3080,10 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
                     {results.map(p => (
                       <ProspectCard key={p.id} prospect={p}
                         isFavorite={favorites.has(p.id)} onToggleFavorite={toggleFavorite}
-                        viewMode="list" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }} accessLevel={accessLevel}
-                        canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
+                        viewMode="list" onDetail={(p) => { setSelectedCompany(p); setAppView('prospect') }}
+                        accessLevel={accessLevel} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock}
+                        isExpanded={expandedCardId === p.id} onExpand={handleCardExpand}
+                        enrichmentData={enrichmentCache[p.id]} isEnrichmentLoading={!!enrichingIds[p.id]} />
                     ))}
                   </div>
                 )}
@@ -2725,6 +3144,21 @@ const [searchTransition, setSearchTransition]         = useState<'hidden' | 'vis
         <DemoRequestModal
           account={account}
           onClose={() => setShowDemoRequestModal(false)}
+        />
+      )}
+
+      {/* Modal avertissement IA avant unlock */}
+      {unlockWarning && (
+        <UnlockWarningModal
+          warning={unlockWarning}
+          busy={unlockConfirmBusy}
+          onCancel={() => setUnlockWarning(null)}
+          onConfirm={async () => {
+            setUnlockConfirmBusy(true)
+            await doUnlock(unlockWarning.prospect, unlockWarning.field)
+            setUnlockConfirmBusy(false)
+            setUnlockWarning(null)
+          }}
         />
       )}
 

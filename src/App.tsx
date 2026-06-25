@@ -15,24 +15,29 @@ import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
 import { getDeviceId } from './lib/deviceId'
 
 // ─── Restore dark mode preference immediately (before first paint) ────────────
-if (localStorage.getItem('trouve_dark') === '1') {
-  document.documentElement.classList.add('dark')
-}
+try {
+  if (localStorage.getItem('trouve_dark') === '1') {
+    document.documentElement.classList.add('dark')
+  }
+} catch { /* storage inaccessible */ }
 
 // ─── URL params ───────────────────────────────────────────────────────────────
 const _params          = new URLSearchParams(window.location.search)
 const _isCRMHostname   = window.location.hostname.startsWith('crm.')
-const _isLocalDev      = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const _pathname        = window.location.pathname
 const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
-// CRM mode: subdomain crm.* en prod uniquement, ?crm autorisé seulement en dev local
-const isCRMMode        = _isCRMHostname
-                       || (_isLocalDev && _params.has('crm') && !_params.has('user'))
-// Fiche user : /user/UUID sur le subdomain, ou ?crm&user=UUID en dev local uniquement
-const isCRMUserPage    = (_isCRMHostname && window.location.pathname.startsWith('/user/'))
-                       || (_isLocalDev && _params.has('crm') && _params.has('user'))
+// CRM : subdomain crm.* uniquement
+const isCRMMode        = _isCRMHostname && !_pathname.startsWith('/user/')
+// Fiche user : /user/UUID sur le subdomain crm.*
+const isCRMUserPage    = _isCRMHostname && _pathname.startsWith('/user/')
+// Pages compte : /account/dashboard, /account/profil, etc.
+const _accountSegment  = _pathname.startsWith('/account/')
+  ? (_pathname.replace(/^\/account\//, '').split('/')[0] as AccountPanelView)
+  : null
+const isAccountPage    = !!_accountSegment && !_isCRMHostname
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
@@ -315,6 +320,22 @@ export default function App() {
     )
   }
 
+  // ── Pages compte indépendantes : /account/dashboard, /account/profil… ───
+  if (isAccountPage) {
+    return (
+      <>
+        <AccountPanel
+          initialView={account ? (_accountSegment ?? 'workspace') : 'login'}
+          currentAccount={account}
+          onAuthenticated={(a) => { setAccount(a); window.location.assign('/account/' + (_accountSegment ?? 'workspace')) }}
+          onClose={() => window.history.back()}
+          onLogout={async () => { await handleLogout(); window.location.assign('/') }}
+        />
+        <Analytics />
+      </>
+    )
+  }
+
   // ── Mode démo (?demo=1) — lien de prospection sans compte ───────────────
   if (isDemoMode) {
     const demoAccount = demoView === 'admin' ? DEMO_ACCOUNT : DEMO_EMPLOYEE_ACCOUNT
@@ -398,17 +419,8 @@ export default function App() {
           account={account}
           accessLevel="full"
           onLogout={handleLogout}
-          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
+          onOpenAccount={(tab) => window.location.assign('/account/' + (tab ?? 'workspace'))}
         />
-        {accountPanel && (
-          <AccountPanel
-            initialView={accountPanel}
-            currentAccount={account}
-            onAuthenticated={handleAuthenticated}
-            onClose={() => setAccountPanel(null)}
-            onLogout={handleLogout}
-          />
-        )}
         <Analytics />
       </>
     )
@@ -423,17 +435,8 @@ export default function App() {
           account={account}
           accessLevel="trial"
           onLogout={handleLogout}
-          onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
+          onOpenAccount={(tab) => window.location.assign('/account/' + (tab ?? 'workspace'))}
         />
-        {accountPanel && (
-          <AccountPanel
-            initialView={accountPanel}
-            currentAccount={account}
-            onAuthenticated={handleAuthenticated}
-            onClose={() => setAccountPanel(null)}
-            onLogout={handleLogout}
-          />
-        )}
         <Analytics />
       </>
     )
@@ -451,8 +454,8 @@ export default function App() {
         </div>
       )}
       <LandingPage
-        externalAccountPanel={accountPanel}
-        onOpenAccountPanel={view => setAccountPanel(view)}
+        externalAccountPanel={null}
+        onOpenAccountPanel={(v) => { if (v) window.location.assign('/account/' + v) }}
         onAuthenticated={handleAuthenticated}
         onLogout={handleLogout}
       />

@@ -164,6 +164,20 @@ export default function AdminUserPage() {
     }
   }
 
+  const deleteAccount = async () => {
+    const email = String(profile?.professional_email ?? '')
+    if (!window.confirm(`Supprimer définitivement le compte de ${email} ?\n\nCette action est irréversible.`)) return
+    if (!token) return
+    setBusy('delete_account')
+    try {
+      const r = await apiPost('/api/admin/user-full', token, { userId, action: 'delete_account' })
+      if (r.error) alert(`Erreur : ${r.error}`)
+      else goBack()
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const goBack = () => { window.location.href = _isCRMHostname ? '/' : '?crm' }
 
   const profile = data?.profile as Record<string, unknown> | null
@@ -319,6 +333,13 @@ export default function AdminUserPage() {
                       <Star size={10} /> {role.charAt(0).toUpperCase() + role.slice(1)}
                     </button>
                   ))}
+                </div>
+                <div className="pt-3 border-t border-slate-100">
+                  <button onClick={deleteAccount} disabled={!!busy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 transition">
+                    {busy === 'delete_account' ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={12} />}
+                    Supprimer le compte
+                  </button>
                 </div>
               </div>
 

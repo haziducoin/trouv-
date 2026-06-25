@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/admin/:path*", "destination": "/api/admin" },
+    { "source": "/cgu", "destination": "/cgu.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [

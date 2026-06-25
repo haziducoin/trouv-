@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { authenticate, supabaseAdmin } from './_lib/supabase.js'
+import { deduplicateRows } from './_lib/dedup.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -46,5 +47,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  res.json({ results: data ?? [] })
+  const deduped = deduplicateRows((data ?? []) as Parameters<typeof deduplicateRows>[0])
+  res.json({ results: deduped })
 }

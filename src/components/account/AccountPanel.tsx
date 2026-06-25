@@ -120,7 +120,9 @@ export default function AccountPanel({
   )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('trouve_remember_me_v1') !== '0')
+  const [rememberMe, setRememberMe] = useState(() => {
+    try { return localStorage.getItem('trouve_remember_me_v1') !== '0' } catch { return true }
+  })
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)
@@ -207,12 +209,14 @@ export default function AccountPanel({
     setLoginLoading(true)
     setLoginError('')
     try {
-      localStorage.setItem('trouve_remember_me_v1', rememberMe ? '1' : '0')
-      if (rememberMe) {
-        sessionStorage.removeItem('trouve_session_only_v1')
-      } else {
-        sessionStorage.setItem('trouve_session_only_v1', '1')
-      }
+      try {
+        localStorage.setItem('trouve_remember_me_v1', rememberMe ? '1' : '0')
+        if (rememberMe) {
+          sessionStorage.removeItem('trouve_session_only_v1')
+        } else {
+          sessionStorage.setItem('trouve_session_only_v1', '1')
+        }
+      } catch { /* storage inaccessible (navigation privée restreinte) */ }
       // Filet de sécurité global : si authenticate() ne répond pas en 12 s,
       // on débloque l'UI avec un message clair plutôt que de rester bloqué.
       const deadline = new Promise<never>((_, reject) =>
@@ -285,14 +289,16 @@ export default function AccountPanel({
             <img src={trouveLogo} alt="trouvé!" className="h-8 w-fit sm:h-9" />
 
             <div className="mt-8 max-w-[440px]">
-              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight text-[#07113d]">
-                {isRegister ? 'Créer votre accès' : 'Bienvenue'}
-              </h1>
-              <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                {isRegister
-                  ? ''
-                  : 'Connectez-vous à votre espace professionnel.'}
-              </p>
+              {!isRegister && (
+                <>
+                  <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight text-[#07113d]">
+                    Bienvenue
+                  </h1>
+                  <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                    Connectez-vous à votre espace professionnel.
+                  </p>
+                </>
+              )}
 
               {oauthEnabled && (<>
               <div className="mt-5 space-y-3">
@@ -392,13 +398,15 @@ export default function AccountPanel({
 
               {!requestCreated && (
                 <div className="mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setView(isRegister ? 'login' : 'register')}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1B54FF] text-sm font-semibold text-[#1B54FF] transition hover:bg-blue-50"
-                  >
-                    {isRegister ? 'Déjà un compte — Se connecter' : 'Pas encore de compte — S\'inscrire'}
-                  </button>
+                  {!isRegister && (
+                    <button
+                      type="button"
+                      onClick={() => setView('register')}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1B54FF] text-sm font-semibold text-[#1B54FF] transition hover:bg-blue-50"
+                    >
+                      Pas encore de compte — S'inscrire
+                    </button>
+                  )}
                 </div>
               )}
             </div>

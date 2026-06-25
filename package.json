@@ -24,6 +24,8 @@
     "vite": "^8.0.4"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.83",
+    "@ai-sdk/groq": "^3.0.42",
     "@blinkdotnew/sdk": "^2.5.0",
     "@blinkdotnew/ui": "0.4.0",
     "@dnd-kit/core": "^6.3.1",
@@ -46,6 +48,7 @@
     "@vercel/node": "^5.8.17",
     "@vercel/speed-insights": "^2.0.0",
     "@vitejs/plugin-react": "5.2.0",
+    "ai": "^6.0.208",
     "autoprefixer": "10.4.16",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
