@@ -24,6 +24,8 @@
     "vite": "^8.0.4"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^3.0.42",
+    "ai": "^6.0.208",
     "@ark-ui/react": "^5.37.2",
     "@blinkdotnew/sdk": "^2.5.0",
     "@blinkdotnew/ui": "0.4.0",

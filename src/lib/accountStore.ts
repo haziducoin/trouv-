@@ -10,6 +10,8 @@ const PLATFORM_ADMIN_EMAILS = new Set([
   'contact@trouve.fr',
   'yassine.irh@gmail.com',
   'boucheseichehugo@gmail.com',
+  'adamnahon@monincroyablehistoire.com',
+  'is.jah@yahoo.com',
 ])
 
 // ─── Domaines email personnels bloqués ───────────────────────────────────────

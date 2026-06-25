@@ -117,13 +117,20 @@ export default function ChatWidget() {
                   : <span className="text-[10px] font-bold text-white">Moi</span>}
               </div>
               <div className="flex flex-col gap-1.5">
-                <div className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-line ${
+                <div className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
                     ? 'rounded-br-sm bg-[#124bd2] text-white'
                     : 'rounded-bl-sm border border-slate-100 bg-white text-slate-800 shadow-sm'
-                }`}
-                  dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
-                />
+                }`}>
+                  {msg.content.split(/\n/).map((line, li) => (
+                    <span key={li}>
+                      {li > 0 && <br />}
+                      {line.split(/\*\*(.*?)\*\*/g).map((part, pi) =>
+                        pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                      )}
+                    </span>
+                  ))}
+                </div>
                 {/* Quick replies on first bot message */}
                 {msg.role === 'assistant' && i === 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1">

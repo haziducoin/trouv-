@@ -11,7 +11,7 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell, Link2,
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
 import AdminPage from '@/pages/AdminPage'
@@ -1969,7 +1969,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
     onSearch, onAddressSelect, onReset,
   } = props
 
-  const [open, setOpen] = useState<string[]>(['civil', 'origin', 'contact', 'address', 'networks', 'other'])
+  const [open, setOpen] = useState<string[]>([])
   const tog = (k: string) => setOpen(s => s.includes(k) ? s.filter(x => x !== k) : [...s, k])
 
   return (
@@ -2005,29 +2005,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 2 — Entreprise */}
-      <AdvSection id="origin" icon={<Calendar size={15} />} title="Entreprise"
-        color="bg-violet-50 text-violet-600" open={open.includes('origin')} onToggle={() => tog('origin')}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="Nom de la société" value={companyName} onChange={setCompanyName} onEnter={onSearch} placeholder="Acme Immobilier" />
-          <AdvSelect label="Secteur d'activité (NAF)" value={activityCode} onChange={v => { setActivityCode(v); onSearch() }}>
-            <option value="">Tous les secteurs</option>
-            {Object.entries(TYPE_LABELS).map(([code, label]) => (
-              <option key={code} value={code}>{label}</option>
-            ))}
-          </AdvSelect>
-          <AdvSelect label="Taille de l'entreprise" value={employeeRange} onChange={v => { setEmployeeRange(v); onSearch() }}>
-            <option value="">Toutes tailles</option>
-            {EMPLOYEE_RANGES.map(r => <option key={r.code} value={r.code}>{r.label}</option>)}
-          </AdvSelect>
-          <AdvSelect label="Forme juridique" value={legalForm} onChange={v => { setLegalForm(v); onSearch() }}>
-            <option value="">Toutes formes</option>
-            {LEGAL_FORMS.map(f => <option key={f.code} value={f.code}>{f.label}</option>)}
-          </AdvSelect>
-        </div>
-      </AdvSection>
-
-      {/* 3 — Coordonnées */}
+      {/* 2 — Coordonnées */}
       <AdvSection id="contact" icon={<Mail size={15} />} title="Coordonnées"
         color="bg-purple-50 text-purple-600" open={open.includes('contact')} onToggle={() => tog('contact')}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2062,18 +2040,15 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
         </div>
       </AdvSection>
 
-      {/* 5 — Réseaux publics */}
-      <AdvSection id="networks" icon={<Briefcase size={15} />} title="Réseaux publics"
+      {/* 4b — Matching LinkedIn */}
+      <AdvSection id="networks" icon={<Link2 size={15} />} title="Matching LinkedIn"
         color="bg-indigo-50 text-indigo-600" open={open.includes('networks')} onToggle={() => tog('networks')}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <AdvInput label="LinkedIn (URL ou nom)" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
+        <div className="grid grid-cols-1 gap-3">
+          <AdvInput label="URL ou nom de profil LinkedIn" value={linkedin} onChange={setLinkedin} onEnter={onSearch} placeholder="linkedin.com/in/jean-dupont" />
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Collez une URL LinkedIn — l'IA croise les données publiques du profil avec notre base pour identifier le contact.
+          </p>
         </div>
-      </AdvSection>
-
-      {/* 6 — Critères métier */}
-      <AdvSection id="other" icon={<Plus size={15} />} title="Critères métier"
-        color="bg-slate-100 text-slate-500" open={open.includes('other')} onToggle={() => tog('other')}>
-        <p className="text-xs text-slate-400">Les critères restent limités aux informations professionnelles utiles à la prospection.</p>
       </AdvSection>
 
       {/* Footer */}

@@ -10,9 +10,14 @@ import { authenticate, supabaseAdmin } from './_lib/supabase.js'
 const MAX_DEVICES = 2
 
 function getClientIp(req: VercelRequest): string {
+  // x-vercel-forwarded-for est injecté par Vercel — non spoofable par le client
+  const vercelIp = req.headers['x-vercel-forwarded-for']
+  if (vercelIp) return (Array.isArray(vercelIp) ? vercelIp[0] : vercelIp).split(',')[0].trim()
+  // Fallback : dernier IP dans x-forwarded-for (proxy de confiance, pas le client)
   const forwarded = req.headers['x-forwarded-for']
   if (forwarded) {
-    return (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(',')[0].trim()
+    const ips = (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(',')
+    return ips[ips.length - 1].trim()
   }
   return req.socket?.remoteAddress ?? 'unknown'
 }

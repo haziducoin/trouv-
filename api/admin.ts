@@ -161,8 +161,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else if (action === 'reject') update = { access_status: 'rejected' }
       else if (action === 'block') update = { access_status: 'blocked' }
       else if (action === 'set_role') {
-        if (!['agent', 'agence', 'admin'].includes(String(value))) { res.status(400).json({ error: 'Rôle invalide' }); return }
-        update = { role: value }
+        const targetRole = String(value)
+        if (!['agent', 'agence', 'admin'].includes(targetRole)) { res.status(400).json({ error: 'Rôle invalide' }); return }
+        // Seul un admin peut attribuer le rôle admin, et seulement à un non-admin
+        if (targetRole === 'admin') {
+          const { data: targetProfile } = await supabaseAdmin.from('profiles').select('role').eq('id', userId).single()
+          if (targetProfile?.role === 'admin') { res.status(403).json({ error: 'Ce compte est déjà admin' }); return }
+        }
+        update = { role: targetRole }
       } else if (action === 'set_quota') {
         const quota = parseInt(String(value), 10)
         if (isNaN(quota) || quota < 0) { res.status(400).json({ error: 'Quota invalide' }); return }
@@ -180,7 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: linkData, error: lErr } = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: au.user.email, options: { redirectTo: 'https://www.xn--trouv-fsa.fr' } })
         if (lErr) { res.status(500).json({ error: lErr.message }); return }
         await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_magic_link', metadata: { target_user: userId } })
-        res.json({ ok: true, link: linkData.properties?.action_link ?? null }); return
+        res.json({ ok: true, message: `Magic link envoyé à ${au.user.email}` }); return
       } else { res.status(400).json({ error: 'Action inconnue' }); return }
       const { error } = await supabaseAdmin.from('profiles').update(update).eq('id', userId)
       if (error) { res.status(500).json({ error: error.message }); return }

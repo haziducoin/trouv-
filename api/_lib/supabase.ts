@@ -38,7 +38,7 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
     return null
   }
 
-  console.log('[auth] token preview:', token.slice(0, 20), '| len:', token.length)
+  if (process.env.NODE_ENV === 'development') console.log('[auth] token len:', token.length)
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
   if (error || !user) {
     console.error('[auth] getUser failed:', error?.message ?? 'user null')
