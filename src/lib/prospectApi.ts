@@ -227,6 +227,12 @@ function mapRow(row: Record<string, any>): ProspectResult {
     result.allEmails     = row._emails
     result.emailsLocked  = (row._emailsLocked as string[]).map(e => maskEmail(e) ?? e)
     result.allAddresses  = row._adresses
+  } else if (row.telephone?.trim() && row.mobile?.trim() && row.telephone !== row.mobile) {
+    // Fiche unique avec téléphone fixe ET mobile — afficher les deux
+    const mobileMasked = maskPhone(row.mobile)
+    if (mobileMasked && mobileMasked !== result.phone) {
+      result.mobilesLocked = [mobileMasked]
+    }
   }
 
   return result
