@@ -1193,9 +1193,8 @@ function ProspectCard({
         const fmt = formatPhone(m) ?? m
         if (fmt && fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
       })
-    } else {
-      prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
     }
+    prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
 
     // Compile toutes les lignes email (principale + fusionnées) — filtre les nulls DB
     const emailRows: { value: string; unlocked: boolean }[] = []
