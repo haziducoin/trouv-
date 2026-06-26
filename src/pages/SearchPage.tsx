@@ -732,14 +732,12 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
             <div className="border-t border-gray-100">
               {/* Téléphones */}
               <ModalContactRowUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {prospect.phoneUnlocked
-                ? prospect.mobiles?.slice(1).map((m, i) => (
-                    <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
-                  ))
-                : prospect.mobilesLocked?.map((m, i) => (
-                    <ContactRowStatic key={i} kind="phone" value={m} unlocked={false} coloredIcon />
-                  ))
-              }
+              {prospect.phoneUnlocked && prospect.mobiles?.slice(1).map((m, i) => (
+                <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
+              ))}
+              {prospect.mobilesLocked?.map((m, i) => (
+                <ContactRowStatic key={`locked-${i}`} kind="phone" value={m} unlocked={false} coloredIcon />
+              ))}
 
               {/* Emails */}
               <ModalContactRowUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
