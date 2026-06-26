@@ -137,6 +137,7 @@ export interface ProspectResult {
   emailIds?:      string[]        // IDs des fiches ayant un email (pour unlock ciblé)
   mobiles?:       string[]        // téléphones débloqués (phone_value)
   mobilesLocked?: string[]        // téléphones masqués des autres fiches
+  mobileRaw?:     string | null   // valeur brute du mobile (fiche unique) pour révéler après unlock
   allEmails?:     string[]        // emails débloqués des fiches fusionnées
   emailsLocked?:  string[]        // emails masqués des autres fiches
   allAddresses?:  MergedAddress[]
@@ -229,9 +230,17 @@ function mapRow(row: Record<string, any>): ProspectResult {
     result.allAddresses  = row._adresses
   } else if (row.telephone?.trim() && row.mobile?.trim() && row.telephone !== row.mobile) {
     // Fiche unique avec téléphone fixe ET mobile — afficher les deux
-    const mobileMasked = maskPhone(row.mobile)
-    if (mobileMasked && mobileMasked !== result.phone) {
-      result.mobilesLocked = [mobileMasked]
+    if (phoneUnlocked) {
+      // Phone débloqué → mobile révélé gratuitement (même crédit)
+      const fmt = formatPhone(row.mobile)
+      if (fmt && fmt !== result.phone) result.mobiles = [fmt]
+    } else {
+      // Phone verrouillé → mobile masqué, brut stocké pour révéler au déblocage
+      const mobileMasked = maskPhone(row.mobile)
+      if (mobileMasked && mobileMasked !== result.phone) {
+        result.mobilesLocked = [mobileMasked]
+        result.mobileRaw = row.mobile
+      }
     }
   }
 

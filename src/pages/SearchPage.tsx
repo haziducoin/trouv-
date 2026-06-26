@@ -683,6 +683,11 @@ function ProspectionPanel({
 function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
   const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
+  const [mobileBusy, setMobileBusy] = useState(false)
+  const clickMobileUnlock = async () => {
+    setMobileBusy(true)
+    try { await (onUnlock ?? noopUnlock)(prospect, 'phone') } finally { setMobileBusy(false) }
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -736,7 +741,16 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
                 <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
               ))}
               {prospect.mobilesLocked?.map((m, i) => (
-                <ContactRowStatic key={`locked-${i}`} kind="phone" value={m} unlocked={false} coloredIcon />
+                <ContactRowStatic
+                  key={`locked-${i}`}
+                  kind="phone"
+                  value={m}
+                  unlocked={false}
+                  coloredIcon
+                  onUnlock={!prospect.phoneUnlocked ? clickMobileUnlock : undefined}
+                  busy={mobileBusy}
+                  canUnlock={canUnlock}
+                />
               ))}
 
               {/* Emails */}
@@ -2270,8 +2284,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         })
       )
 
+      // Si la fiche a un mobile brut stocké, l'ajouter aux numéros révélés
+      if (field === 'phone' && prospect.mobileRaw) {
+        const mFmt = formatPhone(prospect.mobileRaw) ?? prospect.mobileRaw
+        if (mFmt && !revealed.includes(mFmt)) revealed.push(mFmt)
+      }
       const patch: Partial<ProspectResult> = field === 'phone'
-        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [] }
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [], mobileRaw: null }
         : { email: primaryValue, emailUnlocked: true, allEmails: revealed, emailsLocked: [] }
 
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
