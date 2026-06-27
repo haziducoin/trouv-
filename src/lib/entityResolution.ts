@@ -97,19 +97,37 @@ function makeUnionFind(n: number) {
 
 // ─── Fusion d'un cluster ───────────────────────────────────────────────────────
 
+function maskPhoneShort(raw: string): string {
+  return raw.slice(0, 6) + '••••'
+}
+
+/** Tous les numéros bruts d'une fiche (telephone + mobile) normalisés */
+function allNormsOf(row: RawRow): string[] {
+  const nums: string[] = []
+  for (const raw of [row.phone_value, row.telephone, row.mobile]) {
+    const n = normalizePhone(raw)
+    if (n) nums.push(n)
+  }
+  return [...new Set(nums)]
+}
+
 function mergeCluster(rows: RawRow[]): RawRow {
-  // On prend la première ligne comme base canonique
   const base: RawRow = { ...rows[0] }
 
-  const idSet          = new Set<string>()
-  const phoneIdSet     = new Set<string>() // IDs ayant un téléphone
-  const emailIdSet     = new Set<string>() // IDs ayant un email
-  const phoneSet       = new Set<string>() // phone_value débloqués uniquement
-  const phoneLockedSet = new Set<string>() // phone_masked des lignes non débloquées
-  const emailSet       = new Set<string>() // email_value débloqués
-  const emailLockedSet = new Set<string>() // email_masked non débloqués
+  const idSet      = new Set<string>()
+  const phoneIdSet = new Set<string>()
+  const emailIdSet = new Set<string>()
+
+  // Numéros débloqués (normalisés) et verrouillés (norm → masked)
+  const phoneNormSet   = new Set<string>()
+  const phoneLockedMap = new Map<string, string>() // norm → masked
+  const emailSet       = new Set<string>()
+  const emailLockedSet = new Set<string>()
   const addrKeySet     = new Set<string>()
-  const adresses:      MergedAddress[] = []
+  const adresses: MergedAddress[] = []
+
+  // Numéro principal de la fiche de base (affiché comme result.phone) — ne pas le dupliquer
+  const basePrimaryNorm = normalizePhone(rows[0].telephone || rows[0].mobile)
 
   for (let ri = 0; ri < rows.length; ri++) {
     const row = rows[ri]
@@ -117,52 +135,58 @@ function mergeCluster(rows: RawRow[]): RawRow {
     if (row.has_phone) phoneIdSet.add(String(row.id))
     if (row.has_email) emailIdSet.add(String(row.id))
 
-    // Téléphone débloqué : phone_value propre
-    if (row.phone_value) {
-      const p = normalizePhone(row.phone_value)
-      if (p) phoneSet.add(p)
-    } else if (ri > 0 && row.phone_masked) {
-      // La ligne de base (ri=0) est déjà le phone principal — ne pas la dupliquer
-      phoneLockedSet.add(row.phone_masked)
+    const phoneUnlocked = !!row.phone_unlocked
+
+    // Collecte telephone ET mobile de chaque fiche
+    const rawPhones: string[] = []
+    if (row.telephone?.trim()) rawPhones.push(row.telephone.trim())
+    if (row.mobile?.trim() && row.mobile !== row.telephone) rawPhones.push(row.mobile.trim())
+
+    for (const raw of rawPhones) {
+      const norm = normalizePhone(raw)
+      if (!norm) continue
+      const isBasePrimary = ri === 0 && norm === basePrimaryNorm
+
+      if (phoneUnlocked) {
+        phoneNormSet.add(norm)
+      } else if (!isBasePrimary) {
+        if (!phoneLockedMap.has(norm)) phoneLockedMap.set(norm, maskPhoneShort(raw))
+      }
     }
 
-    // Email débloqué vs masqué
+    // Email
     if (row.email_value && !looksLikePhone(row.email_value)) {
       emailSet.add(row.email_value)
     } else if (ri > 0 && row.email_masked && !looksLikePhone(row.email_masked)) {
-      // Idem pour l'email de la ligne de base
       emailLockedSet.add(row.email_masked)
     }
 
-    // Adresses uniques (clé basée sur la rue)
+    // Adresses
     const ak = addressKey(row)
     if (ak && !addrKeySet.has(ak)) {
       addrKeySet.add(ak)
       adresses.push({ rue: row.adresse ?? null, cp: row.code_postal ?? null, ville: row.ville ?? null })
     }
 
-    // Préférer les valeurs non-nulles pour les champs scalaires
     for (const field of ['date_naissance', 'civilite', 'sexe', 'societe', 'code_postal', 'ville', 'adresse']) {
       if (!base[field] && row[field]) base[field] = row[field]
     }
 
-    // Statut débloqué : vrai si au moins une ligne l'est
     if (row.phone_unlocked) base.phone_unlocked = true
     if (row.email_unlocked) base.email_unlocked = true
     if (row.has_phone)      base.has_phone = true
     if (row.has_email)      base.has_email = true
   }
 
-  // Supprimer les doublons entre débloqués et masqués
-  for (const p of phoneSet) phoneLockedSet.delete(p)
-  for (const e of emailSet) emailLockedSet.delete(e)
+  // Retire les verrouillés déjà débloqués
+  for (const norm of phoneNormSet) phoneLockedMap.delete(norm)
 
   const meta: EntityResolutionMeta = {
     _ids:          [...idSet],
     _phoneIds:     [...phoneIdSet],
     _emailIds:     [...emailIdSet],
-    _phones:       [...phoneSet],
-    _phonesLocked: [...phoneLockedSet],
+    _phones:       [...phoneNormSet],
+    _phonesLocked: [...phoneLockedMap.values()],
     _emails:       [...emailSet],
     _emailsLocked: [...emailLockedSet],
     _adresses:     adresses,
@@ -207,10 +231,9 @@ export function resolveEntities(rows: RawRow[]): RawRow[] {
         const a = group[i].row
         const b = group[j].row
 
-        // Condition A : même mobile (phone_value si débloqué, sinon colonne brute, sinon masque)
-        const pa = normalizePhone(a.phone_value || a.telephone || a.mobile || a.phone_masked)
-        const pb = normalizePhone(b.phone_value || b.telephone || b.mobile || b.phone_masked)
-        if (pa && pb && pa === pb) { union(i, j); continue }
+        // Condition A : numéro partagé (telephone OU mobile des deux côtés)
+        const normsA = new Set(allNormsOf(a))
+        if (normsA.size > 0 && allNormsOf(b).some(p => normsA.has(p))) { union(i, j); continue }
 
         // Condition B : même date de naissance complète OU même année de naissance
         const ya = birthYear(a)

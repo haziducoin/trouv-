@@ -252,59 +252,6 @@ function maskPhone(raw: string | null | undefined): string | null {
   return raw.slice(0, 6) + '••••'
 }
 
-function enrichRawContact(row: Record<string, any>): Record<string, any> {
-  return {
-    ...row,
-    has_phone:      !!(row.telephone || row.mobile),
-    has_email:      !!row.email,
-    phone_masked:   maskPhone(row.telephone) ?? maskPhone(row.mobile),
-    email_masked:   maskEmail(row.email),
-    phone_unlocked: false,
-    email_unlocked: false,
-    phone_value:    null,
-    email_value:    null,
-    score:          0,
-    total_count:    0,
-  }
-}
-
-async function searchByAddressCluster(
-  adresse: string,
-  codePostal: string,
-  page: number,
-  perPage: number
-): Promise<ProspectSearchResponse> {
-  const supabase = getSupabaseClient()
-  const formattedAddress = '%' + adresse.trim().replace(/\s+/g, '%') + '%'
-
-  const { data, error } = await supabase.rpc('get_contacts_cluster_by_address', {
-    p_adresse:     formattedAddress,
-    p_code_postal: codePostal || null,
-  })
-
-  if (error) throw new Error(`Recherche impossible : ${error.message}`)
-
-  const rows     = (data ?? []) as Array<Record<string, any>>
-  const enriched = rows.map(enrichRawContact)
-  const resolved = resolveEntities(enriched)
-
-  const seen = new Set<string>()
-  const results = resolved.map(mapRow).filter(p => {
-    if (!p.hasPhone && !p.hasEmail) return false
-    if (seen.has(p.id)) return false
-    seen.add(p.id)
-    return true
-  })
-
-  const start = (page - 1) * perPage
-  return {
-    results:    results.slice(start, start + perPage),
-    total:      results.length,
-    page,
-    perPage,
-    totalPages: Math.ceil(results.length / perPage),
-  }
-}
 
 // ─── Pivot Search : récupère toutes les fiches partageant les mêmes téléphones/emails ──
 
@@ -319,7 +266,11 @@ async function fetchPivotCluster(
     for (const raw of [row.telephone, row.mobile]) {
       if (!raw) continue
       const digits = String(raw).replace(/[^0-9]/g, '')
-      if (digits.length >= 6) phoneSet.add(digits)
+      // Normalise aux 9 derniers chiffres (supprime le préfixe +33/0)
+      // "+33616331798" → "616331798"  |  "0616331798" → "616331798"
+      // LIKE '%616331798%' matche les deux formats stockés en DB
+      if (digits.length >= 9) phoneSet.add(digits.slice(-9))
+      else if (digits.length >= 6) phoneSet.add(digits)
     }
     const em = (row.email ?? '').toLowerCase().trim()
     if (em.includes('@')) emailSet.add(em)
