@@ -161,24 +161,24 @@ function mergeCluster(rows: RawRow[]): RawRow {
     const phoneUnlocked = !!row.phone_unlocked
 
     // Collecte telephone ET mobile de chaque fiche
+    // On exclut basePrimaryNorm partout : il est déjà affiché via result.phone
     const rawPhones: string[] = []
     if (row.telephone?.trim()) rawPhones.push(row.telephone.trim())
     if (row.mobile?.trim() && row.mobile !== row.telephone) rawPhones.push(row.mobile.trim())
 
     for (const raw of rawPhones) {
       const norm = normalizePhone(raw)
-      if (!norm) continue
-      const isBasePrimary = ri === 0 && norm === basePrimaryNorm
+      if (!norm || norm === basePrimaryNorm) continue  // base primary → result.phone, pas de doublon
 
       if (phoneUnlocked) {
         phoneNormSet.add(norm)
-      } else if (!isBasePrimary) {
+      } else {
         if (!phoneLockedMap.has(norm)) phoneLockedMap.set(norm, maskPhoneShort(raw))
       }
     }
 
-    // Email
-    if (row.email_value && !looksLikePhone(row.email_value)) {
+    // Email — ri=0 est déjà affiché via result.email, on collecte uniquement les secondaires
+    if (ri > 0 && row.email_value && !looksLikePhone(row.email_value)) {
       emailSet.add(row.email_value)
     } else if (ri > 0 && row.email_masked && !looksLikePhone(row.email_masked)) {
       emailLockedSet.add(row.email_masked)

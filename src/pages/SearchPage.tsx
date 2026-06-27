@@ -737,7 +737,7 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
             <div className="border-t border-gray-100">
               {/* Téléphones */}
               <ModalContactRowUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {prospect.phoneUnlocked && prospect.mobiles?.slice(1).map((m, i) => (
+              {prospect.phoneUnlocked && prospect.mobiles?.map((m, i) => (
                 <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
               ))}
               {prospect.mobilesLocked?.map((m, i) => (
@@ -756,7 +756,7 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
               {/* Emails */}
               <ModalContactRowUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
               {prospect.emailUnlocked
-                ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                ? prospect.allEmails?.filter(e => e.includes('@')).map((e, i) => (
                     <ContactRowStatic key={i} kind="email" value={e} unlocked coloredIcon />
                   ))
                 : prospect.emailsLocked?.map((e, i) => (
@@ -1405,7 +1405,7 @@ function ProspectCard({
               />
             )}
             {prospect.phoneUnlocked
-              ? prospect.mobiles?.slice(1).map((m, i) => (
+              ? prospect.mobiles?.map((m, i) => (
                   <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked />
                 ))
               : prospect.mobilesLocked?.map((m, i) => (
@@ -1426,7 +1426,7 @@ function ProspectCard({
               />
             )}
             {prospect.emailUnlocked
-              ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+              ? prospect.allEmails?.filter(e => e.includes('@')).map((e, i) => (
                   <ContactRowStatic key={i} kind="email" value={e} unlocked />
                 ))
               : prospect.emailsLocked?.map((e, i) => (
@@ -2290,8 +2290,8 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         if (mFmt && !revealed.includes(mFmt)) revealed.push(mFmt)
       }
       const patch: Partial<ProspectResult> = field === 'phone'
-        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [], mobileRaw: null }
-        : { email: primaryValue, emailUnlocked: true, allEmails: revealed, emailsLocked: [] }
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed.filter(v => v !== primaryValue), mobilesLocked: [], mobileRaw: null }
+        : { email: primaryValue, emailUnlocked: true, allEmails: revealed.filter(v => v !== primaryValue), emailsLocked: [] }
 
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
