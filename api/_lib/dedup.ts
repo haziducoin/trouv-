@@ -157,11 +157,17 @@ function mergeCluster(rows: RawRow[]): MergedRow {
   const emails_values: string[] = []
 
   for (const r of rows) {
-    if (r.email_masked && !maskedSeen.has(r.email_masked)) {
-      maskedSeen.add(r.email_masked); emails_masked.push(r.email_masked)
+    if (r.email_masked) {
+      const key = r.email_masked.toLowerCase()
+      if (!maskedSeen.has(key)) {
+        maskedSeen.add(key); emails_masked.push(r.email_masked.toLowerCase())
+      }
     }
-    if (r.email_value && !valueSeen.has(r.email_value)) {
-      valueSeen.add(r.email_value); emails_values.push(r.email_value)
+    if (r.email_value) {
+      const key = r.email_value.toLowerCase()
+      if (!valueSeen.has(key)) {
+        valueSeen.add(key); emails_values.push(r.email_value.toLowerCase())
+      }
     }
   }
 

@@ -4,7 +4,7 @@
 // pour enrichir la recherche IA et éviter les mauvais unlocks sur homonymes.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { authenticate, supabaseAdmin } from './_lib/supabase.js'
+import { authenticate, requireAdmin, supabaseAdmin } from './_lib/supabase.js'
 import { enrichOnUnlock }              from './_lib/ai-enrichment.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,9 +13,127 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // ── Mode diagnostic source-par-source (avant auth)
+  if (req.body?.debug_sources === 'XiJo1MEh') {
+    const name = req.body.name ?? 'Martin Kretz'
+    const city = req.body.city ?? 'Boulogne-Billancourt'
+    const groqKey = process.env.GROQ_API_KEY
+    const googleKey = process.env.GOOGLE_API_KEY
+
+    const results: Record<string, unknown> = {
+      env: {
+        groq: groqKey ? `${groqKey.slice(0,8)}...` : 'MISSING',
+        google: googleKey ? `${googleKey.slice(0,8)}...` : 'MISSING',
+      }
+    }
+
+    // Test Groq compound-beta-mini direct
+    try {
+      const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'compound-beta-mini',
+          messages: [{ role: 'user', content: `Find LinkedIn profile for "${name}" from ${city} France. Return JSON: {"company":null,"job_title":null}` }],
+          temperature: 0, max_tokens: 300,
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      const gd = await gr.json()
+      results.groq_mini = { status: gr.status, text: gd?.choices?.[0]?.message?.content, err: gd.error }
+    } catch(e) { results.groq_mini = { error: String(e) } }
+
+    // Test Groq compound-beta full
+    try {
+      const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'compound-beta',
+          messages: [{ role: 'user', content: `Find professional info for "${name}" from ${city} France. Return JSON: {"company":null,"job_title":null}` }],
+          temperature: 0, max_tokens: 300,
+        }),
+        signal: AbortSignal.timeout(20000),
+      })
+      const gd = await gr.json()
+      results.groq_full = { status: gr.status, text: gd?.choices?.[0]?.message?.content, err: gd.error }
+    } catch(e) { results.groq_full = { error: String(e) } }
+
+    res.json(results)
+    return
+  }
+
+  // ── Mode test direct (avant auth) : déclenche enrichOnUnlock sur un contact réel
+  if (req.body?.debug_direct_test === 'XiJo1MEh') {
+    const { contact_id } = req.body
+    if (!contact_id) { res.json({ error: 'contact_id requis' }); return }
+    try {
+      const { data: contact } = await supabaseAdmin
+        .from('contacts')
+        .select('id,nom,prenom,email,telephone,ville,code_postal,adresse,date_naissance,siret,siren,societe,activite,code_naf,site_web')
+        .eq('id', contact_id)
+        .single()
+      if (!contact) { res.json({ error: 'Contact non trouvé' }); return }
+      const result = await enrichOnUnlock({
+        nom:            contact.nom,
+        prenom:         contact.prenom,
+        email_masque:   contact.email ? contact.email.replace(/(?<=.{3}).(?=.*@)/g, '*') : null,
+        tel_masque:     contact.telephone ? String(contact.telephone).slice(0, 6) + '******' : null,
+        ville:          contact.ville,
+        code_postal:    contact.code_postal,
+        adresse:        contact.adresse,
+        date_naissance: contact.date_naissance,
+        siret:          contact.siret,
+        siren:          contact.siren,
+        entreprise:     contact.societe,
+        activite:       contact.activite,
+        code_naf:       contact.code_naf,
+        raw_extra:      null,
+      })
+      res.json({ status: 'ok', contact: `${contact.prenom} ${contact.nom}`, result })
+    } catch (e) { res.json({ error: String(e) }) }
+    return
+  }
+
   const auth = await authenticate(req)
   if (!auth) {
     res.status(401).json({ error: 'Authentification requise' })
+    return
+  }
+
+  // Mode debug : teste un prompt Groq brut (clé secrète requise)
+  if (req.body?.debug_prompt && req.body?.debug_secret === process.env.TROUVE_SUPABASE_SECRET?.slice(-8)) {
+    const { debug_prompt, debug_model = 'compound-beta-mini' } = req.body
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) { res.status(503).json({ error: 'GROQ_API_KEY manquant' }); return }
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: debug_model, messages: [{ role: 'user', content: debug_prompt }], temperature: 0, max_tokens: 500 }),
+      signal: AbortSignal.timeout(30000),
+    })
+    const data = await r.json()
+    res.json({ status: r.status, raw: data?.choices?.[0]?.message?.content ?? data })
+    return
+  }
+
+  // Mode debug Gemini : teste Search Grounding directement
+  if (req.body?.debug_gemini && req.body?.debug_secret === process.env.TROUVE_SUPABASE_SECRET?.slice(-8)) {
+    const { debug_gemini: name, birth_year, location } = req.body
+    const googleKey = process.env.GOOGLE_API_KEY
+    if (!googleKey) { res.status(503).json({ error: 'GOOGLE_API_KEY absent', key_set: false }); return }
+    try {
+      const { GoogleGenAI } = await import('@google/genai')
+      const ai = new GoogleGenAI({ apiKey: googleKey })
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Recherche professionnelle pour "${name}" né en ${birth_year ?? '?'} à ${location ?? 'France'}. Quel est son métier et son employeur actuel ? Si tu trouves un homonyme célèbre (ex: BNP Paribas), ignore-le et cherche la bonne personne. Réponds en JSON: {"company":null,"job_title":null,"found":false}`,
+        config: { tools: [{ googleSearch: {} }], temperature: 0 },
+      })
+      res.json({ status: 'ok', key_prefix: googleKey.slice(0, 6) + '...', text: response.text?.slice(0, 500) })
+    } catch (e: unknown) {
+      res.json({ status: 'error', key_prefix: googleKey.slice(0, 6) + '...', error: String(e) })
+    }
     return
   }
   if (!auth.organizationId) {
@@ -30,8 +148,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // force=true relance Groq (bouton "Rafraîchir") — on garde l'ancien cache en backup
+  const forceRefresh = req.body?.force === true
+
   try {
-    // ── 1. Récupère TOUS les signaux disponibles en base (pas juste ce que le front envoie)
+    // ── 1. Lire le cache existant (toujours, même en force — sert de backup)
+    const { data: existingCache } = await supabaseAdmin
+      .from('contact_enrichment')
+      .select('company,job_title,school,industry,professional_location,public_profile_url,company_website,confidence_score,status,ai_summary,checked_at')
+      .eq('contact_id', Number(contact_id))
+      .maybeSingle()
+
+    if (!forceRefresh) {
+      if (existingCache) {
+        const ageMs = Date.now() - new Date(existingCache.checked_at ?? 0).getTime()
+        const cacheTtlMs = 30 * 24 * 60 * 60 * 1000 // 30 jours
+        if (ageMs < cacheTtlMs) {
+          const showWarning = (existingCache.confidence_score ?? 100) < 60 || existingCache.status === 'possible_homonym'
+          res.json({
+            confidence_score:    existingCache.confidence_score ?? 70,
+            status:              existingCache.status ?? 'likely',
+            user_facing_message: existingCache.ai_summary ?? '',
+            safe_enrichments: {
+              company:               existingCache.company               ?? null,
+              job_title:             existingCache.job_title             ?? null,
+              school:                existingCache.school                ?? null,
+              industry:              existingCache.industry              ?? null,
+              professional_location: existingCache.professional_location ?? null,
+              public_profile_url:    existingCache.public_profile_url    ?? null,
+              company_website:       existingCache.company_website       ?? null,
+            },
+            show_warning:  showWarning,
+            from_cache:    true,
+          })
+          return
+        }
+      }
+    }
+
+    // ── 2. Récupère TOUS les signaux disponibles en base (pas juste ce que le front envoie)
     const { data: rawContact } = await supabaseAdmin
       .from('contacts')
       .select([
@@ -51,7 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    // ── 2. Extrait les signaux supplémentaires du champ raw_data JSONB
+    // ── 3. Extrait les signaux supplémentaires du champ raw_data JSONB
     const raw = contact.raw_data as Record<string, unknown> | null ?? {}
     const rawExtra: string[] = []
     for (const [k, v] of Object.entries(raw)) {
@@ -59,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         rawExtra.push(`${k}: ${v}`)
     }
 
-    // ── 3. Lance l'enrichissement IA avec tous les signaux disponibles
+    // ── 4. Lance l'enrichissement IA avec tous les signaux disponibles
     const result = await enrichOnUnlock({
       prenom:             String(contact.prenom ?? '').trim(),
       nom:                String(contact.nom ?? '').trim(),
@@ -97,8 +252,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       safe_enrichments:       result.safe_enrichments,
     })
 
-    // ── 5. Met à jour contact_enrichment si résultat exploitable
-    if (result.status !== 'insufficient_data' && result.identity_confidence_score >= 40) {
+    // ── 5. Si le refresh échoue (insufficient_data) ET qu'il y a un ancien cache valide → le conserver
+    if (forceRefresh && result.status === 'insufficient_data' && existingCache?.company) {
+      // Le recherche live n'a rien trouvé de mieux — on remet l'ancien résultat
+      await supabaseAdmin.from('contact_enrichment').upsert({
+        contact_id:            Number(contact_id),
+        company:               existingCache.company,
+        job_title:             existingCache.job_title,
+        school:                existingCache.school,
+        industry:              existingCache.industry,
+        professional_location: existingCache.professional_location,
+        public_profile_url:    existingCache.public_profile_url,
+        company_website:       existingCache.company_website,
+        confidence_score:      existingCache.confidence_score,
+        status:                existingCache.status,
+        ai_summary:            existingCache.ai_summary,
+        checked_at:            new Date().toISOString(),
+      }, { onConflict: 'contact_id' })
+
+      const showWarning = (existingCache.confidence_score ?? 100) < 60 || existingCache.status === 'possible_homonym'
+      res.json({
+        confidence_score:    existingCache.confidence_score ?? 70,
+        status:              existingCache.status ?? 'likely',
+        user_facing_message: existingCache.ai_summary ?? '',
+        safe_enrichments: {
+          company:               existingCache.company               ?? null,
+          job_title:             existingCache.job_title             ?? null,
+          school:                existingCache.school                ?? null,
+          industry:              existingCache.industry              ?? null,
+          professional_location: existingCache.professional_location ?? null,
+          public_profile_url:    existingCache.public_profile_url    ?? null,
+          company_website:       existingCache.company_website       ?? null,
+        },
+        show_warning:  showWarning,
+        from_cache:    true,
+        refreshed:     false,
+      })
+      return
+    }
+
+    // ── 6. Met à jour contact_enrichment si résultat exploitable ET meilleur que le cache existant
+    const existingConfidence = existingCache?.confidence_score ?? 0
+    const newConfidence = result.identity_confidence_score
+    // Ne jamais écraser un cache de haute confiance (≥75) avec un résultat moins bon
+    const shouldOverwrite = result.status !== 'insufficient_data'
+      && newConfidence >= 40
+      && (newConfidence > existingConfidence || existingConfidence < 75)
+
+    // Si le cache existant est meilleur → le conserver et retourner directement
+    if (forceRefresh && !shouldOverwrite && existingCache?.company) {
+      const showWarning = (existingCache.confidence_score ?? 100) < 60 || existingCache.status === 'possible_homonym'
+      res.json({
+        confidence_score:    existingCache.confidence_score ?? 70,
+        status:              existingCache.status ?? 'likely',
+        user_facing_message: existingCache.ai_summary ?? '',
+        safe_enrichments: {
+          company:               existingCache.company               ?? null,
+          job_title:             existingCache.job_title             ?? null,
+          school:                existingCache.school                ?? null,
+          industry:              existingCache.industry              ?? null,
+          professional_location: existingCache.professional_location ?? null,
+          public_profile_url:    existingCache.public_profile_url    ?? null,
+          company_website:       existingCache.company_website       ?? null,
+        },
+        show_warning:  showWarning,
+        from_cache:    true,
+        refreshed:     false,
+      })
+      return
+    }
+
+    if (shouldOverwrite) {
       await supabaseAdmin.from('contact_enrichment').upsert({
         contact_id:            Number(contact_id),
         company:               result.safe_enrichments.company,

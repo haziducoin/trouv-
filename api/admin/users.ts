@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { authenticate, requireAdmin, supabaseAdmin } from '../_lib/supabase.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
   const auth = await authenticate(req)
   const denied = requireAdmin(auth)
   if (denied) {
@@ -13,8 +14,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const page   = Math.max(1, parseInt(String(req.query.page  ?? '1'), 10))
     const limit  = Math.min(100, parseInt(String(req.query.limit ?? '50'), 10))
-    const status = req.query.status as string | undefined   // pending | approved | blocked
-    const search = req.query.search as string | undefined   // email/nom partiel
+    const status = req.query.status as string | undefined
+    const search = req.query.search as string | undefined
 
     let query = supabaseAdmin
       .from('profiles')
@@ -30,8 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at,
         last_login_at,
         cgu_accepted,
-        organizations!profiles_organization_id_fkey ( siren, legal_name, legal_form, administrative_status ),
-        monthly_usage ( period_start, searches_used )
+        organizations!profiles_organization_id_fkey ( siren, legal_name, administrative_status ),
+        monthly_usage!monthly_usage_user_id_fkey ( period_start, searches_used )
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range((page - 1) * limit, page * limit - 1)
@@ -43,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data, error, count } = await query
     if (error) {
+      console.error('[admin/users GET] supabase error:', error.message, error.details)
       res.status(500).json({ error: error.message })
       return
     }
@@ -70,7 +72,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organization: org ? {
             siren: org.siren,
             name: org.legal_name,
-            legalForm: org.legal_form,
             active: org.administrative_status === 'A',
           } : null,
           monthlyUsage: currentUsage?.searches_used ?? 0,
@@ -150,4 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: 'Method not allowed' })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[admin/users] unhandled crash:', msg)
+    res.status(500).json({ error: msg })
+  }
 }

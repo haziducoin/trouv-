@@ -1,8 +1,12 @@
 {
+  "functions": {
+    "api/**": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/api/admin/:path*", "destination": "/api/admin" },
     { "source": "/cgu", "destination": "/cgu.html" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {

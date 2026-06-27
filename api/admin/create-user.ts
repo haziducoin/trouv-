@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = authData.user.id
 
   // 2. Créer une organisation synthétique (SIREN unique pour comptes créés manuellement)
-  const fakeSiren = `MAN${crypto.randomUUID().replace(/-/g, '').slice(0, 9).toUpperCase()}`
+  const fakeSiren = '999' + String(Math.floor(Math.random() * 1000000)).padStart(6, '0')
   const { data: org, error: orgError } = await supabaseAdmin
     .from('organizations')
     .insert({ siren: fakeSiren, legal_name: email.split('@')[0] })

@@ -306,9 +306,12 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
   }
 
+  // On récupère un batch large pour que la fusion soit complète avant pagination.
+  // La pagination finale se fait côté client sur les groupes fusionnés.
+  const FUSION_BATCH = 500
   const rpcParams: Record<string, any> = {
-    p_limit:  pp,
-    p_offset: (pg - 1) * pp,
+    p_limit:  FUSION_BATCH,
+    p_offset: 0,
     p_mode:   params.searchMode ?? 'starts_with',
   }
   if (p_identity) {
@@ -353,20 +356,26 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     throw new Error(`Recherche impossible : ${error.message}`)
   }
 
-  const rows  = (data ?? []) as Array<Record<string, any>>
-  const total = rows.length > 0 ? (Number(rows[0].total_count) || rows.length) : 0
+  const rows = (data ?? []) as Array<Record<string, any>>
 
-  // Entity resolution : fusionne les doublons (même personne, données différentes)
+  // Entity resolution : fusionne les doublons sur l'ensemble du batch
   const resolved = resolveEntities(rows)
 
-  // Déduplique par id de contact ; ne garde que les fiches avec au moins un contact.
+  // Déduplique par id ; ne garde que les fiches avec au moins un contact
   const seen = new Set<string>()
-  const results = resolved.map(mapRow).filter(p => {
+  const allResults = resolved.map(mapRow).filter(p => {
     if (!p.hasPhone && !p.hasEmail) return false
     if (seen.has(p.id)) return false
     seen.add(p.id)
     return true
   })
+
+  // total = nombre de groupes fusionnés (pas les lignes brutes DB)
+  const total = allResults.length
+
+  // Pagination client-side sur les groupes fusionnés
+  const start = (pg - 1) * pp
+  const results = allResults.slice(start, start + pp)
 
   return {
     results,
@@ -466,6 +475,9 @@ export interface EnrichBeforeUnlockResult {
     job_title:             string | null
     public_profile_url:    string | null
     professional_location: string | null
+    industry:              string | null
+    school:                string | null
+    company_website:       string | null
   }
 }
 
@@ -490,13 +502,13 @@ export async function enrichBeforeUnlock(
       status:              'uncertain',
       user_facing_message: '',
       show_warning:        false,
-      safe_enrichments:    { company: null, job_title: null, public_profile_url: null, professional_location: null },
+      safe_enrichments:    { company: null, job_title: null, public_profile_url: null, professional_location: null, industry: null, school: null, company_website: null },
     }
   }
   return resp.json() as Promise<EnrichBeforeUnlockResult>
 }
 
-export async function enrichContactPreview(contactId: string): Promise<EnrichBeforeUnlockResult> {
+export async function enrichContactPreview(contactId: string, force = false): Promise<EnrichBeforeUnlockResult> {
   const supabase = getSupabaseClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Session expirée')
@@ -504,8 +516,8 @@ export async function enrichContactPreview(contactId: string): Promise<EnrichBef
   const resp = await fetch('/api/enrich', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-    body:    JSON.stringify({ contact_id: contactId }),
-    signal:  AbortSignal.timeout(15000),
+    body:    JSON.stringify({ contact_id: contactId, force }),
+    signal:  AbortSignal.timeout(55000),
   })
 
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`)

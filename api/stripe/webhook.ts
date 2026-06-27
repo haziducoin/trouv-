@@ -119,16 +119,73 @@ async function handleSubscriptionUpdated(sub: any) {
 }
 
 async function handleSubscriptionDeleted(sub: any) {
+  const now = new Date().toISOString()
+
   await supabaseAdmin
     .from('subscriptions')
-    .update({ status: 'canceled', canceled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({ status: 'canceled', canceled_at: now, updated_at: now })
     .eq('provider_subscription_id', sub.id)
 
-  const { organization_id } = sub.metadata ?? {}
+  const { organization_id, plan_code } = sub.metadata ?? {}
   if (organization_id) {
     await supabaseAdmin.from('profiles').update({ monthly_search_quota: 0 }).eq('organization_id', organization_id)
-    // Crédits remis à zéro (offre annulée).
     await supabaseAdmin.rpc('grant_plan_credits', { p_org_id: organization_id, p_plan_code: 'canceled' })
+  }
+
+  // ── Calcul LTV et enregistrement dans churn_stats ──────────────────────────
+  const customerId = sub.customer as string | undefined
+  if (!customerId) return
+
+  try {
+    // Récupère toutes les factures payées du client (max 100 = ~8 ans mensuel)
+    const invoices = await stripe.invoices.list({
+      customer: customerId,
+      status: 'paid',
+      limit: 100,
+    })
+
+    const ltv = invoices.data.reduce((sum, inv) => sum + (inv.amount_paid ?? 0), 0) / 100
+    const invoiceCount = invoices.data.length
+
+    const startedAt = sub.start_date ? new Date(sub.start_date * 1000) : null
+    const canceledAt = sub.canceled_at ? new Date(sub.canceled_at * 1000) : new Date()
+    const lifetimeDays = startedAt
+      ? Math.round((canceledAt.getTime() - startedAt.getTime()) / 86_400_000)
+      : null
+
+    await supabaseAdmin.from('churn_stats').insert({
+      organization_id: organization_id ?? null,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: sub.id,
+      plan_code: plan_code ?? null,
+      ltv_eur: ltv,
+      invoice_count: invoiceCount,
+      lifetime_days: lifetimeDays,
+      churned_at: canceledAt.toISOString(),
+      churn_reason: sub.cancellation_details?.reason ?? null,
+      churn_comment: sub.cancellation_details?.comment ?? null,
+    })
+
+    // Log churn dans audit_logs pour visibilité CRM
+    if (organization_id) {
+      await supabaseAdmin.from('audit_logs').insert({
+        actor_id: null,
+        organization_id,
+        action: 'churn',
+        entity_type: 'subscription',
+        metadata: {
+          source: 'stripe_webhook',
+          event: 'customer.subscription.deleted',
+          stripe_subscription_id: sub.id,
+          plan_code: plan_code ?? null,
+          ltv_eur: ltv,
+          lifetime_days: lifetimeDays,
+          churn_reason: sub.cancellation_details?.reason ?? null,
+        },
+      })
+    }
+  } catch (err: any) {
+    console.error('[webhook] churn_stats insert failed:', err?.message)
   }
 }
 
@@ -152,10 +209,48 @@ async function handleInvoicePaid(invoice: any) {
 
 async function handlePaymentFailed(invoice: any) {
   if (!invoice.subscription) return
+
+  // 1. Marque la souscription past_due
   await supabaseAdmin
     .from('subscriptions')
     .update({ status: 'past_due', updated_at: new Date().toISOString() })
     .eq('provider_subscription_id', invoice.subscription)
+
+  // 2. Retrouve l'organisation concernée
+  const { data: sub } = await supabaseAdmin
+    .from('subscriptions')
+    .select('organization_id')
+    .eq('provider_subscription_id', invoice.subscription)
+    .single()
+
+  if (!sub?.organization_id) return
+
+  // 3. Suspend l'accès des membres non-admin
+  await supabaseAdmin
+    .from('profiles')
+    .update({ access_status: 'suspended', updated_at: new Date().toISOString() })
+    .eq('organization_id', sub.organization_id)
+    .neq('role', 'admin')
+
+  // 4. Log Alerte dans audit_logs — visible dans le CRM
+  await supabaseAdmin.from('audit_logs').insert({
+    actor_id: null,
+    organization_id: sub.organization_id,
+    action: 'alerte_paiement',
+    entity_type: 'subscription',
+    metadata: {
+      type: 'Alerte',
+      source: 'stripe_webhook',
+      event: 'invoice.payment_failed',
+      invoice_id: invoice.id,
+      amount_due_eur: (invoice.amount_due ?? 0) / 100,
+      currency: invoice.currency,
+      attempt_count: invoice.attempt_count ?? 1,
+      next_attempt_at: invoice.next_payment_attempt
+        ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+        : null,
+    },
+  })
 }
 
 async function handleAddonPurchased(session: any) {

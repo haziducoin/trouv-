@@ -126,12 +126,11 @@ function mergeCluster(rows: RawRow[]): RawRow {
       phoneLockedSet.add(row.phone_masked)
     }
 
-    // Email débloqué vs masqué
+    // Email débloqué vs masqué — normalisation lowercase pour éviter les doublons de casse
     if (row.email_value && !looksLikePhone(row.email_value)) {
-      emailSet.add(row.email_value)
+      emailSet.add(row.email_value.toLowerCase())
     } else if (ri > 0 && row.email_masked && !looksLikePhone(row.email_masked)) {
-      // Idem pour l'email de la ligne de base
-      emailLockedSet.add(row.email_masked)
+      emailLockedSet.add(row.email_masked.toLowerCase())
     }
 
     // Adresses uniques (clé basée sur la rue)

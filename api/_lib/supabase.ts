@@ -18,12 +18,15 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
+export type AdminScope = 'super' | 'support' | 'dev'
+
 export interface AuthContext {
   userId: string
   email: string
   organizationId: string | null
   cguAccepted: boolean
   role: string
+  adminScope: AdminScope  // null en DB = 'super' (compat. ascendante)
 }
 
 /**
@@ -47,7 +50,7 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('organization_id, cgu_accepted, role')
+    .select('organization_id, cgu_accepted, role, admin_scope')
     .eq('id', user.id)
     .single()
 
@@ -57,6 +60,7 @@ export async function authenticate(req: VercelRequest): Promise<AuthContext | nu
     organizationId: profile?.organization_id ?? null,
     cguAccepted: profile?.cgu_accepted ?? false,
     role: profile?.role ?? 'agent',
+    adminScope: (profile?.admin_scope as AdminScope | null) ?? 'super',
   }
 }
 

@@ -48,5 +48,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const deduped = deduplicateRows((data ?? []) as Parameters<typeof deduplicateRows>[0])
+
+  // Enregistre la recherche (fire-and-forget — ne bloque pas la réponse)
+  const queryLabel = [p_nom, p_prenom, p_ville, p_cp, p_identity]
+    .filter(Boolean).join(' ').trim() || 'Recherche sans critère'
+  void supabaseAdmin.from('searches').insert({
+    user_id:         auth.userId,
+    organization_id: auth.organizationId,
+    query_label:     queryLabel.slice(0, 200),
+    filters:         { p_nom, p_prenom, p_ville, p_cp, p_tel, p_identity, p_annee_naissance, p_mode },
+    result_count:    deduped.length,
+    units_consumed:  1,
+  })
+
   res.json({ results: deduped })
 }

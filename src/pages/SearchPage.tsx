@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import DemoLockModal from '@/components/demo/DemoLockModal'
 import DemoToast from '@/components/demo/DemoToast'
 import DemoCreditsBar from '@/components/demo/DemoCreditsBar'
@@ -11,16 +12,17 @@ import {
   ArrowRight, Globe, FileText, Info,
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
-  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell, Link2,
+  Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell, Link2, Trash2,
+  CheckCircle2,
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
-import AdminPage from '@/pages/AdminPage'
 import trouveLogo from '@/assets/trouve-logo.png'
 import { KeyIcon } from '@/components/ui/KeyIcon'
 import { DEPARTMENTS, TYPE_LABELS, EMPLOYEE_RANGES, LEGAL_FORMS } from '@/lib/searchApi'
 import {
   searchProspects, exportProspectsCSV, formatPhone,
   unlockContactField, getCreditBalance, UnlockError,
+  enrichContactPreview, type EnrichBeforeUnlockResult,
   type ProspectResult, type ProspectSearchParams, type CreditBalance,
 } from '@/lib/prospectApi'
 import { generateSearchDemoResults } from '@/lib/demoResults'
@@ -42,6 +44,7 @@ import { AnimateNumber } from '@/components/ui/animated-blur-number'
 import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 import BulkSearchView from '@/pages/BulkSearchView'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
@@ -683,6 +686,9 @@ function ProspectionPanel({
 function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
   const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
+  const [enrichData, setEnrichData]       = useState<EnrichBeforeUnlockResult | null>(null)
+  const [enrichLoading, setEnrichLoading] = useState(true)
+  const [fromCache, setFromCache]         = useState(false)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -690,149 +696,258 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex w-full max-w-lg max-h-[88vh] flex-col overflow-y-auto bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+  const runEnrich = (force = false) => {
+    setEnrichLoading(true)
+    if (force) setEnrichData(null)
+    enrichContactPreview(prospect.id, force)
+      .then(d => { setEnrichData(d); setFromCache(!!(d as any).from_cache) })
+      .catch(() => {})
+      .finally(() => setEnrichLoading(false))
+  }
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+  useEffect(() => {
+    runEnrich(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospect.id])
+
+  const hasAiData = enrichData && (
+    enrichData.safe_enrichments.company || enrichData.safe_enrichments.job_title ||
+    enrichData.safe_enrichments.industry || enrichData.safe_enrichments.professional_location ||
+    enrichData.safe_enrichments.public_profile_url
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex w-full max-w-md max-h-[92vh] flex-col overflow-hidden bg-white sm:rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+
+        {/* Header gradient */}
+        <div className="relative shrink-0 bg-gradient-to-br from-[#0f3fc7] via-[#1B54FF] to-[#3a7aff] px-6 pt-6 pb-5">
+          <button
+            onClick={onClose}
+            className="absolute top-3.5 right-3.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white/80 transition hover:bg-white/25"
+          >
+            <X size={14} />
+          </button>
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#124bd2]/10 border border-[#124bd2]/20 text-sm font-semibold text-[#124bd2]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-white/30 bg-white/20 text-base font-semibold text-white shadow-inner">
               {prospectInitials(prospect.fullName)}
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900 tracking-tight leading-snug">{prospect.fullName}</h2>
-              {prospect.jobTitle && <p className="mt-0.5 text-sm text-gray-400">{prospect.jobTitle}</p>}
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-semibold text-white leading-snug tracking-tight truncate">{prospect.fullName}</h2>
+              {prospect.jobTitle && <p className="mt-0.5 text-[13px] text-white/65 truncate">{prospect.jobTitle}</p>}
               {prospect.companyName && (
-                <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#124bd2]">
+                <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-white/80 truncate">
                   <Building2 size={11} /> {prospect.companyName}
                 </p>
               )}
-            </div>
-          </div>
-          <button onClick={onClose} className="mt-0.5 rounded-xl p-1.5 text-gray-300 transition hover:bg-gray-100 hover:text-gray-600">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Corps */}
-        <div className="flex-1 space-y-6 px-6 py-5">
-
-          {/* Coordonnées */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Coordonnées</p>
-              {prospect.mergedCount && prospect.mergedCount > 1 && (
-                <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                  <Database size={9} className="text-gray-300" /> {prospect.mergedCount} fiches fusionnées
+              {!prospect.jobTitle && !prospect.companyName && prospect.city && (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] text-white/80">
+                  <MapPin size={10} /> {prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}
                 </span>
               )}
             </div>
-            <div className="border-t border-gray-100">
-              {/* Téléphones */}
-              <ModalContactRowUnlock prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {prospect.phoneUnlocked
-                ? prospect.mobiles?.slice(1).map((m, i) => (
-                    <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked coloredIcon />
-                  ))
-                : prospect.mobilesLocked?.map((m, i) => (
-                    <ContactRowStatic key={i} kind="phone" value={m} unlocked={false} coloredIcon />
-                  ))
-              }
-
-              {/* Emails */}
-              <ModalContactRowUnlock prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
-              {prospect.emailUnlocked
-                ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
-                    <ContactRowStatic key={i} kind="email" value={e} unlocked coloredIcon />
-                  ))
-                : prospect.emailsLocked?.map((e, i) => (
-                    <ContactRowStatic key={i} kind="email" value={e} unlocked={false} coloredIcon />
-                  ))
-              }
-
-              {!prospect.hasPhone && !prospect.hasEmail && (
-                <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
-              )}
+          </div>
+          {prospect.mergedCount && prospect.mergedCount > 1 && (
+            <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] text-white/70 w-fit">
+              <Database size={10} /> {prospect.mergedCount} fiches fusionnées
             </div>
-          </section>
-
-          {/* Entreprise */}
-          {prospect.companyName && (
-            <section>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Entreprise</p>
-              <div className="border-t border-gray-100">
-                <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-2.5">
-                    <Building2 size={14} className="text-gray-300 shrink-0" />
-                    <span className="text-xs text-gray-400">Employeur</span>
-                  </div>
-                  <span className="text-xs text-gray-700 font-medium text-right">{prospect.companyName}</span>
-                </div>
-              </div>
-            </section>
           )}
+        </div>
 
-          {/* Localisation */}
-          {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
-            <section>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-3">Localisation</p>
-              <div className="border-t border-gray-100">
-                {prospect.allAddresses && prospect.allAddresses.length > 0
-                  ? prospect.allAddresses.map((addr, i) => (
-                      <div key={i} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-0 gap-4">
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <MapPin size={14} className="text-gray-300 shrink-0" />
-                          <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre adresse'}</span>
-                        </div>
-                        <span className="text-xs text-gray-700 font-medium text-right leading-relaxed">
-                          {[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
-                        </span>
-                      </div>
+        {/* Corps scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-0 divide-y divide-gray-100">
+
+            {/* Coordonnées */}
+            <section className="px-5 py-4">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Coordonnées</p>
+              <div className="flex flex-col gap-2">
+                <PremiumContactRow prospect={prospect} kind="phone" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                {prospect.phoneUnlocked
+                  ? prospect.mobiles?.slice(1).map((m, i) => (
+                      <PremiumContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked />
                     ))
-                  : <>
-                      {prospect.address && (
-                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                          <div className="flex items-center gap-2.5">
-                            <MapPin size={14} className="text-gray-300 shrink-0" />
-                            <span className="text-xs text-gray-400">Adresse</span>
-                          </div>
-                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.address}</span>
-                        </div>
-                      )}
-                      {prospect.city && (
-                        <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                          <div className="flex items-center gap-2.5">
-                            <MapPin size={14} className="text-gray-300 shrink-0" />
-                            <span className="text-xs text-gray-400">Commune</span>
-                          </div>
-                          <span className="text-xs text-gray-700 font-medium text-right">{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
-                        </div>
-                      )}
-                    </>
+                  : prospect.mobilesLocked?.map((m, i) => (
+                      <PremiumContactRowStatic key={i} kind="phone" value={m} unlocked={false} />
+                    ))
                 }
-                {prospect.country && (
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div className="flex items-center gap-2.5">
-                      <MapPin size={14} className="text-gray-300 shrink-0" />
-                      <span className="text-xs text-gray-400">Pays</span>
-                    </div>
-                    <span className="text-xs text-gray-700 font-medium">{prospect.country}</span>
-                  </div>
-                )}
-                {birthContext && (
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div className="flex items-center gap-2.5">
-                      <UserCircle2 size={14} className="text-gray-300 shrink-0" />
-                      <span className="text-xs text-gray-400">Homonymie</span>
-                    </div>
-                    <span className="text-xs text-gray-700 font-medium">{birthContext}</span>
-                  </div>
+                <PremiumContactRow prospect={prospect} kind="email" canUnlock={canUnlock} onUnlock={onUnlock ?? noopUnlock} />
+                {prospect.emailUnlocked
+                  ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+                      <PremiumContactRowStatic key={i} kind="email" value={e} unlocked />
+                    ))
+                  : prospect.emailsLocked?.map((e, i) => (
+                      <PremiumContactRowStatic key={i} kind="email" value={e} unlocked={false} />
+                    ))
+                }
+                {!prospect.hasPhone && !prospect.hasEmail && (
+                  <p className="py-2 text-xs text-gray-300">Aucune coordonnée disponible</p>
                 )}
               </div>
             </section>
-          )}
+
+            {/* Localisation */}
+            {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
+              <section className="px-5 py-4">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Localisation</p>
+                <div className="flex flex-col gap-2.5">
+                  {prospect.allAddresses && prospect.allAddresses.length > 0
+                    ? prospect.allAddresses.map((addr, i) => (
+                        <div key={i} className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <MapPin size={14} className="text-gray-300 mt-0.5 shrink-0" />
+                            <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre'}</span>
+                          </div>
+                          <span className="text-xs text-gray-700 font-medium text-right leading-relaxed">
+                            {[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
+                          </span>
+                        </div>
+                      ))
+                    : <>
+                        {prospect.address && (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <MapPin size={14} className="text-gray-300 shrink-0" />
+                              <span className="text-xs text-gray-400">Adresse</span>
+                            </div>
+                            <span className="text-xs text-gray-700 font-medium text-right">{prospect.address}</span>
+                          </div>
+                        )}
+                        {prospect.city && (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <MapPin size={14} className="text-gray-300 shrink-0" />
+                              <span className="text-xs text-gray-400">Commune</span>
+                            </div>
+                            <span className="text-xs text-gray-700 font-medium text-right">{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+                          </div>
+                        )}
+                      </>
+                  }
+                  {prospect.country && (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <MapPin size={14} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Pays</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium">{prospect.country}</span>
+                    </div>
+                  )}
+                  {birthContext && (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <UserCircle2 size={14} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Homonymie</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium">{birthContext}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Analyse IA */}
+            <section className="px-5 py-4 pb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Analyse IA</p>
+                <span className="flex items-center gap-1 rounded-full bg-[#1B54FF]/10 px-2 py-0.5 text-[10px] font-semibold text-[#1B54FF]">
+                  <Zap size={9} /> Groq
+                </span>
+                {fromCache && !enrichLoading && (
+                  <span className="text-[10px] text-gray-300">(cache)</span>
+                )}
+                <button
+                  onClick={() => runEnrich(true)}
+                  disabled={enrichLoading}
+                  title="Relancer une analyse fraîche"
+                  className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-gray-400 transition hover:text-[#1B54FF] hover:bg-[#1B54FF]/5 disabled:opacity-40"
+                >
+                  <RefreshCw size={11} className={enrichLoading ? 'animate-spin' : ''} />
+                  {!enrichLoading && 'Rafraîchir'}
+                </button>
+              </div>
+
+              {enrichLoading ? (
+                <div className="flex items-center gap-3 rounded-xl border border-[#1B54FF]/15 bg-[#1B54FF]/5 px-4 py-3.5">
+                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#1B54FF]/20">
+                    <span className="absolute h-5 w-5 animate-spin rounded-full border-2 border-[#1B54FF]/20 border-t-[#1B54FF]" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-medium text-[#1B54FF]">Recherche en cours…</p>
+                    <p className="mt-0.5 text-[11px] text-[#1B54FF]/50">LinkedIn, Pages Jaunes Pro, Kompass…</p>
+                  </div>
+                </div>
+              ) : hasAiData ? (
+                <div className="rounded-xl border border-gray-100 bg-gray-50 overflow-hidden">
+                  {enrichData!.safe_enrichments.company && (
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <Building2 size={13} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Entreprise</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium text-right">{enrichData!.safe_enrichments.company}</span>
+                    </div>
+                  )}
+                  {enrichData!.safe_enrichments.job_title && (
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <Briefcase size={13} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Poste</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium text-right">{enrichData!.safe_enrichments.job_title}</span>
+                    </div>
+                  )}
+                  {enrichData!.safe_enrichments.industry && (
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <Hash size={13} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Secteur</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium text-right">{enrichData!.safe_enrichments.industry}</span>
+                    </div>
+                  )}
+                  {enrichData!.safe_enrichments.professional_location && (
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <MapPin size={13} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">Zone pro</span>
+                      </div>
+                      <span className="text-xs text-gray-700 font-medium text-right">{enrichData!.safe_enrichments.professional_location}</span>
+                    </div>
+                  )}
+                  {enrichData!.safe_enrichments.public_profile_url && (
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <Link2 size={13} className="text-gray-300 shrink-0" />
+                        <span className="text-xs text-gray-400">LinkedIn</span>
+                      </div>
+                      <a href={enrichData!.safe_enrichments.public_profile_url} target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-xs text-[#1B54FF] font-medium truncate max-w-[160px] hover:underline">
+                        Voir le profil
+                      </a>
+                    </div>
+                  )}
+                  {enrichData!.user_facing_message && (
+                    <p className="px-4 py-2.5 text-[11px] leading-relaxed text-gray-400 italic border-t border-gray-100">
+                      {enrichData!.user_facing_message}
+                    </p>
+                  )}
+                </div>
+              ) : enrichData ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
+                  <Search size={14} className="text-gray-300 shrink-0" />
+                  <p className="text-xs text-gray-400">Aucune donnée professionnelle trouvée.</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3.5">
+                  <Zap size={14} className="text-amber-400 shrink-0" />
+                  <p className="text-xs text-amber-600">Analyse IA indisponible.</p>
+                </div>
+              )}
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -1007,6 +1122,102 @@ function ContactUnlock({ prospect, kind, canUnlock, onUnlock }: {
   )
 }
 
+// ─── Lignes de contact premium (fiche slide-over) ────────────────────────────
+function PremiumContactRowStatic({ kind, value, unlocked }: {
+  kind: 'phone' | 'email'; value: string; unlocked: boolean
+}) {
+  const isPhone = kind === 'phone'
+  const Icon = isPhone ? Phone : Mail
+  const iconBg   = isPhone ? 'bg-[#1B54FF]/10' : 'bg-emerald-500/10'
+  const iconColor = isPhone ? 'text-[#1B54FF]' : 'text-emerald-600'
+  const textColor = isPhone ? 'text-[#1B54FF]' : 'text-emerald-700'
+
+  if (unlocked) {
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    return (
+      <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isPhone ? 'bg-[#1B54FF]/5' : 'bg-emerald-500/5'}`}>
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon size={14} className={iconColor} />
+        </div>
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`flex-1 min-w-0 text-[13px] font-medium truncate animate-value-reveal ${textColor}`}>
+          {value}
+        </a>
+        <CheckCircle2 size={14} className={iconColor} />
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+        <Icon size={14} className={iconColor} />
+      </div>
+      <span className="flex-1 min-w-0 text-[13px] font-medium text-gray-500 tabular-nums tracking-wide truncate">{value}</span>
+    </div>
+  )
+}
+
+function PremiumContactRow({ prospect, kind, canUnlock, onUnlock }: {
+  prospect: ProspectResult; kind: 'phone' | 'email'
+  canUnlock: boolean; onUnlock: (p: ProspectResult, field: 'phone' | 'email') => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const isPhone  = kind === 'phone'
+  const has      = isPhone ? prospect.hasPhone : prospect.hasEmail
+  const unlocked = isPhone ? prospect.phoneUnlocked : prospect.emailUnlocked
+  const value    = isPhone ? prospect.phone : prospect.email
+  const Icon     = isPhone ? Phone : Mail
+  const iconBg   = isPhone ? 'bg-[#1B54FF]/10' : 'bg-emerald-500/10'
+  const iconColor = isPhone ? 'text-[#1B54FF]' : 'text-emerald-600'
+  const textColor = isPhone ? 'text-[#1B54FF]' : 'text-emerald-700'
+
+  if (!has || !value) return null
+
+  if (unlocked) {
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
+    return (
+      <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isPhone ? 'bg-[#1B54FF]/5' : 'bg-emerald-500/5'}`}>
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon size={14} className={iconColor} />
+        </div>
+        <a href={href} onClick={e => e.stopPropagation()}
+          className={`flex-1 min-w-0 text-[13px] font-medium truncate animate-value-reveal ${textColor}`}>
+          {value}
+        </a>
+        <CheckCircle2 size={14} className={iconColor} />
+      </div>
+    )
+  }
+
+  const click = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try { await onUnlock(prospect, kind) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+        <Icon size={14} className={iconColor} />
+      </div>
+      <span className="flex-1 min-w-0 text-[13px] font-medium text-gray-500 tabular-nums tracking-wide truncate">{value}</span>
+      <button
+        type="button" onClick={click} disabled={busy}
+        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition active:scale-95 disabled:opacity-60
+          ${isPhone
+            ? 'bg-[#1B54FF] text-white hover:bg-[#0f3fc7]'
+            : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+      >
+        {busy
+          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          : <Lock size={10} />}
+        {canUnlock ? 'Débloquer' : 'Voir les offres'}
+      </button>
+    </div>
+  )
+}
+
 // ─── Cadenas SVG "t!" — masque global référencé par id ───────────────────────
 // Le masque est déclaré une seule fois dans le DOM (voir GlobalSvgDefs),
 // tous les cadenas de la page l'utilisent via url(#trouve-t-mask).
@@ -1082,37 +1293,51 @@ function ContactRowStatic({
   onUnlock?:    (e: React.MouseEvent) => void
   busy?:        boolean
   canUnlock?:   boolean
-  coloredIcon?: boolean  // icône bleue (phone) ou verte (email) pour la modale
+  coloredIcon?: boolean
 }) {
   const isPhone   = kind === 'phone'
   const Icon      = isPhone ? Phone : Mail
-  const iconClass = coloredIcon
-    ? (isPhone ? 'text-[#124bd2]' : 'text-emerald-500')
-    : 'text-gray-300'
+  const iconBg    = isPhone ? 'bg-[#1B54FF]/10' : 'bg-emerald-500/10'
+  const iconColor = isPhone ? 'text-[#1B54FF]'  : 'text-emerald-600'
+  const tintBg    = isPhone ? 'bg-[#1B54FF]/5'  : 'bg-emerald-500/5'
+  const textColor = isPhone ? 'text-[#1B54FF]'  : 'text-emerald-700'
+  const btnColor  = isPhone
+    ? 'bg-[#1B54FF] hover:bg-[#0f3fc7] text-white'
+    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
 
   if (unlocked) {
-    const href      = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
-    const rowHoverBg   = isPhone ? 'hover:bg-blue-50'            : 'hover:bg-emerald-50'
-    const childHover   = isPhone ? 'group-hover:text-[#124bd2]'  : 'group-hover:text-emerald-500'
+    const href = isPhone ? `tel:${value.replace(/\s/g, '')}` : `mailto:${value}`
     return (
-      <div className={`group flex items-center py-3.5 border-b border-gray-100 last:border-0 rounded-lg transition-colors cursor-pointer -mx-1 px-1 ${rowHoverBg}`}>
-        <Icon size={15} className={`${iconClass} shrink-0 mr-3 transition-colors ${childHover}`} />
+      <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 mb-1.5 last:mb-0 ${tintBg}`}>
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon size={12} className={iconColor} />
+        </div>
         <a href={href} onClick={e => e.stopPropagation()}
-          className={`font-mono text-xs text-gray-700 flex-1 min-w-0 truncate transition-colors animate-value-reveal ${childHover}`}>
+          className={`flex-1 min-w-0 text-[11px] font-medium truncate animate-value-reveal ${textColor}`}>
           {value}
         </a>
+        <CheckCircle2 size={12} className={iconColor} />
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-between py-3.5 border-b border-gray-100 last:border-0">
-      <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-        <Icon size={15} className={`${iconClass} shrink-0`} />
-        <span className="font-mono text-xs text-gray-500 tracking-wide truncate">{value}</span>
+    <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3 py-2.5 mb-1.5 last:mb-0">
+      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+        <Icon size={12} className={iconColor} />
       </div>
+      <span className="flex-1 min-w-0 text-[11px] font-medium text-gray-400 tabular-nums tracking-wide truncate">{value}</span>
       {onUnlock && (
-        <PadlockUnlockButton kind={kind} onClick={onUnlock} busy={busy} canUnlock={canUnlock} />
+        <button
+          type="button" onClick={onUnlock} disabled={busy}
+          className={`shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all disabled:opacity-60 ${btnColor}`}
+        >
+          {busy
+            ? <span className="h-2.5 w-2.5 animate-spin rounded-full border border-t-transparent border-white" />
+            : <Lock size={8} />
+          }
+          {canUnlock ? 'Débloquer' : 'Voir offres'}
+        </button>
       )}
     </div>
   )
@@ -1333,13 +1558,16 @@ function ProspectCard({
 
   return (
     <div
-      className={`group flex flex-col rounded-2xl bg-white border border-[#E5E7EB] p-5 shadow-sm transition duration-200 hover:shadow-md ${isLimited ? 'cursor-default' : 'cursor-pointer'}`}
+      className={`group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm transition-all duration-200 overflow-hidden ${isLimited ? 'cursor-default' : 'cursor-pointer hover:shadow-[0_4px_24px_-4px_rgba(27,84,255,0.12)] hover:border-[#1B54FF]/20'}`}
       onClick={() => !isLimited && onDetail(prospect)}
     >
-      {/* Header — initiales + nom + sous-titre */}
-      <div className="flex items-start justify-between gap-2 mb-4">
+      {/* Accent top border */}
+      {!isLimited && <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#1B54FF] via-[#3a7aff] to-[#1B54FF]/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${isLimited ? 'bg-gray-50 border-gray-200 text-gray-300' : 'bg-[#124bd2]/10 border-[#124bd2]/20 text-[#124bd2]'}`}>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow-sm ${isLimited ? 'bg-gray-100 text-gray-300' : 'bg-gradient-to-br from-[#1B54FF] to-[#0f3fc7] text-white'}`}>
             {isLimited ? <Lock size={13} className="text-gray-300" /> : initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -1350,11 +1578,9 @@ function ProspectCard({
               </div>
             ) : (
               <>
-                <p className="text-sm font-semibold text-gray-900 tracking-tight leading-snug truncate">{prospect.fullName}</p>
-                {(prospect.jobTitle || addressSubtitle) && (
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">
-                    {prospect.jobTitle ?? addressSubtitle}
-                  </p>
+                <p className="text-[13px] font-semibold text-gray-900 tracking-tight leading-snug truncate">{prospect.fullName}</p>
+                {addressSubtitle && (
+                  <p className="text-[11px] text-gray-400 mt-0.5 truncate">{addressSubtitle}</p>
                 )}
               </>
             )}
@@ -1364,25 +1590,27 @@ function ProspectCard({
           <button
             onClick={e => { e.stopPropagation(); onToggleFavorite(prospect) }}
             aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            className={`shrink-0 transition ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'}`}
+            className={`shrink-0 mt-0.5 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'}`}
           >
-            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+            <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
         )}
       </div>
 
+      {/* Divider */}
+      <div className="mx-4 border-t border-gray-50" />
+
       {/* Section Coordonnées */}
       {isLimited ? (
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 px-4 py-3 space-y-2">
           <div className="flex items-center gap-2"><Phone size={11} className="text-gray-200" /><BlurPill w="w-28" /></div>
           <div className="flex items-center gap-2"><Mail size={11} className="text-gray-200" /><BlurPill w="w-32" /></div>
           <div className="flex items-center gap-2"><MapPin size={11} className="text-gray-200" /><BlurPill w="w-20" /></div>
         </div>
       ) : (
-        <div className="flex-1">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Coordonnées</p>
-          <div className="border-t border-gray-100">
-            {/* Téléphones */}
+        <div className="flex-1 px-4 py-3">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Coordonnées</p>
+          <div className="space-y-0">
             {prospect.hasPhone && (
               <ContactRowStatic
                 kind="phone"
@@ -1402,8 +1630,6 @@ function ProspectCard({
                     onUnlock={unlockPhone} busy={phoneBusy} canUnlock={canUnlock} />
                 ))
             }
-
-            {/* Emails */}
             {prospect.hasEmail && (
               <ContactRowStatic
                 kind="email"
@@ -1423,32 +1649,31 @@ function ProspectCard({
                     onUnlock={unlockEmail} busy={emailBusy} canUnlock={canUnlock} />
                 ))
             }
-
             {!prospect.hasPhone && !prospect.hasEmail && (
-              <p className="py-3 text-xs text-gray-300">Aucune coordonnée disponible</p>
+              <p className="py-2 text-[11px] text-gray-300">Aucune coordonnée</p>
             )}
           </div>
         </div>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-50">
         {prospect.mergedCount && prospect.mergedCount > 1 && !isLimited ? (
-          <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
-            <Database size={9} className="text-gray-300" />
-            {prospect.mergedCount} fiches fusionnées
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <Database size={8} className="text-gray-300" />
+            {prospect.mergedCount} fusionnées
           </span>
         ) : <span />}
         {isLimited ? (
-          <span className="flex items-center gap-1 text-xs font-medium text-gray-300">
-            <Lock size={10} /> Accès restreint
+          <span className="flex items-center gap-1 text-[11px] font-medium text-gray-300">
+            <Lock size={9} /> Accès restreint
           </span>
         ) : (
           <button
             onClick={e => { e.stopPropagation(); onDetail(prospect) }}
-            className="text-xs font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-gray-50 hover:bg-[#1B54FF]/8 px-2.5 py-1.5 text-[11px] font-semibold text-gray-500 hover:text-[#1B54FF] transition-all duration-150"
           >
-            Voir la fiche <ArrowRight size={12} />
+            Voir la fiche <ArrowRight size={11} />
           </button>
         )}
       </div>
@@ -1588,36 +1813,71 @@ function ListsView({ lists, onOpenList, onExport, onDelete, onGoSearch, onNewLis
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {lists.map(list => (
-          <div key={list.id} onClick={() => onOpenList(list.id)}
-            className="card-lift flex cursor-pointer flex-col rounded-2xl border border-slate-200/80 bg-white p-5 transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-3 flex items-center justify-between">
-              {isListColor(list.emoji)
-                ? <ListColorDot color={list.emoji} size="lg" />
-                : <span className="text-2xl">{list.emoji}</span>}
-              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}</span>
-            </div>
-            <p className="font-semibold text-slate-800 dark:text-slate-100">{list.name}</p>
-            <p className="mt-0.5 text-xs text-slate-400">Modifiée {new Date(list.updatedAt).toLocaleDateString('fr-FR')}</p>
-            <div className="mt-3 flex -space-x-1.5">
-              {list.contacts.slice(0, 4).map(c => (
-                <div key={c.id} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-100 text-[9px] font-bold text-blue-700 dark:border-slate-900">
-                  {prospectInitials(c.name)}
+        {lists.map((list, idx) => (
+          <motion.div
+            key={list.id}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, delay: idx * 0.06 }}
+            onClick={() => onOpenList(list.id)}
+            className="group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex flex-1 flex-col p-5">
+              {/* Header : indicateur + nom + count */}
+              <div className="mb-4 flex items-start gap-3">
+                <div className="mt-[3px] shrink-0">
+                  {isListColor(list.emoji)
+                    ? <ListColorDot color={list.emoji} size="sm" />
+                    : <span className="text-lg leading-none">{list.emoji}</span>}
                 </div>
-              ))}
-              {list.contacts.length > 4 && <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[9px] font-bold text-slate-500">+{list.contacts.length - 4}</div>}
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{list.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {list.contacts.length} contact{list.contacts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+
+              {/* Avatars + date */}
+              <div className="mb-5 flex w-full items-center justify-between">
+                {list.contacts.length > 0 ? (
+                  <div className="flex -space-x-1.5">
+                    {list.contacts.slice(0, 4).map(c => (
+                      <div key={c.id} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#1B54FF]/10 text-[9px] font-bold text-[#1B54FF] dark:border-slate-900">
+                        {prospectInitials(c.name)}
+                      </div>
+                    ))}
+                    {list.contacts.length > 4 && (
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[9px] font-bold text-slate-500 dark:border-slate-900">
+                        +{list.contacts.length - 4}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs italic text-slate-300 dark:text-slate-600">Liste vide</span>
+                )}
+                <span className="text-xs text-slate-400">
+                  {new Date(list.updatedAt).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto flex gap-2">
+                <button
+                  onClick={e => { e.stopPropagation(); onExport(list) }}
+                  className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#1B54FF] text-xs font-semibold text-white transition hover:bg-[#0b3fbc]"
+                >
+                  <Download size={12} /> Exporter CSV
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); if (confirm(`Supprimer "${list.name}" ?`)) onDelete(list.id) }}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-slate-700"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <button onClick={e => { e.stopPropagation(); onExport(list) }}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <Download size={11} /> CSV
-              </button>
-              <button onClick={e => { e.stopPropagation(); if (confirm(`Supprimer "${list.name}" ?`)) onDelete(list.id) }}
-                className="flex items-center justify-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100">
-                <X size={11} />
-              </button>
-            </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -2068,6 +2328,10 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
 
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function SearchPage({ account, onLogout, onOpenAccount, accessLevel = 'full', maxSearches }: SearchPageProps) {
+  // Feature flags — interrupteurs d'urgence admin
+  const { isEnabled } = useFeatureFlags()
+  const [maintenanceFlag, setMaintenanceFlag] = useState<string | null>(null)
+
   // État de recherche
   const [query, setQuery]               = useState('')
   const [inputValue, setInputValue]     = useState('')
@@ -2211,6 +2475,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   // Déblocage d'un champ (consomme 1 crédit). Démo / sans crédit → page offres.
   const handleUnlock = useCallback(async (prospect: ProspectResult, field: 'phone' | 'email') => {
+    // Guard feature flag — affiche modal maintenance si le module est coupé
+    const flagKey = field === 'phone' ? 'phone_unlock' : 'email_unlock'
+    if (!isEnabled(flagKey)) { setMaintenanceFlag(flagKey); return }
+
     const isDemoAccount = accountIdRef.current.startsWith('demo-') || accountIdRef.current.startsWith('preview-')
     // ── Mode démo : simule le déblocage avec données partielles ─────────────
     if (isDemoAccount) {
@@ -2460,6 +2728,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
+    if (!isEnabled('search')) { setMaintenanceFlag('search'); return }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const ident = identityInput.trim()
     const label = ident || [advLastName, advFirstName].filter(Boolean).join(' ')
@@ -2582,10 +2851,56 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   }
 
   // ─── Rendu ─────────────────────────────────────────────────────────────────
+  // Détecte une session d'impersonation admin (?_imp=1 dans l'URL)
+  const isImpersonated = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('_imp')
+
   return (
     <>
     <GlobalSvgDefs />
     <div className="flex min-h-screen bg-[#F5F5F7] dark:bg-[#0d1424]">
+
+      {/* ── Bannière impersonation admin ──────────────────────────────────── */}
+      {isImpersonated && (
+        <div className="fixed top-0 inset-x-0 z-[9999] flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-lg">
+          <span className="animate-pulse">⚠</span>
+          Mode support — vous voyez le compte de{' '}
+          <span className="underline underline-offset-2">{account.email}</span>.
+          Toute action est réelle.
+          <button
+            onClick={() => {
+              // Supprime le flag et recharge en session normale
+              const url = new URL(window.location.href)
+              url.searchParams.delete('_imp')
+              window.location.replace(url.toString())
+            }}
+            className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-xs hover:bg-white/30"
+          >
+            Quitter
+          </button>
+        </div>
+      )}
+
+      {/* ── Modal maintenance feature flag ───────────────────────────────── */}
+      {maintenanceFlag && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setMaintenanceFlag(null)}>
+          <div className="mx-6 w-full max-w-sm rounded-2xl bg-white shadow-2xl p-7 text-center" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-amber-100 mx-auto mb-4">
+              <span className="text-2xl">🔧</span>
+            </div>
+            <h3 className="text-lg font-extrabold text-slate-900 mb-2">Maintenance en cours</h3>
+            <p className="text-sm text-slate-500 mb-1">
+              {maintenanceFlag === 'search' && 'Le moteur de recherche est temporairement indisponible.'}
+              {maintenanceFlag === 'phone_unlock' && 'Le déblocage de numéros de téléphone est temporairement suspendu.'}
+              {maintenanceFlag === 'email_unlock' && 'Le déblocage d\'adresses email est temporairement suspendu.'}
+            </p>
+            <p className="text-xs text-slate-400 mb-6">Aucun crédit ne sera consommé. Réessayez dans quelques instants.</p>
+            <button onClick={() => setMaintenanceFlag(null)}
+              className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-slate-700">
+              Compris
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hard-lock démo : modal non-fermable quand crédits phone = 0 */}
       {demoLocked && (
@@ -2895,21 +3210,19 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
 
-        {/* Vue Admin */}
+        {/* Vue Admin → redirige vers le CRM full-screen (?crm) */}
         {appView === 'admin' && account.role === 'admin' && (
-          <div className="flex flex-1 flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
-            <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8 dark:border-gray-800 dark:bg-gray-950">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Admin</h1>
-              <div className="flex items-center gap-3">
-                <NotificationPopover
-                  notifications={adminNotifications}
-                  onMarkAsRead={(id) => setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
-                  onMarkAllAsRead={() => setAdminNotifications(prev => prev.map(n => ({ ...n, read: true })))}
-                />
-                <ThemeToggle size="sm" />
-              </div>
+          <div className="flex flex-1 flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 gap-6">
+            <div className="text-center">
+              <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">Dashboard Admin</p>
+              <p className="text-sm text-gray-400">Le CRM s'ouvre dans une interface dédiée.</p>
             </div>
-            <AdminPage account={account} />
+            <a
+              href="?crm"
+              className="flex items-center gap-2 rounded-xl bg-[#1B54FF] px-6 py-3 text-sm font-semibold text-white hover:bg-[#1B54FF]/90 shadow-sm"
+            >
+              Ouvrir le CRM Admin
+            </a>
           </div>
         )}
 
