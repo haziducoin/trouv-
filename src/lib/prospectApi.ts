@@ -338,8 +338,8 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const isNameSearch = !!(p_identity || p_nom || p_prenom)
 
   const rpcParams: Record<string, any> = {
-    // Pour le pivot on prend 50 seeds ; sinon pagination normale
-    p_limit:  isNameSearch ? 50 : pp,
+    // Pour le pivot on prend 200 seeds (ratisser assez large pour capturer les fiches avec pivot)
+    p_limit:  isNameSearch ? 200 : pp,
     p_offset: isNameSearch ? 0  : (pg - 1) * pp,
     p_mode:   params.searchMode ?? 'starts_with',
   }
