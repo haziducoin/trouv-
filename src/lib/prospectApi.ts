@@ -301,11 +301,19 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   let p_prenom = params.prenom?.trim() || null
 
   const queryRaw = params.query.trim()
+  let effectiveTel = params.tel?.trim() || null
 
   if (!p_identity && !p_nom && !p_prenom && queryRaw) {
-    const parts = queryRaw.split(/\s+/)
-    p_nom    = parts[0] || null
-    p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
+    const digits = queryRaw.replace(/[^0-9]/g, '')
+    const isPhoneOnlyQuery = /^[\d\s\+\-\.()]+$/.test(queryRaw) && digits.length >= 9
+    if (isPhoneOnlyQuery) {
+      // 9 chiffres sans le 0 → padding (ex: "616331798" → "0616331798")
+      effectiveTel = digits.length === 9 ? '0' + digits : digits
+    } else {
+      const parts = queryRaw.split(/\s+/)
+      p_nom    = parts[0] || null
+      p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
+    }
   }
 
   // ── Recherche par email (query contient '@') ──────────────────────────────
@@ -352,8 +360,8 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.city?.trim())    rpcParams.p_ville   = params.city.trim()
   if (params.zipCode?.trim()) rpcParams.p_cp      = params.zipCode.trim()
   if (params.address?.trim()) rpcParams.p_adresse = params.address.trim()
-  if (params.tel?.trim()) {
-    const clean = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
+  if (effectiveTel) {
+    const clean = effectiveTel.replace(/[\s\.\-\(\)]/g, '')
     let normalizedTel = clean
     if      (clean.startsWith('+33'))            normalizedTel = clean.slice(3)
     else if (clean.startsWith('0033'))           normalizedTel = clean.slice(4)

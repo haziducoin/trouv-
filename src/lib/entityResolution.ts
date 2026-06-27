@@ -95,6 +95,29 @@ function makeUnionFind(n: number) {
   return { find, union }
 }
 
+// ─── Compatibilité de noms (garde-fou anti-Frankenstein) ──────────────────────
+
+/**
+ * Vérifie si deux fiches ont des noms humainement compatibles avant de les fusionner.
+ * Accepte les diminutifs ("Dan" ↔ "Daniel"), initiales ("Ks" ↔ "Kessous"),
+ * et les mots communs ("Kessous" dans les deux).
+ */
+function isNameCompatible(rowA: RawRow, rowB: RawRow): boolean {
+  const nameA = `${rowA.nom ?? ''} ${rowA.prenom ?? ''}`.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+  const nameB = `${rowB.nom ?? ''} ${rowB.prenom ?? ''}`.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+  if (!nameA || !nameB) return true  // fiche sans nom → on accepte
+
+  const wordsA = nameA.split(/\s+/).filter(w => w.length > 1)
+  const wordsB = nameB.split(/\s+/).filter(w => w.length > 1)
+  if (wordsA.length === 0 || wordsB.length === 0) return true
+
+  // Mot entier commun (ex: "kessous" ↔ "kessous")
+  if (wordsA.some(wa => wordsB.includes(wa))) return true
+
+  // Diminutif / initiale (ex: "dan" starts "daniel", "ks" starts "kessous")
+  return wordsA.some(wa => wordsB.some(wb => wa.startsWith(wb) || wb.startsWith(wa)))
+}
+
 // ─── Fusion d'un cluster ───────────────────────────────────────────────────────
 
 function maskPhoneShort(raw: string): string {
@@ -229,17 +252,24 @@ export function resolveEntities(rows: RawRow[]): RawRow[] {
     for (let j = i + 1; j < rows.length; j++) {
       if (find(i) === find(j)) continue
 
-      // Règle 1 : pivot téléphone — fusion inconditionnelle (ignore nom/prénom)
+      // Règle 1 : pivot téléphone + garde-fou nom (anti-Frankenstein)
       if (normsA.size > 0) {
         const normsB = normsCache[j]
         let phoneMatch = false
         for (const p of normsB) { if (normsA.has(p)) { phoneMatch = true; break } }
-        if (phoneMatch) { union(i, j); continue }
+        if (phoneMatch) {
+          const addrA = addrCache[i], addrB = addrCache[j]
+          if (isNameCompatible(rows[i], rows[j]) || (addrA && addrB && addrA === addrB)) {
+            union(i, j); continue
+          }
+        }
       }
 
-      // Règle 2 : pivot email — fusion inconditionnelle
+      // Règle 2 : pivot email + garde-fou nom
       const emailB = emailCache[j]
-      if (emailA && emailB && emailA === emailB) { union(i, j); continue }
+      if (emailA && emailB && emailA === emailB && isNameCompatible(rows[i], rows[j])) {
+        union(i, j); continue
+      }
 
       // Règle 3 : homonymes — même identité + (même naissance OU même adresse)
       if (idKeyA === idKeyCache[j]) {
