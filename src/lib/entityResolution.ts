@@ -95,21 +95,62 @@ function makeUnionFind(n: number) {
   return { find, union }
 }
 
+// ─── Compatibilité de noms (garde-fou anti-Frankenstein) ──────────────────────
+
+/**
+ * Vérifie si deux fiches ont des noms humainement compatibles avant de les fusionner.
+ * Accepte les diminutifs ("Dan" ↔ "Daniel"), initiales ("Ks" ↔ "Kessous"),
+ * et les mots communs ("Kessous" dans les deux).
+ */
+function isNameCompatible(rowA: RawRow, rowB: RawRow): boolean {
+  const nameA = `${rowA.nom ?? ''} ${rowA.prenom ?? ''}`.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+  const nameB = `${rowB.nom ?? ''} ${rowB.prenom ?? ''}`.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim()
+  if (!nameA || !nameB) return true  // fiche sans nom → on accepte
+
+  const wordsA = nameA.split(/\s+/).filter(w => w.length > 1)
+  const wordsB = nameB.split(/\s+/).filter(w => w.length > 1)
+  if (wordsA.length === 0 || wordsB.length === 0) return true
+
+  // Mot entier commun (ex: "kessous" ↔ "kessous")
+  if (wordsA.some(wa => wordsB.includes(wa))) return true
+
+  // Diminutif / initiale (ex: "dan" starts "daniel", "ks" starts "kessous")
+  return wordsA.some(wa => wordsB.some(wb => wa.startsWith(wb) || wb.startsWith(wa)))
+}
+
 // ─── Fusion d'un cluster ───────────────────────────────────────────────────────
 
+function maskPhoneShort(raw: string): string {
+  return raw.slice(0, 6) + '••••'
+}
+
+/** Tous les numéros bruts d'une fiche (telephone + mobile) normalisés */
+function allNormsOf(row: RawRow): string[] {
+  const nums: string[] = []
+  for (const raw of [row.phone_value, row.telephone, row.mobile]) {
+    const n = normalizePhone(raw)
+    if (n) nums.push(n)
+  }
+  return [...new Set(nums)]
+}
+
 function mergeCluster(rows: RawRow[]): RawRow {
-  // On prend la première ligne comme base canonique
   const base: RawRow = { ...rows[0] }
 
-  const idSet          = new Set<string>()
-  const phoneIdSet     = new Set<string>() // IDs ayant un téléphone
-  const emailIdSet     = new Set<string>() // IDs ayant un email
-  const phoneSet       = new Set<string>() // phone_value débloqués uniquement
-  const phoneLockedSet = new Set<string>() // phone_masked des lignes non débloquées
-  const emailSet       = new Set<string>() // email_value débloqués
-  const emailLockedSet = new Set<string>() // email_masked non débloqués
+  const idSet      = new Set<string>()
+  const phoneIdSet = new Set<string>()
+  const emailIdSet = new Set<string>()
+
+  // Numéros débloqués (normalisés) et verrouillés (norm → masked)
+  const phoneNormSet   = new Set<string>()
+  const phoneLockedMap = new Map<string, string>() // norm → masked
+  const emailSet       = new Set<string>()
+  const emailLockedSet = new Set<string>()
   const addrKeySet     = new Set<string>()
-  const adresses:      MergedAddress[] = []
+  const adresses: MergedAddress[] = []
+
+  // Numéro principal de la fiche de base (affiché comme result.phone) — ne pas le dupliquer
+  const basePrimaryNorm = normalizePhone(rows[0].telephone || rows[0].mobile)
 
   for (let ri = 0; ri < rows.length; ri++) {
     const row = rows[ri]
@@ -117,51 +158,59 @@ function mergeCluster(rows: RawRow[]): RawRow {
     if (row.has_phone) phoneIdSet.add(String(row.id))
     if (row.has_email) emailIdSet.add(String(row.id))
 
-    // Téléphone débloqué : phone_value propre
-    if (row.phone_value) {
-      const p = normalizePhone(row.phone_value)
-      if (p) phoneSet.add(p)
-    } else if (ri > 0 && row.phone_masked) {
-      // La ligne de base (ri=0) est déjà le phone principal — ne pas la dupliquer
-      phoneLockedSet.add(row.phone_masked)
+    const phoneUnlocked = !!row.phone_unlocked
+
+    // Collecte telephone ET mobile de chaque fiche
+    // On exclut basePrimaryNorm partout : il est déjà affiché via result.phone
+    const rawPhones: string[] = []
+    if (row.telephone?.trim()) rawPhones.push(row.telephone.trim())
+    if (row.mobile?.trim() && row.mobile !== row.telephone) rawPhones.push(row.mobile.trim())
+
+    for (const raw of rawPhones) {
+      const norm = normalizePhone(raw)
+      if (!norm || norm === basePrimaryNorm) continue  // base primary → result.phone, pas de doublon
+
+      if (phoneUnlocked) {
+        phoneNormSet.add(norm)
+      } else {
+        if (!phoneLockedMap.has(norm)) phoneLockedMap.set(norm, maskPhoneShort(raw))
+      }
     }
 
-    // Email débloqué vs masqué — normalisation lowercase pour éviter les doublons de casse
-    if (row.email_value && !looksLikePhone(row.email_value)) {
+    // Email — ri=0 déjà affiché via result.email, on collecte uniquement les secondaires
+    // Normalisation lowercase pour éviter les doublons de casse
+    if (ri > 0 && row.email_value && !looksLikePhone(row.email_value)) {
       emailSet.add(row.email_value.toLowerCase())
     } else if (ri > 0 && row.email_masked && !looksLikePhone(row.email_masked)) {
       emailLockedSet.add(row.email_masked.toLowerCase())
     }
 
-    // Adresses uniques (clé basée sur la rue)
+    // Adresses
     const ak = addressKey(row)
     if (ak && !addrKeySet.has(ak)) {
       addrKeySet.add(ak)
       adresses.push({ rue: row.adresse ?? null, cp: row.code_postal ?? null, ville: row.ville ?? null })
     }
 
-    // Préférer les valeurs non-nulles pour les champs scalaires
     for (const field of ['date_naissance', 'civilite', 'sexe', 'societe', 'code_postal', 'ville', 'adresse']) {
       if (!base[field] && row[field]) base[field] = row[field]
     }
 
-    // Statut débloqué : vrai si au moins une ligne l'est
     if (row.phone_unlocked) base.phone_unlocked = true
     if (row.email_unlocked) base.email_unlocked = true
     if (row.has_phone)      base.has_phone = true
     if (row.has_email)      base.has_email = true
   }
 
-  // Supprimer les doublons entre débloqués et masqués
-  for (const p of phoneSet) phoneLockedSet.delete(p)
-  for (const e of emailSet) emailLockedSet.delete(e)
+  // Retire les verrouillés déjà débloqués
+  for (const norm of phoneNormSet) phoneLockedMap.delete(norm)
 
   const meta: EntityResolutionMeta = {
     _ids:          [...idSet],
     _phoneIds:     [...phoneIdSet],
     _emailIds:     [...emailIdSet],
-    _phones:       [...phoneSet],
-    _phonesLocked: [...phoneLockedSet],
+    _phones:       [...phoneNormSet],
+    _phonesLocked: [...phoneLockedMap.values()],
     _emails:       [...emailSet],
     _emailsLocked: [...emailLockedSet],
     _adresses:     adresses,
@@ -175,66 +224,73 @@ function mergeCluster(rows: RawRow[]): RawRow {
 
 /**
  * Prend les lignes brutes de la RPC et retourne un tableau dédoublonné.
- * Les lignes fusionnées portent les champs _phones, _emails, _adresses, _mergedCount.
+ *
+ * Union-Find global (sans pré-groupement par nom) :
+ *   Règle 1 — Téléphone partagé  → fusion inconditionnelle (alias "Dan Ks" ↔ "Daniel Kessous")
+ *   Règle 2 — Email partagé      → fusion inconditionnelle
+ *   Règle 3 — Identité identique + (même naissance OU même adresse) → fusion homonymes
  */
 export function resolveEntities(rows: RawRow[]): RawRow[] {
   if (rows.length <= 1) return rows
 
-  // 1. Grouper par identité normalisée
-  const identityGroups = new Map<string, { idx: number; row: RawRow }[]>()
-  rows.forEach((row, idx) => {
-    const key = identityKey(row)
-    if (!identityGroups.has(key)) identityGroups.set(key, [])
-    identityGroups.get(key)!.push({ idx, row })
+  const { find, union } = makeUnionFind(rows.length)
+
+  // Pré-calcul pour éviter les appels répétés dans la boucle interne O(n²)
+  const normsCache  = rows.map(r => new Set(allNormsOf(r)))
+  const emailCache  = rows.map(r => {
+    const e = ((r.email_value as string | null) || (r.email as string | null) || '').toLowerCase().trim()
+    return e.includes('@') ? e : ''
   })
+  const birthCache  = rows.map(r => birthYear(r))
+  const addrCache   = rows.map(r => addressKey(r))
+  const idKeyCache  = rows.map(r => identityKey(r))
 
-  const result: RawRow[] = []
+  for (let i = 0; i < rows.length; i++) {
+    const normsA  = normsCache[i]
+    const emailA  = emailCache[i]
+    const idKeyA  = idKeyCache[i]
 
-  for (const group of identityGroups.values()) {
-    if (group.length === 1) {
-      result.push(group[0].row)
-      continue
-    }
+    for (let j = i + 1; j < rows.length; j++) {
+      if (find(i) === find(j)) continue
 
-    // 2. Union-Find au sein du groupe d'identité
-    const { find, union } = makeUnionFind(group.length)
-
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        if (find(i) === find(j)) continue  // déjà dans le même cluster
-
-        const a = group[i].row
-        const b = group[j].row
-
-        // Condition A : même mobile (phone_value si débloqué, sinon colonne brute, sinon masque)
-        const pa = normalizePhone(a.phone_value || a.telephone || a.mobile || a.phone_masked)
-        const pb = normalizePhone(b.phone_value || b.telephone || b.mobile || b.phone_masked)
-        if (pa && pb && pa === pb) { union(i, j); continue }
-
-        // Condition B : même date de naissance complète OU même année de naissance
-        const ya = birthYear(a)
-        const yb = birthYear(b)
-        if (ya && yb && ya === yb) { union(i, j); continue }
-
-        // Condition C : même adresse complète (rue obligatoire)
-        const addrA = addressKey(a)
-        const addrB = addressKey(b)
-        if (addrA && addrB && addrA === addrB) { union(i, j); continue }
+      // Règle 1 : pivot téléphone + garde-fou nom (anti-Frankenstein)
+      if (normsA.size > 0) {
+        const normsB = normsCache[j]
+        let phoneMatch = false
+        for (const p of normsB) { if (normsA.has(p)) { phoneMatch = true; break } }
+        if (phoneMatch) {
+          const addrA = addrCache[i], addrB = addrCache[j]
+          if (isNameCompatible(rows[i], rows[j]) || (addrA && addrB && addrA === addrB)) {
+            union(i, j); continue
+          }
+        }
       }
-    }
 
-    // 3. Collecter les clusters et les fusionner
-    const clusters = new Map<number, RawRow[]>()
-    for (let i = 0; i < group.length; i++) {
-      const root = find(i)
-      if (!clusters.has(root)) clusters.set(root, [])
-      clusters.get(root)!.push(group[i].row)
-    }
+      // Règle 2 : pivot email + garde-fou nom
+      const emailB = emailCache[j]
+      if (emailA && emailB && emailA === emailB && isNameCompatible(rows[i], rows[j])) {
+        union(i, j); continue
+      }
 
-    for (const cluster of clusters.values()) {
-      result.push(cluster.length === 1 ? cluster[0] : mergeCluster(cluster))
+      // Règle 3 : homonymes — même identité + (même naissance OU même adresse)
+      if (idKeyA === idKeyCache[j]) {
+        const ya = birthCache[i], yb = birthCache[j]
+        const addrA = addrCache[i], addrB = addrCache[j]
+        if ((ya && yb && ya === yb) || (addrA && addrB && addrA === addrB)) {
+          union(i, j)
+        }
+      }
     }
   }
 
-  return result
+  const clusters = new Map<number, RawRow[]>()
+  for (let i = 0; i < rows.length; i++) {
+    const root = find(i)
+    if (!clusters.has(root)) clusters.set(root, [])
+    clusters.get(root)!.push(rows[i])
+  }
+
+  return [...clusters.values()].map(cluster =>
+    cluster.length === 1 ? cluster[0] : mergeCluster(cluster)
+  )
 }

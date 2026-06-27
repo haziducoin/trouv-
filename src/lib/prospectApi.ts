@@ -137,6 +137,7 @@ export interface ProspectResult {
   emailIds?:      string[]        // IDs des fiches ayant un email (pour unlock ciblé)
   mobiles?:       string[]        // téléphones débloqués (phone_value)
   mobilesLocked?: string[]        // téléphones masqués des autres fiches
+  mobileRaw?:     string | null   // valeur brute du mobile (fiche unique) pour révéler après unlock
   allEmails?:     string[]        // emails débloqués des fiches fusionnées
   emailsLocked?:  string[]        // emails masqués des autres fiches
   allAddresses?:  MergedAddress[]
@@ -227,6 +228,20 @@ function mapRow(row: Record<string, any>): ProspectResult {
     result.allEmails     = row._emails
     result.emailsLocked  = (row._emailsLocked as string[]).map(e => maskEmail(e) ?? e)
     result.allAddresses  = row._adresses
+  } else if (row.telephone?.trim() && row.mobile?.trim() && row.telephone !== row.mobile) {
+    // Fiche unique avec téléphone fixe ET mobile — afficher les deux
+    if (phoneUnlocked) {
+      // Phone débloqué → mobile révélé gratuitement (même crédit)
+      const fmt = formatPhone(row.mobile)
+      if (fmt && fmt !== result.phone) result.mobiles = [fmt]
+    } else {
+      // Phone verrouillé → mobile masqué, brut stocké pour révéler au déblocage
+      const mobileMasked = maskPhone(row.mobile)
+      if (mobileMasked && mobileMasked !== result.phone) {
+        result.mobilesLocked = [mobileMasked]
+        result.mobileRaw = row.mobile
+      }
+    }
   }
 
   return result
@@ -237,58 +252,43 @@ function maskPhone(raw: string | null | undefined): string | null {
   return raw.slice(0, 6) + '••••'
 }
 
-function enrichRawContact(row: Record<string, any>): Record<string, any> {
-  return {
-    ...row,
-    has_phone:      !!(row.telephone || row.mobile),
-    has_email:      !!row.email,
-    phone_masked:   maskPhone(row.telephone) ?? maskPhone(row.mobile),
-    email_masked:   maskEmail(row.email),
-    phone_unlocked: false,
-    email_unlocked: false,
-    phone_value:    null,
-    email_value:    null,
-    score:          0,
-    total_count:    0,
+
+// ─── Pivot Search : récupère toutes les fiches partageant les mêmes téléphones/emails ──
+
+async function fetchPivotCluster(
+  initialRows: Array<Record<string, any>>,
+  supabase: ReturnType<typeof getSupabaseClient>
+): Promise<Array<Record<string, any>>> {
+  const phoneSet = new Set<string>()
+  const emailSet = new Set<string>()
+
+  for (const row of initialRows) {
+    for (const raw of [row.telephone, row.mobile]) {
+      if (!raw) continue
+      const digits = String(raw).replace(/[^0-9]/g, '')
+      // Normalise aux 9 derniers chiffres (supprime le préfixe +33/0)
+      // "+33616331798" → "616331798"  |  "0616331798" → "616331798"
+      // LIKE '%616331798%' matche les deux formats stockés en DB
+      if (digits.length >= 9) phoneSet.add(digits.slice(-9))
+      else if (digits.length >= 6) phoneSet.add(digits)
+    }
+    const em = (row.email ?? '').toLowerCase().trim()
+    if (em.includes('@')) emailSet.add(em)
   }
-}
 
-async function searchByAddressCluster(
-  adresse: string,
-  codePostal: string,
-  page: number,
-  perPage: number
-): Promise<ProspectSearchResponse> {
-  const supabase = getSupabaseClient()
-  const formattedAddress = '%' + adresse.trim().replace(/\s+/g, '%') + '%'
+  if (phoneSet.size === 0 && emailSet.size === 0) return initialRows
 
-  const { data, error } = await supabase.rpc('get_contacts_cluster_by_address', {
-    p_adresse:     formattedAddress,
-    p_code_postal: codePostal || null,
+  const { data, error } = await supabase.rpc('get_contacts_by_pivots', {
+    p_phone_digits: [...phoneSet],
+    p_emails:       [...emailSet],
+    p_limit:        1000,
   })
 
-  if (error) throw new Error(`Recherche impossible : ${error.message}`)
+  if (error || !data) return initialRows
 
-  const rows     = (data ?? []) as Array<Record<string, any>>
-  const enriched = rows.map(enrichRawContact)
-  const resolved = resolveEntities(enriched)
-
-  const seen = new Set<string>()
-  const results = resolved.map(mapRow).filter(p => {
-    if (!p.hasPhone && !p.hasEmail) return false
-    if (seen.has(p.id)) return false
-    seen.add(p.id)
-    return true
-  })
-
-  const start = (page - 1) * perPage
-  return {
-    results:    results.slice(start, start + perPage),
-    total:      results.length,
-    page,
-    perPage,
-    totalPages: Math.ceil(results.length / perPage),
-  }
+  const idSet  = new Set(initialRows.map(r => String(r.id)))
+  const newRows = (data as Array<Record<string, any>>).filter(r => !idSet.has(String(r.id)))
+  return [...initialRows, ...newRows]
 }
 
 export async function searchProspects(params: ProspectSearchParams): Promise<ProspectSearchResponse> {
@@ -300,51 +300,86 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   let p_nom    = params.nom?.trim()    || null
   let p_prenom = params.prenom?.trim() || null
 
-  if (!p_identity && !p_nom && !p_prenom && params.query.trim()) {
-    const parts = params.query.trim().split(/\s+/)
-    p_nom    = parts[0] || null
-    p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
+  const queryRaw = params.query.trim()
+  let effectiveTel = params.tel?.trim() || null
+
+  if (!p_identity && !p_nom && !p_prenom && queryRaw) {
+    const digits = queryRaw.replace(/[^0-9]/g, '')
+    const isPhoneOnlyQuery = /^[\d\s\+\-\.()]+$/.test(queryRaw) && digits.length >= 9
+    if (isPhoneOnlyQuery) {
+      // 9 chiffres sans le 0 → padding (ex: "616331798" → "0616331798")
+      effectiveTel = digits.length === 9 ? '0' + digits : digits
+    } else {
+      const parts = queryRaw.split(/\s+/)
+      p_nom    = parts[0] || null
+      p_prenom = parts.length > 1 ? parts.slice(1).join(' ') : null
+    }
   }
 
-  // On récupère un batch large pour que la fusion soit complète avant pagination.
-  // La pagination finale se fait côté client sur les groupes fusionnés.
-  const FUSION_BATCH = 500
+  // ── Recherche par email (query contient '@') ──────────────────────────────
+  const isEmailSearch = queryRaw.includes('@') && !p_identity && !p_nom && !p_prenom
+  if (isEmailSearch) {
+    const { data, error } = await supabase.rpc('get_contacts_by_pivots', {
+      p_phone_digits: [],
+      p_emails:       [queryRaw.toLowerCase()],
+      p_limit:        500,
+    })
+    if (error) throw new Error(`Recherche impossible : ${error.message}`)
+    const emailRows = (data ?? []) as Array<Record<string, any>>
+    const resolved  = resolveEntities(emailRows)
+    const seen = new Set<string>()
+    const all  = resolved.map(mapRow).filter(p => {
+      if (!p.hasPhone && !p.hasEmail) return false
+      if (seen.has(p.id)) return false
+      seen.add(p.id); return true
+    })
+    return {
+      results:    all.slice((pg - 1) * pp, pg * pp),
+      total:      all.length,
+      page:       pg,
+      perPage:    pp,
+      totalPages: Math.ceil(all.length / pp),
+    }
+  }
+
+  // ── Recherche nominative avec Pivot Search ────────────────────────────────
+  const isNameSearch = !!(p_identity || p_nom || p_prenom)
+
   const rpcParams: Record<string, any> = {
-    p_limit:  FUSION_BATCH,
-    p_offset: 0,
+    p_limit:  isNameSearch ? 200 : pp,
+    p_offset: isNameSearch ? 0  : (pg - 1) * pp,
     p_mode:   params.searchMode ?? 'starts_with',
   }
   if (p_identity) {
-    // Mode omnibar : un seul champ, le backend split et rank
     rpcParams.p_identity = p_identity
   } else {
     if (p_nom)    rpcParams.p_nom    = p_nom
     if (p_prenom) rpcParams.p_prenom = p_prenom
   }
-  if (params.city?.trim())    rpcParams.p_ville  = params.city.trim()
-  if (params.zipCode?.trim()) rpcParams.p_cp     = params.zipCode.trim()
+  if (params.city?.trim())    rpcParams.p_ville   = params.city.trim()
+  if (params.zipCode?.trim()) rpcParams.p_cp      = params.zipCode.trim()
   if (params.address?.trim()) rpcParams.p_adresse = params.address.trim()
-  if (params.tel?.trim()) {
-    const clean = params.tel.replace(/[\s\.\-\(\)]/g, '').trim()
+  if (effectiveTel) {
+    const clean = effectiveTel.replace(/[\s\.\-\(\)]/g, '')
     let normalizedTel = clean
-    // Index GIN trigram sur mobile/telephone (stockés +33XXXXXXXXX)
-    // → on extrait les 9 chiffres significatifs communs aux deux formats
-    // 0789291368 → 789291368   (LIKE '%789291368%' matche +33789291368) ✓
-    if      (clean.startsWith('+33'))  normalizedTel = clean.slice(3)
-    else if (clean.startsWith('0033')) normalizedTel = clean.slice(4)
-    else if (/^0[1-9]\d{8}$/.test(clean)) normalizedTel = clean.slice(1)
+    if      (clean.startsWith('+33'))            normalizedTel = clean.slice(3)
+    else if (clean.startsWith('0033'))           normalizedTel = clean.slice(4)
+    else if (/^0[1-9]\d{8}$/.test(clean))       normalizedTel = clean.slice(1)
     if (normalizedTel) rpcParams.p_tel = normalizedTel
   }
-  // Année de naissance — uniquement si identity OU (nom ET prénom) fournis
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
 
-  // Recherche par téléphone seul → plus de temps (index phone, pas de filtre nom)
-  const telOnly = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
-  const timeoutMs = telOnly ? 30000 : 10000
+  const telOnly    = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
+  const timeoutMs  = telOnly ? 30000 : 15000
   const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
   const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>(
-    (resolve) => setTimeout(() => resolve({ data: null, error: { message: telOnly ? 'Recherche par numéro trop longue — essayez d\'ajouter un nom' : 'Recherche trop longue — réessayez avec un nom exact', code: 'TIMEOUT' } }), timeoutMs)
+    (resolve) => setTimeout(() => resolve({ data: null, error: {
+      message: telOnly
+        ? 'Recherche par numéro trop longue — essayez d\'ajouter un nom'
+        : 'Recherche trop longue — réessayez avec un nom exact',
+      code: 'TIMEOUT',
+    } }), timeoutMs)
   )
 
   const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
@@ -356,29 +391,48 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     throw new Error(`Recherche impossible : ${error.message}`)
   }
 
-  const rows = (data ?? []) as Array<Record<string, any>>
+  let rows = (data ?? []) as Array<Record<string, any>>
 
-  // Entity resolution : fusionne les doublons sur l'ensemble du batch
+  // Pivot Search : pour les recherches nominatives, récupère toutes les fiches liées
+  // On mémorise les IDs du seed AVANT le pivot pour filtrer les résultats après
+  const seedIdSet = new Set(rows.map(r => String(r.id)))
+
+  if (isNameSearch && rows.length > 0) {
+    try {
+      rows = await fetchPivotCluster(rows, supabase)
+    } catch { /* fallback gracieux sur les résultats initiaux */ }
+  }
+
   const resolved = resolveEntities(rows)
 
-  // Déduplique par id ; ne garde que les fiches avec au moins un contact
   const seen = new Set<string>()
-  const allResults = resolved.map(mapRow).filter(p => {
+  const all  = resolved.map(mapRow).filter(p => {
     if (!p.hasPhone && !p.hasEmail) return false
     if (seen.has(p.id)) return false
     seen.add(p.id)
+    // Pour les recherches nominatives : exclure les fiches pivot qui n'ont pas fusionné
+    // avec une fiche du seed (ex: Gilles Hablouche qui partage un numéro de cabinet)
+    if (isNameSearch) {
+      const ids: string[] = (p as any)._ids ?? [String((p as any).id ?? p.id)]
+      if (!ids.some(id => seedIdSet.has(id))) return false
+    }
     return true
   })
 
-  // total = nombre de groupes fusionnés (pas les lignes brutes DB)
-  const total = allResults.length
+  // Pour les recherches nominatives : pagination en mémoire après pivot
+  if (isNameSearch) {
+    return {
+      results:    all.slice((pg - 1) * pp, pg * pp),
+      total:      all.length,
+      page:       pg,
+      perPage:    pp,
+      totalPages: Math.ceil(all.length / pp),
+    }
+  }
 
-  // Pagination client-side sur les groupes fusionnés
-  const start = (pg - 1) * pp
-  const results = allResults.slice(start, start + pp)
-
+  const total = rows.length > 0 ? (Number(rows[0].total_count) || rows.length) : 0
   return {
-    results,
+    results:    all,
     total,
     page:       pg,
     perPage:    pp,

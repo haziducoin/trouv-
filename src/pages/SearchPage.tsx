@@ -689,6 +689,11 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
   const [enrichData, setEnrichData]       = useState<EnrichBeforeUnlockResult | null>(null)
   const [enrichLoading, setEnrichLoading] = useState(true)
   const [fromCache, setFromCache]         = useState(false)
+  const [mobileBusy, setMobileBusy] = useState(false)
+  const clickMobileUnlock = async () => {
+    setMobileBusy(true)
+    try { await (onUnlock ?? noopUnlock)(prospect, 'phone') } finally { setMobileBusy(false) }
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -1418,9 +1423,8 @@ function ProspectCard({
         const fmt = formatPhone(m) ?? m
         if (fmt && fmt !== prospect.phone) phoneRows.push({ value: fmt, unlocked: true })
       })
-    } else {
-      prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
     }
+    prospect.mobilesLocked?.forEach(m => { if (m) phoneRows.push({ value: m, unlocked: false }) })
 
     // Compile toutes les lignes email (principale + fusionnées) — filtre les nulls DB
     const emailRows: { value: string; unlocked: boolean }[] = []
@@ -1622,7 +1626,7 @@ function ProspectCard({
               />
             )}
             {prospect.phoneUnlocked
-              ? prospect.mobiles?.slice(1).map((m, i) => (
+              ? prospect.mobiles?.map((m, i) => (
                   <ContactRowStatic key={i} kind="phone" value={formatPhone(m) ?? m} unlocked />
                 ))
               : prospect.mobilesLocked?.map((m, i) => (
@@ -1641,7 +1645,7 @@ function ProspectCard({
               />
             )}
             {prospect.emailUnlocked
-              ? prospect.allEmails?.slice(1).filter(e => e.includes('@')).map((e, i) => (
+              ? prospect.allEmails?.filter(e => e.includes('@')).map((e, i) => (
                   <ContactRowStatic key={i} kind="email" value={e} unlocked />
                 ))
               : prospect.emailsLocked?.map((e, i) => (
@@ -2541,9 +2545,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
         })
       )
 
+      // Si la fiche a un mobile brut stocké, l'ajouter aux numéros révélés
+      if (field === 'phone' && prospect.mobileRaw) {
+        const mFmt = formatPhone(prospect.mobileRaw) ?? prospect.mobileRaw
+        if (mFmt && !revealed.includes(mFmt)) revealed.push(mFmt)
+      }
       const patch: Partial<ProspectResult> = field === 'phone'
-        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed, mobilesLocked: [] }
-        : { email: primaryValue, emailUnlocked: true, allEmails: revealed, emailsLocked: [] }
+        ? { phone: primaryValue, phoneUnlocked: true, mobiles: revealed.filter(v => v !== primaryValue), mobilesLocked: [], mobileRaw: null }
+        : { email: primaryValue, emailUnlocked: true, allEmails: revealed.filter(v => v !== primaryValue), emailsLocked: [] }
 
       setResults(prev => prev.map(p => (p.id === prospect.id ? { ...p, ...patch } : p)))
       setSelectedCompany(prev => (prev && prev.id === prospect.id ? { ...prev, ...patch } : prev))
