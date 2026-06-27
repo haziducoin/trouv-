@@ -316,11 +316,12 @@ async function fetchPivotCluster(
   const emailSet = new Set<string>()
 
   for (const row of initialRows) {
-    const tel = (row.telephone ?? '').replace(/[^0-9]/g, '')
-    const mob = (row.mobile    ?? '').replace(/[^0-9]/g, '')
-    const em  = (row.email     ?? '').toLowerCase().trim()
-    if (tel.length >= 6) phoneSet.add(tel)
-    if (mob.length >= 6) phoneSet.add(mob)
+    for (const raw of [row.telephone, row.mobile]) {
+      if (!raw) continue
+      const digits = String(raw).replace(/[^0-9]/g, '')
+      if (digits.length >= 6) phoneSet.add(digits)
+    }
+    const em = (row.email ?? '').toLowerCase().trim()
     if (em.includes('@')) emailSet.add(em)
   }
 
