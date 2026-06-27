@@ -370,28 +370,57 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   if (params.birthYear?.trim() && (p_identity || (p_nom && p_prenom)))
     rpcParams.p_annee_naissance = params.birthYear.trim()
 
-  const telOnly    = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
-  const timeoutMs  = telOnly ? 30000 : 15000
-  const rpcPromise = supabase.rpc('search_contacts_secure', rpcParams)
-  const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>(
-    (resolve) => setTimeout(() => resolve({ data: null, error: {
-      message: telOnly
-        ? 'Recherche par numéro trop longue — essayez d\'ajouter un nom'
-        : 'Recherche trop longue — réessayez avec un nom exact',
+  const telOnly   = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
+  const timeoutMs = telOnly ? 30000 : 15000
+
+  // Pour une recherche 2 mots sans champs explicites : tester les deux ordres (Prénom Nom ET Nom Prénom)
+  // L'utilisateur tape "matteo doria" → peut être prenom=matteo/nom=doria OU nom=matteo/prenom=doria
+  const twoWordFreeSearch = isNameSearch && !p_identity && !params.nom && !params.prenom
+    && p_nom != null && p_prenom != null
+
+  const makeTimeout = () => new Promise<{ data: null; error: { message: string; code: string } }>(
+    resolve => setTimeout(() => resolve({ data: null, error: {
+      message: telOnly ? 'Recherche par numéro trop longue — essayez d\'ajouter un nom'
+                       : 'Recherche trop longue — réessayez avec un nom exact',
       code: 'TIMEOUT',
     } }), timeoutMs)
   )
 
-  const { data, error } = await Promise.race([rpcPromise, timeoutPromise])
+  let rows: Array<Record<string, any>>
 
-  if (error) {
-    if ((error as any).code === 'PGRST202') {
-      return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
+  if (twoWordFreeSearch) {
+    // Ordre 1 : mot1 = nom, mot2 = prénom (cas actuel)
+    const params1 = { ...rpcParams }
+    // Ordre 2 : mot1 = prénom, mot2 = nom (le plus courant : "Prénom Nom")
+    const params2 = { ...rpcParams, p_nom: p_prenom, p_prenom: p_nom }
+
+    const [res1, res2] = await Promise.all([
+      Promise.race([supabase.rpc('search_contacts_secure', params1), makeTimeout()]),
+      Promise.race([supabase.rpc('search_contacts_secure', params2), makeTimeout()]),
+    ])
+
+    if (res1.error && (res1.error as any).code !== 'PGRST202') {
+      throw new Error(`Recherche impossible : ${res1.error.message}`)
     }
-    throw new Error(`Recherche impossible : ${error.message}`)
-  }
+    const rows1 = (res1.data ?? []) as Array<Record<string, any>>
+    const rows2 = (res2.data ?? []) as Array<Record<string, any>>
 
-  let rows = (data ?? []) as Array<Record<string, any>>
+    // Fusion sans doublon
+    const idSet = new Set(rows1.map(r => String(r.id)))
+    rows = [...rows1, ...rows2.filter(r => !idSet.has(String(r.id)))]
+  } else {
+    const { data, error } = await Promise.race([
+      supabase.rpc('search_contacts_secure', rpcParams),
+      makeTimeout(),
+    ])
+    if (error) {
+      if ((error as any).code === 'PGRST202') {
+        return { results: [], total: 0, page: pg, perPage: pp, totalPages: 0 }
+      }
+      throw new Error(`Recherche impossible : ${error.message}`)
+    }
+    rows = (data ?? []) as Array<Record<string, any>>
+  }
 
   // Pivot Search : pour les recherches nominatives, récupère toutes les fiches liées
   // On mémorise les IDs du seed AVANT le pivot pour filtrer les résultats après
