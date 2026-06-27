@@ -442,7 +442,8 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
     // Pour les recherches nominatives : exclure les fiches pivot qui n'ont pas fusionné
     // avec une fiche du seed (ex: Gilles Hablouche qui partage un numéro de cabinet)
     if (isNameSearch) {
-      const ids: string[] = (p as any)._ids ?? [String((p as any).id ?? p.id)]
+      // p est un ProspectResult : le champ est allIds (pas _ids qui est le nom interne pré-mapRow)
+      const ids: string[] = p.allIds ?? [p.id]
       if (!ids.some(id => seedIdSet.has(id))) return false
     }
     return true
