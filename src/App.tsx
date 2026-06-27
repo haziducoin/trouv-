@@ -22,7 +22,7 @@ const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
-const isCRMMode        = _params.has('crm')
+// isCRMMode supprimé : les admins sont redirigés automatiquement vers le CRM dès la connexion
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
 
@@ -326,8 +326,8 @@ export default function App() {
     )
   }
 
-  // ── CRM Admin (?crm) — interface back-office sécurisée ───────────────────
-  if (isCRMMode && account && account.role === 'admin') {
+  // ── CRM Admin — auto-redirect si role=admin (plus besoin de ?crm) ──────────
+  if (account && account.role === 'admin') {
     return (
       <>
         <AdminCRMPage account={account} onLogout={handleLogout} />

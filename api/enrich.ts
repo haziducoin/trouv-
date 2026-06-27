@@ -13,129 +13,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // ── Mode diagnostic source-par-source (avant auth)
-  if (req.body?.debug_sources === 'XiJo1MEh') {
-    const name = req.body.name ?? 'Martin Kretz'
-    const city = req.body.city ?? 'Boulogne-Billancourt'
-    const groqKey = process.env.GROQ_API_KEY
-    const googleKey = process.env.GOOGLE_API_KEY
-
-    const results: Record<string, unknown> = {
-      env: {
-        groq: groqKey ? `${groqKey.slice(0,8)}...` : 'MISSING',
-        google: googleKey ? `${googleKey.slice(0,8)}...` : 'MISSING',
-      }
-    }
-
-    // Test Groq compound-beta-mini direct
-    try {
-      const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'compound-beta-mini',
-          messages: [{ role: 'user', content: `Find LinkedIn profile for "${name}" from ${city} France. Return JSON: {"company":null,"job_title":null}` }],
-          temperature: 0, max_tokens: 300,
-        }),
-        signal: AbortSignal.timeout(15000),
-      })
-      const gd = await gr.json()
-      results.groq_mini = { status: gr.status, text: gd?.choices?.[0]?.message?.content, err: gd.error }
-    } catch(e) { results.groq_mini = { error: String(e) } }
-
-    // Test Groq compound-beta full
-    try {
-      const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'compound-beta',
-          messages: [{ role: 'user', content: `Find professional info for "${name}" from ${city} France. Return JSON: {"company":null,"job_title":null}` }],
-          temperature: 0, max_tokens: 300,
-        }),
-        signal: AbortSignal.timeout(20000),
-      })
-      const gd = await gr.json()
-      results.groq_full = { status: gr.status, text: gd?.choices?.[0]?.message?.content, err: gd.error }
-    } catch(e) { results.groq_full = { error: String(e) } }
-
-    res.json(results)
-    return
-  }
-
-  // ── Mode test direct (avant auth) : déclenche enrichOnUnlock sur un contact réel
-  if (req.body?.debug_direct_test === 'XiJo1MEh') {
-    const { contact_id } = req.body
-    if (!contact_id) { res.json({ error: 'contact_id requis' }); return }
-    try {
-      const { data: contact } = await supabaseAdmin
-        .from('contacts')
-        .select('id,nom,prenom,email,telephone,ville,code_postal,adresse,date_naissance,siret,siren,societe,activite,code_naf,site_web')
-        .eq('id', contact_id)
-        .single()
-      if (!contact) { res.json({ error: 'Contact non trouvé' }); return }
-      const result = await enrichOnUnlock({
-        nom:            contact.nom,
-        prenom:         contact.prenom,
-        email_masque:   contact.email ? contact.email.replace(/(?<=.{3}).(?=.*@)/g, '*') : null,
-        tel_masque:     contact.telephone ? String(contact.telephone).slice(0, 6) + '******' : null,
-        ville:          contact.ville,
-        code_postal:    contact.code_postal,
-        adresse:        contact.adresse,
-        date_naissance: contact.date_naissance,
-        siret:          contact.siret,
-        siren:          contact.siren,
-        entreprise:     contact.societe,
-        activite:       contact.activite,
-        code_naf:       contact.code_naf,
-        raw_extra:      null,
-      })
-      res.json({ status: 'ok', contact: `${contact.prenom} ${contact.nom}`, result })
-    } catch (e) { res.json({ error: String(e) }) }
-    return
-  }
-
   const auth = await authenticate(req)
   if (!auth) {
     res.status(401).json({ error: 'Authentification requise' })
     return
   }
 
-  // Mode debug : teste un prompt Groq brut (clé secrète requise)
-  if (req.body?.debug_prompt && req.body?.debug_secret === process.env.TROUVE_SUPABASE_SECRET?.slice(-8)) {
-    const { debug_prompt, debug_model = 'compound-beta-mini' } = req.body
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey) { res.status(503).json({ error: 'GROQ_API_KEY manquant' }); return }
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: debug_model, messages: [{ role: 'user', content: debug_prompt }], temperature: 0, max_tokens: 500 }),
-      signal: AbortSignal.timeout(30000),
-    })
-    const data = await r.json()
-    res.json({ status: r.status, raw: data?.choices?.[0]?.message?.content ?? data })
-    return
-  }
-
-  // Mode debug Gemini : teste Search Grounding directement
-  if (req.body?.debug_gemini && req.body?.debug_secret === process.env.TROUVE_SUPABASE_SECRET?.slice(-8)) {
-    const { debug_gemini: name, birth_year, location } = req.body
-    const googleKey = process.env.GOOGLE_API_KEY
-    if (!googleKey) { res.status(503).json({ error: 'GOOGLE_API_KEY absent', key_set: false }); return }
-    try {
-      const { GoogleGenAI } = await import('@google/genai')
-      const ai = new GoogleGenAI({ apiKey: googleKey })
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Recherche professionnelle pour "${name}" né en ${birth_year ?? '?'} à ${location ?? 'France'}. Quel est son métier et son employeur actuel ? Si tu trouves un homonyme célèbre (ex: BNP Paribas), ignore-le et cherche la bonne personne. Réponds en JSON: {"company":null,"job_title":null,"found":false}`,
-        config: { tools: [{ googleSearch: {} }], temperature: 0 },
-      })
-      res.json({ status: 'ok', key_prefix: googleKey.slice(0, 6) + '...', text: response.text?.slice(0, 500) })
-    } catch (e: unknown) {
-      res.json({ status: 'error', key_prefix: googleKey.slice(0, 6) + '...', error: String(e) })
-    }
-    return
-  }
   if (!auth.organizationId) {
     res.status(403).json({ error: 'Organisation requise' })
     return

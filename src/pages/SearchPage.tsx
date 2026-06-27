@@ -3219,21 +3219,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             onExport={() => exportListCSV(list)} onRemove={(cid) => handleRemoveFromList(activeListId, cid)} />
         })()}
 
-        {/* Vue Admin → redirige vers le CRM full-screen (?crm) */}
-        {appView === 'admin' && account.role === 'admin' && (
-          <div className="flex flex-1 flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 gap-6">
-            <div className="text-center">
-              <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">Dashboard Admin</p>
-              <p className="text-sm text-gray-400">Le CRM s'ouvre dans une interface dédiée.</p>
-            </div>
-            <a
-              href="?crm"
-              className="flex items-center gap-2 rounded-xl bg-[#1B54FF] px-6 py-3 text-sm font-semibold text-white hover:bg-[#1B54FF]/90 shadow-sm"
-            >
-              Ouvrir le CRM Admin
-            </a>
-          </div>
-        )}
+        {/* Vue Admin — inaccessible : les admins sont redirigés vers CRM au login */}
 
         {/* Vue Bulk */}
         {appView === 'bulk' && (
