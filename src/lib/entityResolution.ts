@@ -200,65 +200,66 @@ function mergeCluster(rows: RawRow[]): RawRow {
 
 /**
  * Prend les lignes brutes de la RPC et retourne un tableau dédoublonné.
- * Les lignes fusionnées portent les champs _phones, _emails, _adresses, _mergedCount.
+ *
+ * Union-Find global (sans pré-groupement par nom) :
+ *   Règle 1 — Téléphone partagé  → fusion inconditionnelle (alias "Dan Ks" ↔ "Daniel Kessous")
+ *   Règle 2 — Email partagé      → fusion inconditionnelle
+ *   Règle 3 — Identité identique + (même naissance OU même adresse) → fusion homonymes
  */
 export function resolveEntities(rows: RawRow[]): RawRow[] {
   if (rows.length <= 1) return rows
 
-  // 1. Grouper par identité normalisée
-  const identityGroups = new Map<string, { idx: number; row: RawRow }[]>()
-  rows.forEach((row, idx) => {
-    const key = identityKey(row)
-    if (!identityGroups.has(key)) identityGroups.set(key, [])
-    identityGroups.get(key)!.push({ idx, row })
+  const { find, union } = makeUnionFind(rows.length)
+
+  // Pré-calcul pour éviter les appels répétés dans la boucle interne O(n²)
+  const normsCache  = rows.map(r => new Set(allNormsOf(r)))
+  const emailCache  = rows.map(r => {
+    const e = ((r.email_value as string | null) || (r.email as string | null) || '').toLowerCase().trim()
+    return e.includes('@') ? e : ''
   })
+  const birthCache  = rows.map(r => birthYear(r))
+  const addrCache   = rows.map(r => addressKey(r))
+  const idKeyCache  = rows.map(r => identityKey(r))
 
-  const result: RawRow[] = []
+  for (let i = 0; i < rows.length; i++) {
+    const normsA  = normsCache[i]
+    const emailA  = emailCache[i]
+    const idKeyA  = idKeyCache[i]
 
-  for (const group of identityGroups.values()) {
-    if (group.length === 1) {
-      result.push(group[0].row)
-      continue
-    }
+    for (let j = i + 1; j < rows.length; j++) {
+      if (find(i) === find(j)) continue
 
-    // 2. Union-Find au sein du groupe d'identité
-    const { find, union } = makeUnionFind(group.length)
-
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        if (find(i) === find(j)) continue  // déjà dans le même cluster
-
-        const a = group[i].row
-        const b = group[j].row
-
-        // Condition A : numéro partagé (telephone OU mobile des deux côtés)
-        const normsA = new Set(allNormsOf(a))
-        if (normsA.size > 0 && allNormsOf(b).some(p => normsA.has(p))) { union(i, j); continue }
-
-        // Condition B : même date de naissance complète OU même année de naissance
-        const ya = birthYear(a)
-        const yb = birthYear(b)
-        if (ya && yb && ya === yb) { union(i, j); continue }
-
-        // Condition C : même adresse complète (rue obligatoire)
-        const addrA = addressKey(a)
-        const addrB = addressKey(b)
-        if (addrA && addrB && addrA === addrB) { union(i, j); continue }
+      // Règle 1 : pivot téléphone — fusion inconditionnelle (ignore nom/prénom)
+      if (normsA.size > 0) {
+        const normsB = normsCache[j]
+        let phoneMatch = false
+        for (const p of normsB) { if (normsA.has(p)) { phoneMatch = true; break } }
+        if (phoneMatch) { union(i, j); continue }
       }
-    }
 
-    // 3. Collecter les clusters et les fusionner
-    const clusters = new Map<number, RawRow[]>()
-    for (let i = 0; i < group.length; i++) {
-      const root = find(i)
-      if (!clusters.has(root)) clusters.set(root, [])
-      clusters.get(root)!.push(group[i].row)
-    }
+      // Règle 2 : pivot email — fusion inconditionnelle
+      const emailB = emailCache[j]
+      if (emailA && emailB && emailA === emailB) { union(i, j); continue }
 
-    for (const cluster of clusters.values()) {
-      result.push(cluster.length === 1 ? cluster[0] : mergeCluster(cluster))
+      // Règle 3 : homonymes — même identité + (même naissance OU même adresse)
+      if (idKeyA === idKeyCache[j]) {
+        const ya = birthCache[i], yb = birthCache[j]
+        const addrA = addrCache[i], addrB = addrCache[j]
+        if ((ya && yb && ya === yb) || (addrA && addrB && addrA === addrB)) {
+          union(i, j)
+        }
+      }
     }
   }
 
-  return result
+  const clusters = new Map<number, RawRow[]>()
+  for (let i = 0; i < rows.length; i++) {
+    const root = find(i)
+    if (!clusters.has(root)) clusters.set(root, [])
+    clusters.get(root)!.push(rows[i])
+  }
+
+  return [...clusters.values()].map(cluster =>
+    cluster.length === 1 ? cluster[0] : mergeCluster(cluster)
+  )
 }
