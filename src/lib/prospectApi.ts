@@ -395,6 +395,9 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   let rows = (data ?? []) as Array<Record<string, any>>
 
   // Pivot Search : pour les recherches nominatives, récupère toutes les fiches liées
+  // On mémorise les IDs du seed AVANT le pivot pour filtrer les résultats après
+  const seedIdSet = new Set(rows.map(r => String(r.id)))
+
   if (isNameSearch && rows.length > 0) {
     try {
       rows = await fetchPivotCluster(rows, supabase)
@@ -407,7 +410,14 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const all  = resolved.map(mapRow).filter(p => {
     if (!p.hasPhone && !p.hasEmail) return false
     if (seen.has(p.id)) return false
-    seen.add(p.id); return true
+    seen.add(p.id)
+    // Pour les recherches nominatives : exclure les fiches pivot qui n'ont pas fusionné
+    // avec une fiche du seed (ex: Gilles Hablouche qui partage un numéro de cabinet)
+    if (isNameSearch) {
+      const ids: string[] = (p as any)._ids ?? [String((p as any).id ?? p.id)]
+      if (!ids.some(id => seedIdSet.has(id))) return false
+    }
+    return true
   })
 
   // Pour les recherches nominatives : pagination en mémoire après pivot
