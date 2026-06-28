@@ -102,6 +102,7 @@ interface PlanData {
   description: string
   monthlyPrice: number | null
   annualPrice: number | null
+  priceNote?: string
   features: string[]
   cta: string
   isPopular: boolean
@@ -136,6 +137,7 @@ const PLANS: PlanData[] = [
     description: 'Pour les agences sérieuses qui veulent maximiser leur pipeline commercial',
     monthlyPrice: 89,
     annualPrice: 71,
+    priceNote: '/Utilisateur',
     features: [
       'Recherches de profils illimitées',
       'E-mails B2B professionnels illimités',
@@ -179,6 +181,7 @@ const PricingCard = ({
   description,
   monthlyPrice,
   annualPrice,
+  priceNote,
   features,
   cta,
   background,
@@ -225,7 +228,9 @@ const PricingCard = ({
             <span className="block font-mono text-6xl font-black leading-tight">
               <NumberFlow value={price} /> €
             </span>
-            <span className="block font-mono text-3xl font-black leading-tight opacity-75">/mois</span>
+            <span className="block font-mono text-3xl font-black leading-tight opacity-75">
+              /mois{priceNote && <span className="text-xl"> ({priceNote})</span>}
+            </span>
           </motion.div>
         )}
 
