@@ -137,7 +137,7 @@ const PLANS: PlanData[] = [
     description: 'Pour les agences sérieuses qui veulent maximiser leur pipeline commercial',
     monthlyPrice: 89,
     annualPrice: 71,
-    priceNote: '/utilisateur',
+    priceNote: '/licence',
     features: [
       'Recherches de profils illimitées',
       'E-mails B2B professionnels illimités',
