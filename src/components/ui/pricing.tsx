@@ -229,7 +229,7 @@ const PricingCard = ({
               <NumberFlow value={price} /> €
             </span>
             <span className="block font-mono text-3xl font-black leading-tight opacity-75">
-              /mois{priceNote && <span className="text-xl"> ({priceNote})</span>}
+              /mois{priceNote && <span className="text-xl"> {priceNote}</span>}
             </span>
           </motion.div>
         )}
