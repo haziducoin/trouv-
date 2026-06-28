@@ -139,7 +139,7 @@ const PLANS: PlanData[] = [
     features: [
       'Recherches de profils illimitées',
       'E-mails B2B professionnels illimités',
-      '540 Clés de déblocage par mois',
+      '600 Clés de déblocage par mois',
       '· Téléphone direct : 3 clés',
       '· Adresse postale : 2 clés',
       '· E-mail direct : 1 clé',
