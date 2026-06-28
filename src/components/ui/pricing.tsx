@@ -114,13 +114,15 @@ const PLANS: PlanData[] = [
     code: 'solo',
     label: 'Solo',
     description: 'Pour les indépendants qui veulent prospecter avec précision dans tout le territoire',
-    monthlyPrice: 33,
-    annualPrice: 26,
+    monthlyPrice: 30,
+    annualPrice: 24,
     features: [
       'Recherches de profils illimitées',
       'E-mails B2B professionnels illimités',
-      '100 crédits téléphone / mois',
-      '25 e-mails directs inclus / mois',
+      '150 Clés de déblocage par mois',
+      '📱 Téléphone direct : 3 clés',
+      '📍 Adresse postale : 2 clés',
+      '✉️ E-mail direct : 1 clé',
       '1 compte utilisateur',
     ],
     cta: 'Choisir Solo',
@@ -132,13 +134,15 @@ const PLANS: PlanData[] = [
     code: 'agence',
     label: 'Agence',
     description: 'Pour les agences sérieuses qui veulent maximiser leur pipeline commercial',
-    monthlyPrice: 79,
-    annualPrice: 63,
+    monthlyPrice: 89,
+    annualPrice: 71,
     features: [
       'Recherches de profils illimitées',
       'E-mails B2B professionnels illimités',
-      '250 crédits téléphone / mois',
-      '250 e-mails directs inclus / mois',
+      '540 Clés de déblocage par mois',
+      '📱 Téléphone direct : 3 clés',
+      '📍 Adresse postale : 2 clés',
+      '✉️ E-mail direct : 1 clé',
       'Export CSV & option Bulk',
       'Tableau de bord équipe',
     ],
@@ -231,7 +235,9 @@ const PricingCard = ({
         <ul className="mt-4 space-y-2">
           {features.map((f) => (
             <li key={f} className="flex items-start gap-2 text-xs text-white/90">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />
+              {/^[^\x00-\x7F]/u.test(f)
+                ? <span className="w-3.5 shrink-0" />
+                : <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />}
               {f}
             </li>
           ))}
