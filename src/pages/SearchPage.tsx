@@ -49,11 +49,12 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
 
 interface SearchPageProps {
-  account:       Account
-  onLogout:      () => void
-  onOpenAccount: (tab?: string) => void
-  accessLevel?:  AccessLevel
-  maxSearches?:  number
+  account:        Account
+  onLogout:       () => void
+  onOpenAccount:  (tab?: string) => void
+  accessLevel?:   AccessLevel
+  maxSearches?:   number
+  onReturnAdmin?: () => void
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -2330,7 +2331,7 @@ function AdvancedFilters(props: AdvancedFiltersProps) {
 }
 
 // ─── Page principale ───────────────────────────────────────────────────────────
-export default function SearchPage({ account, onLogout, onOpenAccount, accessLevel = 'full', maxSearches }: SearchPageProps) {
+export default function SearchPage({ account, onLogout, onOpenAccount, accessLevel = 'full', maxSearches, onReturnAdmin }: SearchPageProps) {
   // Feature flags — interrupteurs d'urgence admin
   const { isEnabled } = useFeatureFlags()
   const [maintenanceFlag, setMaintenanceFlag] = useState<string | null>(null)
@@ -3116,6 +3117,14 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                       </span>
                     </div>
                   </div>
+
+                  {/* Bouton Retour Admin — visible seulement pour les admins */}
+                  {onReturnAdmin && (
+                    <button onClick={onReturnAdmin}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-white bg-[#124bd2] border border-[#124bd2] rounded-lg shadow-sm hover:bg-[#0b3fbc] active:scale-95 transition-all duration-200">
+                      ← Retour Admin
+                    </button>
+                  )}
 
                   {/* Bouton Recharger — outline ghost */}
                   <button onClick={() => setShowBuyKeys(true)}

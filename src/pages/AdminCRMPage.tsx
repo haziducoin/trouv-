@@ -2611,9 +2611,9 @@ function TeamView({ token, currentUserId }: { token: string; currentUserId: stri
 }
 
 // ─── Layout principal ─────────────────────────────────────────────────────────
-interface AdminCRMPageProps { account: Account; onLogout: () => void }
+interface AdminCRMPageProps { account: Account; onLogout: () => void; onSwitchToSearch?: () => void }
 
-export default function AdminCRMPage({ account, onLogout }: AdminCRMPageProps) {
+export default function AdminCRMPage({ account, onLogout, onSwitchToSearch }: AdminCRMPageProps) {
   const [view, setView]         = useState<CRMView>('dashboard')
   const [token, setToken]       = useState('')
   const [adminScope, setAdminScope] = useState<AdminScope>('super')
@@ -2685,6 +2685,12 @@ export default function AdminCRMPage({ account, onLogout }: AdminCRMPageProps) {
               </span>
             </div>
           </div>
+          {onSwitchToSearch && (
+            <button onClick={onSwitchToSearch}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] py-2 text-xs font-semibold text-white hover:bg-[#0b3fbc] mb-2">
+              <Search size={13} /> Accéder à la recherche
+            </button>
+          )}
           <button onClick={onLogout}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50">
             <LogOut size={13} /> Déconnexion

@@ -84,6 +84,7 @@ export default function App() {
   const [authError, setAuthError]           = useState<string | null>(null)
   const [loadingTooLong, setLoadingTooLong] = useState(false)
   const [demoView, setDemoView]             = useState<'admin' | 'employee'>('admin')
+  const [adminShowSearch, setAdminShowSearch] = useState(false)
 
   // Après 4 s de chargement, on propose un bouton de secours
   useEffect(() => {
@@ -328,9 +329,23 @@ export default function App() {
 
   // ── CRM Admin — auto-redirect si role=admin (plus besoin de ?crm) ──────────
   if (account && account.role === 'admin') {
+    if (adminShowSearch) {
+      return (
+        <>
+          <SearchPage
+            account={account}
+            accessLevel="full"
+            onLogout={handleLogout}
+            onOpenAccount={(tab) => setAccountPanel((tab as AccountPanelView) ?? 'workspace')}
+            onReturnAdmin={() => setAdminShowSearch(false)}
+          />
+          <Analytics />
+        </>
+      )
+    }
     return (
       <>
-        <AdminCRMPage account={account} onLogout={handleLogout} />
+        <AdminCRMPage account={account} onLogout={handleLogout} onSwitchToSearch={() => setAdminShowSearch(true)} />
         <Analytics />
       </>
     )
