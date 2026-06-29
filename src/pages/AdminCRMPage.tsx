@@ -19,7 +19,6 @@ import {
 import { invalidateFlagsCache } from '@/hooks/useFeatureFlags'
 import { getSupabaseClient } from '@/lib/supabase'
 import type { Account } from '@/lib/accountStore'
-import { normalizeAllAddresses, type NormalizeProgress } from '@/lib/banNormalize'
 import trouveLogo from '@/assets/trouve-logo.png'
 
 // ─── Stripe plans ─────────────────────────────────────────────────────────────
@@ -2620,8 +2619,6 @@ export default function AdminCRMPage({ account, onLogout, onSwitchToSearch }: Ad
   const [adminScope, setAdminScope] = useState<AdminScope>('super')
   const [adminUserId, setAdminUserId] = useState('')
   const [pendingCount, setPendingCount] = useState<number | null>(null)
-  const [normalizing, setNormalizing]   = useState(false)
-  const [normalizeProgress, setNormalizeProgress] = useState<NormalizeProgress | null>(null)
 
   useEffect(() => { getToken().then(setToken) }, [])
 
@@ -2693,33 +2690,6 @@ export default function AdminCRMPage({ account, onLogout, onSwitchToSearch }: Ad
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#124bd2] py-2 text-xs font-semibold text-white hover:bg-[#0b3fbc] mb-2">
               <Search size={13} /> Accéder à la recherche
             </button>
-          )}
-          <button
-            onClick={async () => {
-              if (normalizing) return
-              setNormalizing(true)
-              setNormalizeProgress(null)
-              try {
-                await normalizeAllAddresses(p => setNormalizeProgress({ ...p }))
-              } finally {
-                setNormalizing(false)
-              }
-            }}
-            disabled={normalizing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 mb-1 disabled:opacity-60"
-          >
-            {normalizing
-              ? <><Loader2 size={12} className="animate-spin" /> Normalisation…</>
-              : <><MapPin size={12} /> Normaliser adresses</>
-            }
-          </button>
-          {normalizeProgress && (
-            <div className="mb-2 rounded-lg bg-slate-50 px-3 py-2 text-[10px] text-slate-500 leading-relaxed">
-              {normalizing
-                ? <>{normalizeProgress.done + normalizeProgress.failed}/{normalizeProgress.total} — {normalizeProgress.done} ok, {normalizeProgress.failed} échoués</>
-                : <>✓ Terminé : {normalizeProgress.done} normalisé(s), {normalizeProgress.failed} échoué(s)</>
-              }
-            </div>
           )}
           <button onClick={onLogout}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50">
