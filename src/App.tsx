@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import LandingPage from './pages/LandingPage'
@@ -7,6 +7,8 @@ import AdminCRMPage from './pages/AdminCRMPage'
 import SuccessPage from './pages/SuccessPage'
 import PreviewPage from './pages/PreviewPage'
 import CompliancePage from './pages/CompliancePage'
+// Lazy : maplibre-gl (lourd) n'est chargé que sur la page carte (?carte)
+const MapPage = lazy(() => import('./pages/MapPage'))
 import AccountPanel, { type AccountPanelView } from './components/account/AccountPanel'
 import { restoreSession, clearSession, PersonalEmailError, type Account } from './lib/accountStore'
 import { getSupabaseClient, isRemoteDatabaseConfigured } from './lib/supabase'
@@ -22,6 +24,7 @@ const isDemoMode       = _params.has('demo')
 const isSuccessPage    = _params.has('success')
 const isPreviewPage    = _params.has('preview')
 const isConformitePage = _params.has('conformite')
+const isMapPage        = _params.has('carte')
 // isCRMMode supprimé : les admins sont redirigés automatiquement vers le CRM dès la connexion
 const successPlan      = _params.get('plan') ?? 'agence'
 const panelParam       = _params.get('panel') as AccountPanelView | null
@@ -324,6 +327,15 @@ export default function App() {
         )}
         <Analytics />
       </>
+    )
+  }
+
+  // ── Page carte cadastrale (?carte) ────────────────────────────────────────
+  if (isMapPage && account) {
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-[#f5f8ff] text-sm text-slate-400">Chargement de la carte…</div>}>
+        <MapPage onBack={() => window.location.replace('/')} />
+      </Suspense>
     )
   }
 

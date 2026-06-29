@@ -3049,16 +3049,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               {account.role === 'admin' && (
                 <>
                   <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Admin</p>
-                  <button onClick={() => { setAppView('admin'); setShowMobileMenu(false) }}
-                    className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                      appView === 'admin' ? 'bg-purple-50 text-purple-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`}>
-                    {appView === 'admin' && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />}
-                    <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                    <span className="flex-1 text-left">Dashboard</span>
-                    {pendingCount > 0 && (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
-                    )}
+                  <button onClick={() => { window.location.assign('/?carte') }}
+                    className="relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-gray-600 hover:bg-gray-100 hover:text-gray-900">
+                    <MapPin size={15} />
+                    <span className="flex-1 text-left">Carte</span>
                   </button>
                 </>
               )}
@@ -3145,20 +3139,10 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
           {account.role === 'admin' && (
             <>
               <p className="mt-5 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Admin</p>
-              <button onClick={() => setAppView('admin')}
-                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  appView === 'admin'
-                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800'
-                }`}>
-                {appView === 'admin' && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-purple-600" />
-                )}
-                <LayoutDashboard size={15} className={appView === 'admin' ? 'text-purple-600' : ''} />
-                <span className="flex-1 text-left">Dashboard</span>
-                {pendingCount > 0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{pendingCount}</span>
-                )}
+              <button onClick={() => window.location.assign('/?carte')}
+                className="relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800">
+                <MapPin size={15} />
+                <span className="flex-1 text-left">Carte</span>
               </button>
             </>
           )}
