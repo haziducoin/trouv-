@@ -13,7 +13,7 @@ import {
   Moon, Sun, History, ChevronUp, ChevronDown,
   UserCircle2, LayoutDashboard, UserPlus, FolderSearch, MessageSquare, CreditCard,
   Phone, Mail, Database, Calendar, Briefcase, Plus, Lock, Menu, Key, Bell, Link2, Trash2,
-  CheckCircle2,
+  CheckCircle2, Pencil,
 } from 'lucide-react'
 type AppView = 'search' | 'history' | 'lists' | 'list-detail' | 'admin' | 'bulk'
 import trouveLogo from '@/assets/trouve-logo.png'
@@ -683,13 +683,35 @@ function ProspectionPanel({
 }
 
 // ─── Prospect Detail Slide-Over ────────────────────────────────────────────────
-function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void> }) {
+function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock, onAddressUpdate }: { prospect: ProspectResult; onClose: () => void; canUnlock?: boolean; onUnlock?: (p: ProspectResult, field: 'phone' | 'email') => Promise<void>; onAddressUpdate?: (ids: string[], adresse: string, codePostal: string, ville: string) => Promise<void> }) {
   const noopUnlock = async () => {}
   const birthContext = formatBirthContext(prospect.birthYear, prospect.birthCity)
   const [enrichData, setEnrichData]       = useState<EnrichBeforeUnlockResult | null>(null)
   const [enrichLoading, setEnrichLoading] = useState(true)
   const [fromCache, setFromCache]         = useState(false)
   const [mobileBusy, setMobileBusy] = useState(false)
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [addressSaving, setAddressSaving]   = useState(false)
+  const [addressError, setAddressError]     = useState<string | null>(null)
+
+  const currentAddressStr = prospect.allAddresses?.[0]
+    ? [prospect.allAddresses[0].rue, [prospect.allAddresses[0].cp, prospect.allAddresses[0].ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    : [prospect.address, [prospect.zipCode, prospect.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+
+  const handleAddressSelect = async (result: import('@/components/ui/address-autocomplete').AddressResult) => {
+    if (!onAddressUpdate) return
+    setAddressSaving(true)
+    setAddressError(null)
+    try {
+      const ids = prospect.allIds ?? [prospect.id]
+      await onAddressUpdate(ids, result.adresse, result.codePostal, result.ville)
+      setEditingAddress(false)
+    } catch {
+      setAddressError('Erreur lors de la sauvegarde')
+    } finally {
+      setAddressSaving(false)
+    }
+  }
   const clickMobileUnlock = async () => {
     setMobileBusy(true)
     try { await (onUnlock ?? noopUnlock)(prospect, 'phone') } finally { setMobileBusy(false) }
@@ -795,7 +817,32 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock }: {
             {/* Localisation */}
             {(prospect.address || prospect.city || prospect.country || birthContext || (prospect.allAddresses && prospect.allAddresses.length > 0)) && (
               <section className="px-5 py-4">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Localisation</p>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Localisation</p>
+                  {onAddressUpdate && !editingAddress && (
+                    <button onClick={() => { setEditingAddress(true); setAddressError(null) }}
+                      className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-gray-400 hover:bg-gray-50 hover:text-[#124bd2] transition-colors">
+                      <Pencil size={10} /> Modifier
+                    </button>
+                  )}
+                  {editingAddress && (
+                    <button onClick={() => setEditingAddress(false)}
+                      className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-600 transition-colors">
+                      <X size={10} /> Annuler
+                    </button>
+                  )}
+                </div>
+                {editingAddress && (
+                  <div className="mb-3">
+                    <AddressAutocomplete
+                      value={currentAddressStr}
+                      onSelect={handleAddressSelect}
+                      placeholder="34 Boulevard Victor Hugo, Neuilly-sur-Seine"
+                    />
+                    {addressSaving && <p className="mt-1 text-[10px] text-gray-400">Sauvegarde…</p>}
+                    {addressError && <p className="mt-1 text-[10px] text-red-500">{addressError}</p>}
+                  </div>
+                )}
                 <div className="flex flex-col gap-2.5">
                   {prospect.allAddresses && prospect.allAddresses.length > 0
                     ? prospect.allAddresses.map((addr, i) => (
@@ -3613,7 +3660,21 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
 
       {/* Slide-over détail prospect */}
       {selectedCompany && accessLevel !== 'limited' && (
-        <ProspectSlideOver prospect={selectedCompany} onClose={() => setSelectedCompany(null)} canUnlock={accessLevel === 'full'} onUnlock={handleUnlock} />
+        <ProspectSlideOver
+          prospect={selectedCompany}
+          onClose={() => setSelectedCompany(null)}
+          canUnlock={accessLevel === 'full'}
+          onUnlock={handleUnlock}
+          onAddressUpdate={async (ids, adresse, codePostal, ville) => {
+            const supabase = getSupabaseClient()
+            const { error } = await supabase
+              .from('contacts')
+              .update({ adresse, code_postal: codePostal, ville })
+              .in('id', ids.map(Number))
+            if (error) throw new Error(error.message)
+            setSelectedCompany(prev => prev ? { ...prev, address: adresse, zipCode: codePostal, city: ville } : null)
+          }}
+        />
       )}
 
       {/* Modal de conversion (fin de quota démo/limité) */}
