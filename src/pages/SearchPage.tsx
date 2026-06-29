@@ -864,7 +864,7 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock, onA
                                 <span className="text-xs text-gray-400">Commune</span>
                               </div>
                               <span className="text-xs text-gray-700 font-medium text-right">
-                                {addr.ville}{addr.cp ? ` (${addr.cp})` : ''}
+                                {[addr.cp, addr.ville].filter(Boolean).join(' ')}
                               </span>
                             </div>
                           )}
@@ -886,7 +886,9 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock, onA
                               <MapPin size={14} className="text-gray-300 shrink-0" />
                               <span className="text-xs text-gray-400">Commune</span>
                             </div>
-                            <span className="text-xs text-gray-700 font-medium text-right">{prospect.city}{prospect.zipCode ? ` (${prospect.zipCode})` : ''}</span>
+                            <span className="text-xs text-gray-700 font-medium text-right">
+                              {[prospect.zipCode, prospect.city].filter(Boolean).join(' ')}
+                            </span>
                           </div>
                         )}
                       </>
@@ -1616,7 +1618,7 @@ function ProspectCard({
 
   const primaryAddress = prospect.allAddresses?.[0]
   const addressSubtitle = primaryAddress
-    ? [primaryAddress.rue, [primaryAddress.cp, primaryAddress.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    ? [primaryAddress.cp, primaryAddress.ville].filter(Boolean).join(' ')
     : prospect.city
       ? [prospect.zipCode, prospect.city].filter(Boolean).join(' ')
       : null
@@ -2717,7 +2719,18 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             adresse:     p.address,
             code_postal: p.zipCode,
             ville:       p.city,
-          }))
+          })),
+          0.7,
+          (ids, adresse, code_postal, ville) => {
+            setResults(prev => prev.map(r => {
+              const rIds = r.allIds ?? [r.id]
+              if (!ids.some(id => rIds.includes(id))) return r
+              const updatedAllAddresses = r.allAddresses?.length
+                ? [{ ...r.allAddresses[0], rue: adresse, cp: code_postal, ville }, ...r.allAddresses.slice(1)]
+                : r.allAddresses
+              return { ...r, address: adresse, zipCode: code_postal, city: ville, allAddresses: updatedAllAddresses }
+            }))
+          },
         ).catch(() => {})
       }
 

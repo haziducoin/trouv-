@@ -39,8 +39,19 @@ export interface ContactForNorm {
   ville:       string | null
 }
 
+export type OnNormalizedFn = (
+  ids:         string[],
+  adresse:     string,
+  code_postal: string,
+  ville:       string,
+) => void
+
 // Appelé juste après setResults() — fire and forget (pas d'await côté appelant)
-export async function normalizeContactBatch(contacts: ContactForNorm[], minScore = 0.7): Promise<void> {
+export async function normalizeContactBatch(
+  contacts:     ContactForNorm[],
+  minScore      = 0.7,
+  onNormalized?: OnNormalizedFn,
+): Promise<void> {
   const supabase = getSupabaseClient()
   for (const contact of contacts) {
     if (!contact.adresse?.trim()) continue
@@ -51,6 +62,7 @@ export async function normalizeContactBatch(contacts: ContactForNorm[], minScore
       .from('contacts')
       .update({ adresse: result.adresse, code_postal: result.code_postal, ville: result.ville })
       .in('id', contact.ids.map(Number))
+    onNormalized?.(contact.ids, result.adresse, result.code_postal, result.ville)
     await new Promise(r => setTimeout(r, 100))
   }
 }
