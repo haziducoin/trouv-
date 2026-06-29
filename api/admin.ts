@@ -13,6 +13,7 @@ const SCOPE_ALLOWED: Record<string, readonly string[]> = {
   dashboard:      ['super', 'support', 'dev'],
   metrics:        ['super', 'support', 'dev'],
   users:          ['super', 'support'],
+  'create-user':  ['super', 'support'],
   'user-full':    ['super', 'support'],
   'user-history': ['super', 'support'],
   searches:       ['super', 'support'],
@@ -25,6 +26,11 @@ const SCOPE_ALLOWED: Record<string, readonly string[]> = {
 
 // Actions de user-full réservées aux super admins
 const SUPER_ONLY_ACTIONS = new Set(['add_credits', 'set_unlimited', 'delete_account', 'assign_internal_subscription', 'cancel_internal_subscription'])
+
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$'
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await authenticate(req)
@@ -326,6 +332,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.json({ ok: true }); return
     }
     res.status(405).json({ error: 'Method not allowed' }); return
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // create-user — création manuelle d'un compte (fusionné depuis api/admin/create-user.ts)
+  // ──────────────────────────────────────────────────────────────────────────
+  if (sub === 'create-user') {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+    const { email, password, phoneCredits, emailCredits, unlimited } = req.body as {
+      email?: string; password?: string; phoneCredits?: number; emailCredits?: number; unlimited?: boolean
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { res.status(400).json({ error: 'Email invalide' }); return }
+    const tempPassword = password?.trim() || generateTempPassword()
+    const phoneCr     = Math.max(0, parseInt(String(phoneCredits ?? 0), 10))
+    const emailCr     = Math.max(0, parseInt(String(emailCredits ?? 0), 10))
+    const isUnlimited = !!unlimited
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({ email, password: tempPassword, email_confirm: true })
+    if (authError) { res.status(400).json({ error: authError.message }); return }
+    const newUserId = authData.user.id
+
+    const fakeSiren = '999' + String(Math.floor(Math.random() * 1000000)).padStart(6, '0')
+    const { data: org, error: orgError } = await supabaseAdmin.from('organizations')
+      .insert({ siren: fakeSiren, legal_name: email.split('@')[0] }).select().single()
+    if (orgError) {
+      await supabaseAdmin.auth.admin.deleteUser(newUserId)
+      res.status(500).json({ error: `Erreur organisation : ${orgError.message}` }); return
+    }
+
+    const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
+      id: newUserId, organization_id: org.id, professional_email: email,
+      first_name: '', last_name: '', role: 'agent', access_status: 'approved',
+    }, { onConflict: 'id' })
+    if (profileError) {
+      await supabaseAdmin.auth.admin.deleteUser(newUserId)
+      await supabaseAdmin.from('organizations').delete().eq('id', org.id)
+      res.status(500).json({ error: `Erreur profil : ${profileError.message}` }); return
+    }
+
+    const { error: creditsError } = await supabaseAdmin.from('credit_balances').insert({
+      organization_id: org.id,
+      phone_credits: isUnlimited ? 0 : phoneCr,
+      email_credits: isUnlimited ? 0 : emailCr,
+      unlimited: isUnlimited,
+    })
+    if (creditsError) { res.status(500).json({ error: `Erreur crédits : ${creditsError.message}` }); return }
+
+    await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_create_user', metadata: { email, phoneCredits: phoneCr, emailCredits: emailCr, unlimited: isUnlimited } })
+    res.json({ ok: true, userId: newUserId, email, tempPassword: password?.trim() ? null : tempPassword }); return
   }
 
   // ──────────────────────────────────────────────────────────────────────────
