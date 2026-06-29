@@ -44,8 +44,6 @@ import { BuyKeysModal } from '@/components/ui/buy-keys-modal'
 import BulkSearchView from '@/pages/BulkSearchView'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
-import { normalizeContactBatch } from '@/lib/banNormalize'
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 export type AccessLevel = 'full' | 'demo' | 'trial' | 'limited'
 
@@ -2710,29 +2708,6 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
       setTotalPages(res.totalPages)
       setPage(pg)
       setHasSearched(true)
-
-      // Normalisation silencieuse en arrière-plan via BAN
-      if (res.results.length > 0) {
-        normalizeContactBatch(
-          res.results.map(p => ({
-            ids:         p.allIds ?? [p.id],
-            adresse:     p.address,
-            code_postal: p.zipCode,
-            ville:       p.city,
-          })),
-          0.7,
-          (ids, adresse, code_postal, ville) => {
-            setResults(prev => prev.map(r => {
-              const rIds = r.allIds ?? [r.id]
-              if (!ids.some(id => rIds.includes(id))) return r
-              const updatedAllAddresses = r.allAddresses?.length
-                ? [{ ...r.allAddresses[0], rue: adresse, cp: code_postal, ville }, ...r.allAddresses.slice(1)]
-                : r.allAddresses
-              return { ...r, address: adresse, zipCode: code_postal, city: ville, allAddresses: updatedAllAddresses }
-            }))
-          },
-        ).catch(() => {})
-      }
 
       if (!isEmpty) {
         if ((accessLevel === 'demo' || accessLevel === 'limited') && maxSearches !== undefined) {

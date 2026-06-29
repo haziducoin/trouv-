@@ -65,9 +65,11 @@ function looksLikePhone(value: string | null | undefined): boolean {
 
 /** Clé d'adresse — null si pas de rue (empêche fusion CP+ville seul) */
 function addressKey(row: RawRow): string | null {
-  const rue = row.adresse?.trim()
+  const rue = (row.adresse_ban ?? row.adresse)?.trim()
   if (!rue) return null
-  return `${normalizeText(rue)}|${(row.code_postal ?? '').trim()}|${normalizeText(row.ville)}`
+  const cp  = (row.cp_ban ?? row.code_postal ?? '').trim()
+  const vil = row.ville_ban ?? row.ville
+  return `${normalizeText(rue)}|${cp}|${normalizeText(vil)}`
 }
 
 /** Clé d'identité normalisée (insensible à casse + accents) */
@@ -189,7 +191,11 @@ function mergeCluster(rows: RawRow[]): RawRow {
     const ak = addressKey(row)
     if (ak && !addrKeySet.has(ak)) {
       addrKeySet.add(ak)
-      adresses.push({ rue: row.adresse ?? null, cp: row.code_postal ?? null, ville: row.ville ?? null })
+      adresses.push({
+        rue:  row.adresse_ban  ?? row.adresse     ?? null,
+        cp:   row.cp_ban       ?? row.code_postal ?? null,
+        ville: row.ville_ban   ?? row.ville       ?? null,
+      })
     }
 
     for (const field of ['date_naissance', 'civilite', 'sexe', 'societe', 'code_postal', 'ville', 'adresse']) {
