@@ -3118,13 +3118,11 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
                   </div>
 
                   {/* Bouton Recharger — outline ghost */}
-                  {!creditBalance.unlimited && (
-                    <button onClick={() => setShowBuyKeys(true)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-[#124bd2] hover:text-[#124bd2] hover:bg-blue-50 active:scale-95 transition-all duration-200 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
-                      <Plus size={14} />
-                      Recharger
-                    </button>
-                  )}
+                  <button onClick={() => setShowBuyKeys(true)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-[#124bd2] hover:text-[#124bd2] hover:bg-blue-50 active:scale-95 transition-all duration-200 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400">
+                    <Plus size={14} />
+                    Recharger
+                  </button>
 
                 </div>
               )}

@@ -31,11 +31,11 @@ export function LogoutDialog({ onConfirm, children }: LogoutDialogProps) {
 
               <AlertDialog.Content asChild forceMount>
                 <motion.div
-                  style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
-                  className="z-[9999] w-[calc(100vw-2rem)] max-w-[380px] rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
-                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                  style={{ position: 'fixed', left: '50%', top: '50%', zIndex: 9999 }}
+                  className="w-[calc(100vw-2rem)] max-w-[380px] rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900"
+                  initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
+                  animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
+                  exit={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
                 >
                   {/* Icône */}
@@ -60,14 +60,12 @@ export function LogoutDialog({ onConfirm, children }: LogoutDialogProps) {
                         Annuler
                       </button>
                     </AlertDialog.Cancel>
-                    <AlertDialog.Action asChild>
-                      <button
-                        onClick={onConfirm}
-                        className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 active:scale-95"
-                      >
-                        Se déconnecter
-                      </button>
-                    </AlertDialog.Action>
+                    <button
+                      onClick={() => { setOpen(false); onConfirm() }}
+                      className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 active:scale-95"
+                    >
+                      Se déconnecter
+                    </button>
                   </div>
                 </motion.div>
               </AlertDialog.Content>
