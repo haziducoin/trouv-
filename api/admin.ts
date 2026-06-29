@@ -627,6 +627,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // normalize-addresses — batch BAN via jointure SQL interne
+  // ──────────────────────────────────────────────────────────────────────────
+  if (sub === 'normalize-addresses') {
+    if (req.method === 'GET') {
+      // Statut : combien de contacts restent à normaliser
+      const { count: pending } = await supabaseAdmin
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .is('adresse_ban_at', null)
+        .not('adresse', 'is', null)
+        .not('code_postal', 'is', null)
+      const { count: done } = await supabaseAdmin
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .not('adresse_ban_at', 'is', null)
+        .gt('adresse_ban_score', 0)
+      res.json({ pending: pending ?? 0, done: done ?? 0 })
+      return
+    }
+    if (req.method === 'POST') {
+      if (scope !== 'super') {
+        res.status(403).json({ error: 'Réservé aux Super Admins' }); return
+      }
+      const batchSize = Math.min(50000, parseInt(String(req.body?.batchSize ?? 10000), 10))
+      const { data, error } = await supabaseAdmin.rpc('normalize_contacts_ban', { p_batch_size: batchSize })
+      if (error) { res.status(500).json({ error: error.message }); return }
+      const result = Array.isArray(data) ? data[0] : data
+      await supabaseAdmin.from('audit_logs').insert({
+        actor_id: auth!.userId,
+        action: 'admin_normalize_addresses_batch',
+        metadata: { batch_size: batchSize, processed: result?.processed, matched: result?.matched },
+      })
+      res.json({ processed: result?.processed ?? 0, matched: result?.matched ?? 0 })
+      return
+    }
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+
+  // ──────────────────────────────────────────────────────────────────────────
   // settings — feature flags (lecture + toggle)
   // ──────────────────────────────────────────────────────────────────────────
   if (sub === 'settings') {

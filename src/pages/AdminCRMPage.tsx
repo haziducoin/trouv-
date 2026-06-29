@@ -2620,6 +2620,11 @@ export default function AdminCRMPage({ account, onLogout, onSwitchToSearch }: Ad
   const [adminUserId, setAdminUserId] = useState('')
   const [pendingCount, setPendingCount] = useState<number | null>(null)
 
+  // Normalisation BAN interne (jointure SQL)
+  const [banStatus, setBanStatus]   = useState<{ pending: number; done: number } | null>(null)
+  const [banRunning, setBanRunning] = useState(false)
+  const [banLog, setBanLog]         = useState<string[]>([])
+
   useEffect(() => { getToken().then(setToken) }, [])
 
   useEffect(() => {
@@ -2691,6 +2696,63 @@ export default function AdminCRMPage({ account, onLogout, onSwitchToSearch }: Ad
               <Search size={13} /> Accéder à la recherche
             </button>
           )}
+
+          {/* ── Normalisation BAN interne ── */}
+          <button
+            onClick={async () => {
+              if (!banStatus && token) {
+                const s = await apiFetch<{ pending: number; done: number }>('/api/admin?sub=normalize-addresses', token).catch(() => null)
+                if (s) setBanStatus(s)
+              }
+            }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-1.5 text-[10px] font-medium text-slate-500 hover:bg-slate-50 mb-1"
+          >
+            <MapPin size={11} /> Normalisation BAN
+          </button>
+          {banStatus && (
+            <div className="mb-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-[10px] text-slate-600 leading-relaxed">
+              <div className="flex justify-between mb-1.5">
+                <span className="text-slate-400">En attente</span>
+                <span className="font-semibold">{banStatus.pending.toLocaleString('fr-FR')}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-slate-400">Normalisés</span>
+                <span className="font-semibold text-emerald-600">{banStatus.done.toLocaleString('fr-FR')}</span>
+              </div>
+              <button
+                disabled={banRunning || banStatus.pending === 0}
+                onClick={async () => {
+                  if (!token || banRunning) return
+                  setBanRunning(true)
+                  try {
+                    let remaining = banStatus.pending
+                    while (remaining > 0) {
+                      const r = await apiFetch<{ processed: number; matched: number }>(
+                        '/api/admin?sub=normalize-addresses', token, 'POST', { batchSize: 10000 }
+                      ).catch(() => null)
+                      if (!r || r.processed === 0) break
+                      remaining -= r.processed
+                      setBanLog(prev => [`Batch : ${r.matched}/${r.processed} trouvés — restants ~${Math.max(0, remaining).toLocaleString('fr-FR')}`, ...prev.slice(0, 4)])
+                      setBanStatus(prev => prev ? { ...prev, pending: Math.max(0, prev.pending - r.processed), done: prev.done + r.matched } : prev)
+                      await new Promise(x => setTimeout(x, 200))
+                    }
+                  } finally { setBanRunning(false) }
+                }}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-[#124bd2] py-1.5 text-[10px] font-semibold text-white hover:bg-[#0b3fbc] disabled:opacity-50 transition"
+              >
+                {banRunning
+                  ? <><Loader2 size={10} className="animate-spin" /> En cours…</>
+                  : banStatus.pending === 0 ? '✓ Tout normalisé' : `▶ Lancer (${Math.ceil(banStatus.pending / 10000)} batchs)`
+                }
+              </button>
+              {banLog.length > 0 && (
+                <div className="mt-1.5 space-y-0.5">
+                  {banLog.map((l, i) => <p key={i} className="text-[9px] text-slate-400 truncate">{l}</p>)}
+                </div>
+              )}
+            </div>
+          )}
+
           <button onClick={onLogout}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50">
             <LogOut size={13} /> Déconnexion
