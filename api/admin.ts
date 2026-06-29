@@ -24,7 +24,7 @@ const SCOPE_ALLOWED: Record<string, readonly string[]> = {
 }
 
 // Actions de user-full réservées aux super admins
-const SUPER_ONLY_ACTIONS = new Set(['add_credits', 'set_unlimited', 'delete_account'])
+const SUPER_ONLY_ACTIONS = new Set(['add_credits', 'set_unlimited', 'delete_account', 'assign_internal_subscription', 'cancel_internal_subscription'])
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await authenticate(req)
@@ -412,6 +412,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { error } = await supabaseAdmin.from('credit_balances').upsert({ organization_id: orgId, phone_credits: phone, email_credits: email, updated_at: new Date().toISOString() }, { onConflict: 'organization_id' })
         if (error) { res.status(500).json({ error: error.message }); return }
         await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_add_credits', metadata: { target_user: userId, phone, email } })
+        res.json({ ok: true }); return
+      }
+      // ── Attribution d'un abonnement INTERNE custom (sans Stripe) ──────────────
+      if (action === 'assign_internal_subscription') {
+        const orgId = await getOrgId()
+        if (!orgId) { res.status(400).json({ error: "Pas d'organisation liée" }); return }
+        const planName    = String(value?.planName ?? 'Custom').trim().slice(0, 80) || 'Custom'
+        const amountCents = Math.max(0, Math.round(Number(value?.amountEuros ?? 0) * 100))
+        const interval    = value?.interval === 'year' ? 'year' : 'month'
+        const credits     = Math.max(0, parseInt(String(value?.credits ?? '0'), 10) || 0)
+        const endDate     = value?.endDate ? new Date(String(value.endDate)).toISOString() : null
+        const now         = new Date().toISOString()
+
+        const subRow = {
+          plan_code: planName, plan_name: planName, amount_cents: amountCents,
+          billing_period: interval, status: 'active' as const, seats: 1,
+          starts_at: now, renews_at: endDate, billing_provider: 'manual', updated_at: now,
+        }
+        const { data: existing } = await supabaseAdmin.from('subscriptions')
+          .select('id').eq('organization_id', orgId).limit(1).maybeSingle()
+        const { error: subErr } = existing?.id
+          ? await supabaseAdmin.from('subscriptions').update(subRow).eq('id', existing.id as string)
+          : await supabaseAdmin.from('subscriptions').insert({ organization_id: orgId, created_at: now, ...subRow })
+        if (subErr) { res.status(500).json({ error: subErr.message }); return }
+
+        // Crédits unifiés : une seule valeur → remplit les deux colonnes à l'identique
+        await supabaseAdmin.from('credit_balances').upsert(
+          { organization_id: orgId, phone_credits: credits, email_credits: credits, updated_at: now },
+          { onConflict: 'organization_id' })
+        // Un abonnement actif implique un compte approuvé
+        await supabaseAdmin.from('profiles').update({ access_status: 'approved' }).eq('id', userId)
+        await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_assign_subscription', metadata: { target_user: userId, planName, amountCents, interval, credits, endDate } })
+        res.json({ ok: true }); return
+      }
+      // ── Résiliation d'un abonnement interne ───────────────────────────────────
+      if (action === 'cancel_internal_subscription') {
+        const orgId = await getOrgId()
+        if (!orgId) { res.status(400).json({ error: "Pas d'organisation liée" }); return }
+        const now = new Date().toISOString()
+        await supabaseAdmin.from('subscriptions')
+          .update({ status: 'canceled', canceled_at: now, updated_at: now })
+          .eq('organization_id', orgId)
+        await supabaseAdmin.from('audit_logs').insert({ actor_id: auth!.userId, action: 'admin_cancel_subscription', metadata: { target_user: userId } })
         res.json({ ok: true }); return
       }
       if (action === 'revoke_sessions') {

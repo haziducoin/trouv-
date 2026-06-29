@@ -263,10 +263,13 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
   const [tab, setTab] = useState<'info' | 'sessions' | 'devices' | 'subscription' | 'credits' | 'history'>('info')
 
   // Formulaires
-  const [creditPhone, setCreditPhone] = useState('0')
-  const [creditEmail, setCreditEmail] = useState('0')
-  const [selectedPlan, setSelectedPlan] = useState(STRIPE_PLANS[0].id)
-  const [customerId, setCustomerId] = useState('')
+  const [creditValue, setCreditValue] = useState('0')
+  // Formulaire abonnement interne custom (sans Stripe)
+  const [subPlanName, setSubPlanName] = useState('Agence')
+  const [subAmount, setSubAmount]     = useState('79')
+  const [subInterval, setSubInterval] = useState<'month' | 'year'>('month')
+  const [subCredits, setSubCredits]   = useState('0')
+  const [subEndDate, setSubEndDate]   = useState('')
   const [confirmImpersonate, setConfirmImpersonate] = useState(false)
   const [impersonating, setImpersonating] = useState(false)
   const [confirmRgpd, setConfirmRgpd] = useState(false)
@@ -278,7 +281,6 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
     try {
       const d = await apiFetch<UserFull>(`/api/admin/user-full?userId=${userId}`, token)
       setData(d)
-      setCustomerId(d.stripeCustomer?.id ?? '')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -322,12 +324,9 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
   const profile = data?.profile as Record<string, unknown> | null
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Overlay */}
-      <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex bg-white">
+      {/* Page plein écran */}
+      <div className="w-full bg-white flex flex-col overflow-hidden">
         {/* ── Modal confirmation impersonation ─────────────────────────────── */}
         {confirmImpersonate && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -513,7 +512,7 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto [&>div]:mx-auto [&>div]:w-full [&>div]:max-w-5xl">
           {loading ? <Spinner /> : error ? <ErrorState message={error} onRetry={load} /> : !data ? null : (
             <>
               {/* ══ PROFIL CLIENT UNIFIÉ — 3 blocs ══ */}
@@ -904,44 +903,62 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
                   {/* Abonnement BDD interne */}
                   {data.subscription && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                      <p className="text-xs font-bold uppercase text-blue-600 mb-2">Abonnement interne (BDD)</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold uppercase text-blue-600">Abonnement actif</p>
+                        <button onClick={() => act('cancel_internal_subscription')} disabled={!!busy}
+                          className="text-[11px] font-semibold text-red-500 hover:text-red-600 disabled:opacity-50">Résilier</button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-slate-500">Plan :</span> <span className="font-semibold">{String(data.subscription.plan_code ?? '—')}</span></div>
+                        <div><span className="text-slate-500">Plan :</span> <span className="font-semibold">{String(data.subscription.plan_name ?? data.subscription.plan_code ?? '—')}</span></div>
+                        <div><span className="text-slate-500">Montant :</span> <span className="font-semibold">{data.subscription.amount_cents != null ? `${(Number(data.subscription.amount_cents) / 100).toFixed(0)}€/${data.subscription.billing_period === 'year' ? 'an' : 'mois'}` : '—'}</span></div>
                         <div><span className="text-slate-500">Statut :</span> <span className="font-semibold">{String(data.subscription.status ?? '—')}</span></div>
+                        <div><span className="text-slate-500">Crédits :</span> <span className="font-semibold">{data.credits?.unlimited ? '∞' : (data.credits?.phone_credits ?? 0)}</span></div>
                         <div><span className="text-slate-500">Début :</span> <span className="font-semibold">{fmt(String(data.subscription.starts_at ?? ''))}</span></div>
-                        <div><span className="text-slate-500">Renouvellement :</span> <span className="font-semibold">{fmt(String(data.subscription.renews_at ?? ''))}</span></div>
+                        <div><span className="text-slate-500">Fin :</span> <span className="font-semibold">{data.subscription.renews_at ? fmt(String(data.subscription.renews_at)) : 'Sans limite'}</span></div>
                       </div>
                     </div>
                   )}
 
-                  {/* Assigner un abonnement manuellement */}
+                  {/* Attribuer un abonnement interne custom (sans Stripe) */}
                   <div className="rounded-xl border border-slate-200 p-4 space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Attribuer un abonnement manuellement</p>
-                    <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Attribuer un abonnement</p>
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[11px] text-slate-500 font-semibold">Customer ID Stripe</label>
-                        <input value={customerId} onChange={e => setCustomerId(e.target.value)}
-                          placeholder="cus_xxxx"
-                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500" />
-                        {data.stripeCustomer && (
-                          <p className="mt-1 text-[10px] text-emerald-600">Client Stripe trouvé : {data.stripeCustomer.email}</p>
-                        )}
+                        <label className="text-[11px] text-slate-500 font-semibold">Nom du plan</label>
+                        <input value={subPlanName} onChange={e => setSubPlanName(e.target.value)} placeholder="Agence, Pro…"
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-500 font-semibold">Plan</label>
-                        <select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                          {STRIPE_PLANS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        <label className="text-[11px] text-slate-500 font-semibold">Montant (€)</label>
+                        <input type="number" min="0" value={subAmount} onChange={e => setSubAmount(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-slate-500 font-semibold">Périodicité</label>
+                        <select value={subInterval} onChange={e => setSubInterval(e.target.value as 'month' | 'year')}
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                          <option value="month">Mensuel</option>
+                          <option value="year">Annuel</option>
                         </select>
                       </div>
-                      <button
-                        onClick={() => act('assign_subscription', { priceId: selectedPlan, customerId })}
-                        disabled={!!busy || !customerId}
-                        className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                        {busy === 'assign_subscription' ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
-                        Créer l'abonnement Stripe
-                      </button>
+                      <div>
+                        <label className="text-[11px] text-slate-500 font-semibold">Crédits inclus</label>
+                        <input type="number" min="0" value={subCredits} onChange={e => setSubCredits(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[11px] text-slate-500 font-semibold">Date de fin (optionnel)</label>
+                        <input type="date" value={subEndDate} onChange={e => setSubEndDate(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
                     </div>
+                    <button
+                      onClick={() => act('assign_internal_subscription', { planName: subPlanName, amountEuros: subAmount, interval: subInterval, credits: subCredits, endDate: subEndDate || null })}
+                      disabled={!!busy}
+                      className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                      {busy === 'assign_internal_subscription' ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                      Attribuer l'abonnement
+                    </button>
                   </div>
                 </div>
               )}
@@ -950,16 +967,11 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
               {tab === 'credits' && (
                 <div className="p-6 space-y-5">
                   {/* Solde actuel */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
-                      <Phone size={18} className="mx-auto mb-1 text-blue-500" />
-                      <p className="text-2xl font-extrabold text-blue-700">{data.credits?.phone_credits ?? '—'}</p>
-                      <p className="text-[11px] text-slate-400">Crédits téléphone</p>
-                    </div>
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-center">
-                      <Mail size={18} className="mx-auto mb-1 text-emerald-500" />
-                      <p className="text-2xl font-extrabold text-emerald-700">{data.credits?.email_credits ?? '—'}</p>
-                      <p className="text-[11px] text-slate-400">Crédits email</p>
+                      <Zap size={18} className="mx-auto mb-1 text-blue-500" />
+                      <p className="text-2xl font-extrabold text-blue-700">{data.credits?.unlimited ? '∞' : (data.credits?.phone_credits ?? '—')}</p>
+                      <p className="text-[11px] text-slate-400">Crédits</p>
                     </div>
                     <div className={`rounded-xl border p-4 text-center ${data.credits?.unlimited ? 'border-violet-200 bg-violet-50' : 'border-slate-100 bg-slate-50'}`}>
                       <Zap size={18} className={`mx-auto mb-1 ${data.credits?.unlimited ? 'text-violet-500' : 'text-slate-300'}`} />
@@ -973,20 +985,13 @@ function UserDrawer({ userId, token, onClose, onRefresh }: {
                   {/* Ajouter des crédits */}
                   <div className="rounded-xl border border-slate-200 p-4 space-y-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Définir les crédits</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] text-slate-500 font-semibold">Crédits téléphone</label>
-                        <input type="number" min="0" value={creditPhone} onChange={e => setCreditPhone(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-slate-500 font-semibold">Crédits email</label>
-                        <input type="number" min="0" value={creditEmail} onChange={e => setCreditEmail(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
+                    <div>
+                      <label className="text-[11px] text-slate-500 font-semibold">Nombre de crédits</label>
+                      <input type="number" min="0" value={creditValue} onChange={e => setCreditValue(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <button
-                      onClick={() => act('add_credits', { phone: parseInt(creditPhone), email: parseInt(creditEmail) })}
+                      onClick={() => act('add_credits', { phone: parseInt(creditValue) || 0, email: parseInt(creditValue) || 0 })}
                       disabled={!!busy}
                       className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                       {busy === 'add_credits' ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
