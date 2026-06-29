@@ -141,7 +141,7 @@ export default function ParcelSidepanel({ parcel, onClose }: Props) {
 
     // ── Contacts + BAN address ─────────────────────────────────────────────
     setContactsLoading(true); setContactsError(null)
-    fetch('/api/cadastre-match', {
+    fetch('/api/dvf', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ parcel }),
