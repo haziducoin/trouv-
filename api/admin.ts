@@ -234,7 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const search = req.query.search as string | undefined
       let query = supabaseAdmin
         .from('profiles')
-        .select(`id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, cgu_accepted, ip_alert, ip_alert_reason, organizations!profiles_organization_id_fkey(siren, legal_name, administrative_status)`, { count: 'exact' })
+        .select('id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, cgu_accepted, ip_alert, ip_alert_reason, organization_id', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1)
       if (status === 'ip_alert') query = query.eq('ip_alert', true)
@@ -244,6 +244,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (error) { console.error('[admin/users GET] supabase error:', error.message); res.status(500).json({ error: error.message }); return }
 
       const userIds = (data ?? []).map((u: Record<string, unknown>) => u.id as string)
+      const orgIds2 = [...new Set((data ?? []).map((u: Record<string, unknown>) => u.organization_id).filter(Boolean))] as string[]
+      let orgMap2: Record<string, Record<string, unknown>> = {}
+      if (orgIds2.length > 0) {
+        const { data: orgs2 } = await supabaseAdmin.from('organizations').select('id, siren, legal_name, administrative_status').in('id', orgIds2)
+        if (orgs2) for (const o of orgs2) orgMap2[o.id] = o
+      }
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
 
       // Recherches du mois en cours + déblocages — en parallèle
@@ -271,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       res.json({
         users: (data ?? []).map((u: Record<string, unknown>) => {
-          const org = u.organizations as Record<string, unknown> | null
+          const org = u.organization_id ? orgMap2[u.organization_id as string] ?? null : null
           const uc  = unlockMap.get(u.id as string) ?? { phone: 0, email: 0 }
           return { id: u.id, email: u.professional_email, firstName: u.first_name, lastName: u.last_name, functionTitle: u.function_title, role: u.role, status: u.access_status, quota: u.monthly_search_quota, createdAt: u.created_at, lastLoginAt: u.last_login_at, cguAccepted: u.cgu_accepted, organization: org ? { siren: org.siren, name: org.legal_name, active: org.administrative_status === 'A' } : null, monthlyUsage: searchCountMap.get(u.id as string) ?? 0, phoneUnlocks: uc.phone, emailUnlocks: uc.email, ipAlert: u.ip_alert ?? false, ipAlertReason: u.ip_alert_reason ?? null }
         }),
@@ -331,10 +337,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!userId) { res.status(400).json({ error: 'userId requis' }); return }
       const { data: profile, error: pErr } = await supabaseAdmin
         .from('profiles')
-        .select(`id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, organization_id, registration_ip, cgu_accepted, cgu_accepted_at, cgu_ip, organizations!profiles_organization_id_fkey(siren, legal_name, administrative_status), monthly_usage!monthly_usage_user_id_fkey(period_start, searches_used)`)
+        .select('id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, organization_id, registration_ip, cgu_accepted, cgu_accepted_at, cgu_ip')
         .eq('id', userId).single()
       if (pErr) { res.status(500).json({ error: pErr.message }); return }
       const orgId = (profile as Record<string, unknown>)?.organization_id as string | null
+
+      // Org + monthly_usage séparément pour éviter les FK instables
+      const [{ data: orgData }, { data: usageData }] = await Promise.all([
+        orgId ? supabaseAdmin.from('organizations').select('siren, legal_name, administrative_status').eq('id', orgId).maybeSingle() : Promise.resolve({ data: null }),
+        supabaseAdmin.from('monthly_usage').select('period_start, searches_used').eq('user_id', userId).order('period_start', { ascending: false }).limit(1).maybeSingle(),
+      ])
+      const profileFull = { ...(profile as Record<string, unknown>), organizations: orgData ?? null, monthly_usage: usageData ? [usageData] : [] }
       const [{ data: searches }, { data: unlocks }, { data: subscription }, { data: credits }] = await Promise.all([
         supabaseAdmin.from('searches').select('id, query_label, filters, result_count, units_consumed, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
         supabaseAdmin.from('contact_unlocks').select('id, field_type, contact_id, created_at').eq('unlocked_by', userId).order('created_at', { ascending: false }).limit(50),
@@ -382,7 +395,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }))
         } catch { /* pas de customer Stripe */ }
       }
-      res.json({ profile, searches: searches ?? [], unlocks: unlocks ?? [], sessions: ipLogs ?? [], devices: devicesData ?? [], subscription: subRecord, credits, stripeSubscription, stripeCustomer, stripeInvoices })
+      res.json({ profile: profileFull, searches: searches ?? [], unlocks: unlocks ?? [], sessions: ipLogs ?? [], devices: devicesData ?? [], subscription: subRecord, credits, stripeSubscription, stripeCustomer, stripeInvoices })
       return
     }
     if (req.method === 'POST') {
@@ -599,11 +612,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = req.query.userId as string
     if (!userId) { res.status(400).json({ error: 'userId requis' }); return }
     const [{ data: profile }, { data: searches }, { data: unlocks }] = await Promise.all([
-      supabaseAdmin.from('profiles').select('id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, organizations!profiles_organization_id_fkey(siren, legal_name), monthly_usage!monthly_usage_user_id_fkey(period_start, searches_used)').eq('id', userId).single(),
+      supabaseAdmin.from('profiles').select('id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, organization_id').eq('id', userId).single(),
       supabaseAdmin.from('searches').select('id, query_label, filters, result_count, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
       supabaseAdmin.from('contact_unlocks').select('id, field_type, prospect_id, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     ])
-    res.json({ profile, searches: searches ?? [], unlocks: unlocks ?? [] })
+    const histOrgId = (profile as Record<string, unknown> | null)?.organization_id as string | null
+    let histProfile: Record<string, unknown> = { ...(profile as Record<string, unknown> ?? {}) }
+    if (histOrgId) {
+      const { data: histOrg } = await supabaseAdmin.from('organizations').select('siren, legal_name').eq('id', histOrgId).maybeSingle()
+      histProfile.organizations = histOrg ?? null
+    }
+    res.json({ profile: histProfile, searches: searches ?? [], unlocks: unlocks ?? [] })
     return
   }
 
