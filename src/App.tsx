@@ -175,8 +175,8 @@ export default function App() {
     setAccountPanel(a.role === 'admin' ? 'workspace' : null)
   }
 
-  const handleLogout = () => {
-    clearSession() // fire-and-forget : signOut Supabase en arrière-plan
+  const handleLogout = async () => {
+    await clearSession()
     window.location.replace('/')
   }
 
