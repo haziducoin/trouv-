@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { motion } from 'framer-motion'
 import DemoLockModal from '@/components/demo/DemoLockModal'
 import DemoToast from '@/components/demo/DemoToast'
@@ -846,15 +846,28 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock, onA
                 <div className="flex flex-col gap-2.5">
                   {prospect.allAddresses && prospect.allAddresses.length > 0
                     ? prospect.allAddresses.map((addr, i) => (
-                        <div key={i} className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-2.5 shrink-0">
-                            <MapPin size={14} className="text-gray-300 mt-0.5 shrink-0" />
-                            <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre'}</span>
-                          </div>
-                          <span className="text-xs text-gray-700 font-medium text-right leading-relaxed">
-                            {[addr.rue, [addr.cp, addr.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
-                          </span>
-                        </div>
+                        <Fragment key={i}>
+                          {addr.rue && (
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-2.5 shrink-0">
+                                <MapPin size={14} className="text-gray-300 shrink-0" />
+                                <span className="text-xs text-gray-400">{i === 0 ? 'Adresse' : 'Autre'}</span>
+                              </div>
+                              <span className="text-xs text-gray-700 font-medium text-right">{addr.rue}</span>
+                            </div>
+                          )}
+                          {(addr.cp || addr.ville) && (
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-2.5 shrink-0">
+                                <MapPin size={14} className="text-gray-300 shrink-0" />
+                                <span className="text-xs text-gray-400">Commune</span>
+                              </div>
+                              <span className="text-xs text-gray-700 font-medium text-right">
+                                {addr.ville}{addr.cp ? ` (${addr.cp})` : ''}
+                              </span>
+                            </div>
+                          )}
+                        </Fragment>
                       ))
                     : <>
                         {prospect.address && (
