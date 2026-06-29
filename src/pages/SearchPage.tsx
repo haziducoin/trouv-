@@ -34,7 +34,6 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { LogoutDialog } from '@/components/ui/logout-dialog'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
 import { NotificationPopover, type Notification as AdminNotification } from '@/components/ui/notification-popover'
-import keyGreenImg  from '@/assets/key-green.png'
 import keyBlueImg   from '@/assets/key-blue.png'
 import lockBlueImg      from '@/assets/lock-blue.png'
 import lockGreenImg     from '@/assets/lock-green.png'
@@ -3107,21 +3106,13 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
               {creditBalance && (
                 <div className="flex flex-col gap-3">
 
-                  {/* Compteurs sur une ligne */}
+                  {/* Compteur clé bleue */}
                   <div className="flex items-center justify-center gap-5">
                     <div className="flex items-center gap-2">
-                      <img src={keyBlueImg} alt="clé téléphone"
+                      <img src={keyBlueImg} alt="clé"
                         style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
                         {creditBalance.unlimited ? '∞' : creditBalance.phoneCredits}
-                      </span>
-                    </div>
-                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
-                    <div className="flex items-center gap-2">
-                      <img src={keyGreenImg} alt="clé email"
-                        style={{ height: '44px', width: 'auto' }} onMouseEnter={bounceKey} />
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">
-                        {creditBalance.unlimited ? '∞' : creditBalance.emailCredits}
                       </span>
                     </div>
                   </div>

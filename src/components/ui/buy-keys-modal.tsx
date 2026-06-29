@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import keyBlueImg from '@/assets/key-blue.png'
-import keyGreenImg from '@/assets/key-green.png'
 
 const PACKS_MIN      = 1
 const PACKS_MAX      = 8
-const KEYS_PER_PACK  = 25
+const KEYS_PER_PACK  = 100
 const PRICE_PER_PACK = 15
 
 interface BuyKeysModalProps {
@@ -20,9 +19,7 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
 
   if (!open) return null
 
-  const phoneKeys = packs * KEYS_PER_PACK
-  const emailKeys = packs * KEYS_PER_PACK
-  const totalKeys = phoneKeys + emailKeys
+  const totalKeys = packs * KEYS_PER_PACK
   const price     = packs * PRICE_PER_PACK
 
   return (
@@ -56,16 +53,11 @@ export function BuyKeysModal({ open, onClose }: BuyKeysModalProps) {
             <span className="text-2xl text-gray-400 font-medium">clés</span>
           </div>
 
-          {/* Pills téléphone + email */}
+          {/* Pill clé bleue */}
           <div className="flex items-center justify-center gap-3 mb-9">
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-2xl text-sm font-medium border border-blue-100 whitespace-nowrap">
               <img src={keyBlueImg} alt="" style={{ height: '36px', width: 'auto', flexShrink: 0 }} />
-              <span>{phoneKeys} Téléphones</span>
-            </div>
-            <span className="text-gray-300 font-light text-lg">+</span>
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-2xl text-sm font-medium border border-green-100 whitespace-nowrap">
-              <img src={keyGreenImg} alt="" style={{ height: '36px', width: 'auto', flexShrink: 0 }} />
-              <span>{emailKeys} Emails Directs</span>
+              <span>{totalKeys} Clés</span>
             </div>
           </div>
 
