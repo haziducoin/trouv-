@@ -136,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { count: pendingApprovals },
       { count: searchesThisMonth },
       { count: unlocksThisMonth },
-      { data: topOrgs },
+      { data: topOrgsRaw },
       { data: recentSearches },
       { data: creditUsage },
     ] = await Promise.all([
@@ -145,19 +145,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).eq('access_status', 'pending'),
       supabaseAdmin.from('audit_logs').select('*', { count: 'exact', head: true }).eq('action', 'search').gte('created_at', startOfMonth),
       supabaseAdmin.from('audit_logs').select('*', { count: 'exact', head: true }).eq('action', 'unlock').gte('created_at', startOfMonth),
-      supabaseAdmin.from('monthly_usage').select('organization_id, searches_used, organizations(name)').gte('period_start', startOfMonth).order('searches_used', { ascending: false }).limit(10),
-      supabaseAdmin.from('searches').select('id, query_label, filters, result_count, created_at, profiles(email)').order('created_at', { ascending: false }).limit(20),
+      supabaseAdmin.from('searches').select('organization_id').gte('created_at', startOfMonth),
+      supabaseAdmin.from('searches').select('id, query_label, filters, result_count, created_at, profiles(professional_email)').order('created_at', { ascending: false }).limit(20),
       supabaseAdmin.from('contact_unlocks').select('field_type, created_at').gte('created_at', startOfLastMonth),
     ])
 
     const creditsThisMonth = (creditUsage ?? []).filter((u: { created_at: string }) => u.created_at >= startOfMonth)
     const creditsLastMonth = (creditUsage ?? []).filter((u: { created_at: string }) => u.created_at < startOfMonth)
+
+    // Top organisations par recherches ce mois (agrégé depuis `searches`, monthly_usage déprécié)
+    const orgCounts = new Map<string, number>()
+    for (const s of (topOrgsRaw ?? []) as Array<{ organization_id: string | null }>) {
+      if (s.organization_id) orgCounts.set(s.organization_id, (orgCounts.get(s.organization_id) ?? 0) + 1)
+    }
+    const topOrgIds = [...orgCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+    const orgNameMap: Record<string, string> = {}
+    if (topOrgIds.length) {
+      const { data: orgRows } = await supabaseAdmin.from('organizations').select('id, legal_name').in('id', topOrgIds.map(([id]) => id))
+      for (const o of (orgRows ?? []) as Array<{ id: string; legal_name: string }>) orgNameMap[o.id] = o.legal_name
+    }
+    const topOrgs = topOrgIds.map(([orgId, count]) => ({ organizationId: orgId, name: orgNameMap[orgId] ?? '—', searchesUsed: count }))
+
     res.json({
       users: { total: totalUsers ?? 0, newThisMonth: newUsersThisMonth ?? 0, pendingApprovals: pendingApprovals ?? 0 },
       activity: { searchesThisMonth: searchesThisMonth ?? 0, unlocksThisMonth: unlocksThisMonth ?? 0 },
       credits: { thisMonth: creditsThisMonth.length, lastMonth: creditsLastMonth.length, byType: { phone: creditsThisMonth.filter((u: { field_type: string }) => u.field_type === 'phone').length, email: creditsThisMonth.filter((u: { field_type: string }) => u.field_type === 'email').length } },
-      topOrgs: (topOrgs ?? []).map((o: Record<string, unknown>) => ({ organizationId: o.organization_id, name: (o.organizations as Record<string, unknown> | null)?.name ?? '—', searchesUsed: o.searches_used })),
-      recentSearches: (recentSearches ?? []).map((s: Record<string, unknown>) => ({ id: s.id, queryLabel: s.query_label, filters: s.filters, resultCount: s.result_count, createdAt: s.created_at, userEmail: (s.profiles as Record<string, unknown> | null)?.email ?? '—' })),
+      topOrgs,
+      recentSearches: (recentSearches ?? []).map((s: Record<string, unknown>) => ({ id: s.id, queryLabel: s.query_label, filters: s.filters, resultCount: s.result_count, createdAt: s.created_at, userEmail: (s.profiles as Record<string, unknown> | null)?.professional_email ?? '—' })),
     })
     return
   }
@@ -399,7 +413,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Org + monthly_usage séparément pour éviter les FK instables
       const [{ data: orgData }, { data: usageData }] = await Promise.all([
         orgId ? supabaseAdmin.from('organizations').select('siren, legal_name, administrative_status').eq('id', orgId).maybeSingle() : Promise.resolve({ data: null }),
-        supabaseAdmin.from('monthly_usage').select('period_start, searches_used').eq('user_id', userId).order('period_start', { ascending: false }).limit(1).maybeSingle(),
+        supabaseAdmin.from('monthly_usage').select('period_start, searches_used').eq('profile_id', userId).order('period_start', { ascending: false }).limit(1).maybeSingle(),
       ])
       const profileFull = { ...(profile as Record<string, unknown>), organizations: orgData ?? null, monthly_usage: usageData ? [usageData] : [] }
       const [{ data: searches }, { data: unlocks }, { data: subscription }, { data: credits }] = await Promise.all([
@@ -636,7 +650,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           supabaseAdmin.from('favorites')      .delete().eq('user_id',    userId),
           supabaseAdmin.from('profile_ips')    .delete().eq('profile_id', userId),
           supabaseAdmin.from('user_devices')   .delete().eq('user_id',    userId),
-          supabaseAdmin.from('monthly_usage')  .delete().eq('user_id',    userId),
+          supabaseAdmin.from('monthly_usage')  .delete().eq('profile_id', userId),
         ])
 
         // ⑤ Si dernier membre de l'org → nettoie les données d'organisation
