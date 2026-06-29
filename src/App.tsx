@@ -176,7 +176,7 @@ export default function App() {
   }
 
   const handleLogout = async () => {
-    await clearSession()
+    try { await clearSession() } catch { /* ignore */ }
     window.location.replace('/')
   }
 
