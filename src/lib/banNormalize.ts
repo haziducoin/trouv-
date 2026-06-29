@@ -1,10 +1,10 @@
 import { getSupabaseClient } from '@/lib/supabase'
 
 export interface BanResult {
-  adresse: string
+  adresse:     string
   code_postal: string
-  ville: string
-  score: number
+  ville:       string
+  score:       number
 }
 
 async function queryBAN(q: string): Promise<BanResult | null> {
@@ -16,10 +16,10 @@ async function queryBAN(q: string): Promise<BanResult | null> {
     const f = data.features?.[0]
     if (!f) return null
     return {
-      adresse:      f.properties.name    ?? '',
-      code_postal:  f.properties.postcode ?? '',
-      ville:        f.properties.city     ?? '',
-      score:        f.properties.score    ?? 0,
+      adresse:     f.properties.name     ?? '',
+      code_postal: f.properties.postcode ?? '',
+      ville:       f.properties.city     ?? '',
+      score:       f.properties.score    ?? 0,
     }
   } catch {
     return null
@@ -27,26 +27,25 @@ async function queryBAN(q: string): Promise<BanResult | null> {
 }
 
 export interface NormalizeProgress {
-  total:     number
-  done:      number
-  skipped:   number
-  failed:    number
+  total:   number
+  done:    number
+  skipped: number
+  failed:  number
 }
 
-// Returns true when BAN should be called (no separate cp/ville or adresse looks like full address)
-function needsNormalization(adresse: string | null, code_postal: string | null, ville: string | null): boolean {
-  if (!adresse?.trim()) return false
-  if (code_postal?.trim() && ville?.trim()) return false  // already clean
-  return true
+// Build the best possible BAN query from available fields
+function buildQuery(adresse: string, code_postal: string | null, ville: string | null): string {
+  return [adresse, code_postal, ville].filter(Boolean).join(' ')
 }
 
 export async function normalizeAllAddresses(
   onProgress?: (p: NormalizeProgress) => void,
-  minScore = 0.5,
+  minScore = 0.7,
 ): Promise<NormalizeProgress> {
   const supabase = getSupabaseClient()
 
-  // Fetch contacts that need normalization (no cp or no ville)
+  // Fetch ALL contacts with a non-empty adresse — normalize even those with cp+ville
+  // because the rue field itself may be abbreviated or badly formatted
   const { data: contacts, error } = await supabase
     .from('contacts')
     .select('id, adresse, code_postal, ville')
@@ -55,28 +54,34 @@ export async function normalizeAllAddresses(
 
   if (error || !contacts) throw new Error(error?.message ?? 'Fetch failed')
 
-  const toProcess = contacts.filter(c =>
-    needsNormalization(c.adresse, c.code_postal, c.ville)
-  )
-
-  const progress: NormalizeProgress = { total: toProcess.length, done: 0, skipped: 0, failed: 0 }
+  const progress: NormalizeProgress = {
+    total:   contacts.length,
+    done:    0,
+    skipped: 0,
+    failed:  0,
+  }
   onProgress?.(progress)
 
-  for (const contact of toProcess) {
-    const result = await queryBAN(contact.adresse)
+  for (const contact of contacts) {
+    const q      = buildQuery(contact.adresse, contact.code_postal, contact.ville)
+    const result = await queryBAN(q)
 
-    if (!result || result.score < minScore) {
+    if (!result || result.score < minScore || !result.adresse) {
       progress.failed++
     } else {
       const { error: upErr } = await supabase
         .from('contacts')
-        .update({ adresse: result.adresse, code_postal: result.code_postal, ville: result.ville })
+        .update({
+          adresse:     result.adresse,
+          code_postal: result.code_postal,
+          ville:       result.ville,
+        })
         .eq('id', contact.id)
       if (upErr) { progress.failed++ } else { progress.done++ }
     }
 
     onProgress?.({ ...progress })
-    // Rate-limit: ~10 req/s max
+    // ~10 req/s to stay within BAN API rate limits
     await new Promise(r => setTimeout(r, 100))
   }
 
