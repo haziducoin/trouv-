@@ -17,46 +17,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const status = req.query.status as string | undefined
     const search = req.query.search as string | undefined
 
-    let query = supabaseAdmin
+    // Requête principale — colonnes de base uniquement
+    let baseQuery = supabaseAdmin
       .from('profiles')
-      .select(`
-        id,
-        professional_email,
-        first_name,
-        last_name,
-        function_title,
-        role,
-        access_status,
-        monthly_search_quota,
-        created_at,
-        last_login_at,
-        cgu_accepted,
-        organizations!profiles_organization_id_fkey ( siren, legal_name, administrative_status ),
-        monthly_usage!monthly_usage_user_id_fkey ( period_start, searches_used )
-      `, { count: 'exact' })
+      .select('id, professional_email, first_name, last_name, function_title, role, access_status, monthly_search_quota, created_at, last_login_at, cgu_accepted, organization_id', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range((page - 1) * limit, page * limit - 1)
 
-    if (status) query = query.eq('access_status', status)
-    if (search) query = query.or(
+    if (status) baseQuery = baseQuery.eq('access_status', status)
+    if (search) baseQuery = baseQuery.or(
       `professional_email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`
     )
 
-    const { data, error, count } = await query
+    const { data, error, count } = await baseQuery
     if (error) {
       console.error('[admin/users GET] supabase error:', error.message, error.details)
       res.status(500).json({ error: error.message })
       return
     }
 
+    const users = data ?? []
+
+    // Récupération des organisations en une seule requête
+    const orgIds = [...new Set(users.map((u: Record<string, unknown>) => u.organization_id).filter(Boolean))] as string[]
+    let orgMap: Record<string, Record<string, unknown>> = {}
+    if (orgIds.length > 0) {
+      const { data: orgs } = await supabaseAdmin
+        .from('organizations')
+        .select('id, siren, legal_name, administrative_status')
+        .in('id', orgIds)
+      if (orgs) {
+        for (const o of orgs) orgMap[o.id] = o
+      }
+    }
+
+    // Récupération du monthly_usage en une seule requête
+    const userIds = users.map((u: Record<string, unknown>) => u.id as string)
+    let usageMap: Record<string, number> = {}
+    if (userIds.length > 0) {
+      const { data: usages } = await supabaseAdmin
+        .from('monthly_usage')
+        .select('user_id, searches_used, period_start')
+        .in('user_id', userIds)
+        .order('period_start', { ascending: false })
+      if (usages) {
+        const seen = new Set<string>()
+        for (const u of usages) {
+          if (!seen.has(u.user_id)) {
+            seen.add(u.user_id)
+            usageMap[u.user_id] = u.searches_used ?? 0
+          }
+        }
+      }
+    }
+
     res.json({
-      users: (data ?? []).map((u: Record<string, unknown>) => {
-        const org = u.organizations as Record<string, unknown> | null
-        const usage = (u.monthly_usage as Array<{ period_start: string; searches_used: number }> | null) ?? []
-        // Dernière période connue
-        const currentUsage = usage.sort((a, b) =>
-          b.period_start.localeCompare(a.period_start)
-        )[0]
+      users: users.map((u: Record<string, unknown>) => {
+        const org = u.organization_id ? orgMap[u.organization_id as string] ?? null : null
         return {
           id: u.id,
           email: u.professional_email,
@@ -74,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             name: org.legal_name,
             active: org.administrative_status === 'A',
           } : null,
-          monthlyUsage: currentUsage?.searches_used ?? 0,
+          monthlyUsage: usageMap[u.id as string] ?? 0,
         }
       }),
       total: count ?? 0,
