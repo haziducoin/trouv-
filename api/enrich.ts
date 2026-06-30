@@ -236,7 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[enrich/unlock]', err?.message ?? err)
 
     if (err?.message?.includes('API_KEY') || err?.message?.includes('401') || err?.message?.includes('invalid_api_key')) {
-      res.status(503).json({ error: 'Service IA indisponible — vérifiez GROQ_API_KEY dans Vercel' })
+      res.status(503).json({ error: 'Service IA indisponible — vérifiez les clés API dans Vercel' })
       return
     }
     if (err?.message?.includes('429') || err?.message?.includes('rate_limit')) {
