@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { contact_id, prenom, nom, ville } = req.body ?? {}
+  const { contact_id, prenom, nom, ville, date_naissance } = req.body ?? {}
 
   if (!contact_id || !String(prenom ?? '').trim() || !String(nom ?? '').trim()) {
     res.status(400).json({ error: 'contact_id, prenom et nom sont requis' })
@@ -50,10 +50,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const result = await enrichBackground({
-      prenom: String(prenom).trim(),
-      nom:    String(nom).trim(),
-      ville:  ville ? String(ville).trim() : null,
+      prenom:         String(prenom).trim(),
+      nom:            String(nom).trim(),
+      ville:          ville ? String(ville).trim() : null,
+      date_naissance: date_naissance ? String(date_naissance) : null,
     })
+
+    // Registre officiel (confidence_score=95, voir ai-enrichment.ts) = donnée confirmée,
+    // pas une simple piste LLM → seul ce cas mérite le statut 'confirmed'.
+    const isOfficial = result.sources?.some(s => s.source_type === 'official_registry')
 
     await supabaseAdmin.from('contact_enrichment').upsert({
       contact_id:            Number(contact_id),
@@ -65,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       public_profile_url:    result.public_profile_url,
       company_website:       result.company_website,
       confidence_score:      result.confidence_score,
-      status:                'uncertain', // background = signal d'aide, pas confirmation
+      status:                isOfficial ? 'confirmed' : 'uncertain', // background LLM = signal d'aide, pas confirmation
       sources:               result.sources,
       checked_at:            new Date().toISOString(),
     }, { onConflict: 'contact_id' })

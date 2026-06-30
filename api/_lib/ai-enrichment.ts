@@ -35,9 +35,10 @@ export const BackgroundEnrichmentSchema = z.object({
 export type BackgroundEnrichmentResult = z.infer<typeof BackgroundEnrichmentSchema>
 
 export interface BackgroundEnrichInput {
-  prenom: string
-  nom:    string
-  ville:  string | null
+  prenom:         string
+  nom:            string
+  ville:          string | null
+  date_naissance?: string | null
 }
 
 // ─── Mode 2 : Enrichissement on-unlock ───────────────────────────────────────
@@ -111,6 +112,20 @@ const model = groq('compound-beta')
 // ─── Mode 1 ───────────────────────────────────────────────────────────────────
 
 export async function enrichBackground(input: BackgroundEnrichInput): Promise<BackgroundEnrichmentResult> {
+  // Registre officiel d'abord — gratuit, déterministe. Évite l'appel Groq (rate-limité)
+  // pour tout contact dont l'identité de dirigeant est confirmable sans LLM.
+  const birthYear = String(input.date_naissance ?? '').match(/\d{4}/)?.[0] ?? null
+  const official = await searchOfficialRegistry(input.prenom, input.nom, birthYear)
+  if (official?.company) {
+    return BackgroundEnrichmentSchema.parse({
+      company: official.company, job_title: official.job_title, school: null,
+      industry: official.industry, professional_location: official.professional_location,
+      public_profile_url: official.public_profile_url, company_website: null,
+      confidence_score: 95,
+      sources: [{ url: 'https://recherche-entreprises.api.gouv.fr', source_type: 'official_registry', confidence: 95 }],
+    })
+  }
+
   const loc = input.ville ? ` situé à ${input.ville}` : ''
 
   const { text } = await generateText({
@@ -148,6 +163,86 @@ interface WebProfile {
   industry:              string | null
   professional_location: string | null
   public_profile_url:    string | null
+}
+
+// 0. Registre officiel — recherche-entreprises.api.gouv.fr (gratuit, sans clé, 7 req/s/IP).
+// Données structurées INSEE/INPI (dirigeants, dénomination, adresse du siège) : déterministe,
+// donc prioritaire sur tout LLM. Si match ambigu (plusieurs entreprises distinctes), on
+// n'invente rien — retourne null plutôt qu'un faux positif sur homonyme.
+// https://recherche-entreprises.api.gouv.fr/docs/
+async function searchOfficialRegistry(
+  prenom: string, nom: string, birthYear: string | null
+): Promise<WebProfile | null> {
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  try {
+    const params = new URLSearchParams({
+      nom_personne:     nom,
+      prenoms_personne: prenom,
+      type_personne:    'dirigeant',
+      per_page:         '25', // max autorisé par l'API
+    })
+    if (birthYear) {
+      params.set('date_naissance_personne_min', `${birthYear}-01-01`)
+      params.set('date_naissance_personne_max', `${birthYear}-12-31`)
+    }
+
+    const resp = await fetch(`https://recherche-entreprises.api.gouv.fr/search?${params}`, {
+      headers: { 'User-Agent': 'trouve.fr enrichment contact@trouve.fr' },
+      signal:  AbortSignal.timeout(8000),
+    })
+    if (!resp.ok) {
+      if (resp.status === 429) console.warn('[enrich] registre officiel : 429 rate limit (7 req/s max)')
+      return null
+    }
+
+    const data = await resp.json() as {
+      total_results: number
+      results: Array<{
+        nom_complet: string
+        siege?: { libelle_commune?: string | null }
+        dirigeants?: Array<{
+          nom?: string; prenoms?: string; date_de_naissance?: string | null
+          qualite?: string | null; type_dirigeant?: string
+        }>
+      }>
+    }
+
+    // Sans année de naissance, le filtre serveur (nom_personne/prenoms_personne) est large
+    // (full-text, pas un AND strict) : si on n'a pas vu tous les résultats (per_page=25 max),
+    // impossible de juger l'ambiguïté correctement → on refuse de deviner.
+    if (!birthYear && (data.total_results ?? 0) > (data.results?.length ?? 0)) return null
+
+    const nomN    = norm(nom)
+    const prenomN = norm(prenom)
+    const matches: Array<{ company: string; ville: string | null; qualite: string | null }> = []
+
+    for (const r of data.results ?? []) {
+      for (const d of r.dirigeants ?? []) {
+        if (d.type_dirigeant !== 'personne physique') continue
+        if (norm(d.nom ?? '') !== nomN) continue
+        if (!(d.prenoms ?? '').split(/\s+/).some(p => norm(p) === prenomN)) continue
+        if (birthYear && d.date_de_naissance && !d.date_de_naissance.startsWith(birthYear)) continue
+        matches.push({ company: r.nom_complet, ville: r.siege?.libelle_commune ?? null, qualite: d.qualite ?? null })
+      }
+    }
+    if (!matches.length) return null
+
+    const distinctCompanies = new Set(matches.map(m => m.company))
+    if (distinctCompanies.size > 1 && !birthYear) {
+      // Sans date de naissance pour trancher entre plusieurs entreprises : homonyme
+      // potentiel → ne pas deviner.
+      return null
+    }
+    // Avec date de naissance, nom+prénom+année confirment l'identité (même logique que
+    // le matching SQL côté contacts) : une personne dirigeant plusieurs sociétés (holdings,
+    // gérances multiples — fréquent chez les entrepreneurs/professionnels de l'immobilier)
+    // n'est PAS un homonyme. On choisit la société avec une fonction renseignée.
+    const best = matches.find(m => m.qualite) ?? matches[0]
+    return { company: best.company, job_title: best.qualite, industry: null, professional_location: best.ville, public_profile_url: null }
+  } catch (err) {
+    console.error('[enrich] registre officiel error:', String(err).slice(0, 120))
+    return null
+  }
 }
 
 // extractProfileFromSnippets utilise Mistral directement (pas Groq) — voir ci-dessous
@@ -762,21 +857,33 @@ export async function enrichOnUnlock(input: UnlockEnrichInput): Promise<UnlockEn
     : false
 
   let profile: WebProfile | null = null
+  let fromOfficialRegistry = false
 
   const birthYear = String(input.date_naissance ?? '').match(/\d{4}/)?.[0] ?? null
   const locHint   = [city, cp].filter(Boolean).join(' ') || null
 
+  // 0. Registre officiel d'abord — gratuit, déterministe. Si match net, on court-circuite
+  // toute la chaîne LLM ci-dessous (économise Groq/Mistral/Gemini, sous rate-limit/quota).
+  const official = await searchOfficialRegistry(input.prenom, input.nom, birthYear)
+  if (official?.company) {
+    profile = official
+    fromOfficialRegistry = true
+    console.log('[enrich] ✓ Registre officiel (gouv.fr):', profile.company, profile.job_title)
+  }
+
   const exaOpts  = { birthYear, address: input.adresse ?? null, isPersonalEmail }
   const braveOpts = { birthYear, address: input.adresse ?? null, emailPrefix: input.email_masque?.split('@')[0] ?? null }
 
-  // ── Toutes les sources en PARALLÈLE (max ~20s total)
-  const [linkedinResult, exaResult, exaRegistriesResult, braveResult, mistralResult] = await Promise.allSettled([
-    searchLinkedInDirect(name, city, cp, signalCtx, isPersonalEmail),
-    searchViaExa(name, city, exaOpts),
-    searchViaExaRegistries(name, city, { birthYear }),
-    searchViaBrave(name, city, braveOpts),
-    enrichWithMistral(name, birthYear, locHint, signalCtx, input.adresse ?? null),
-  ])
+  // ── Toutes les sources en PARALLÈLE (max ~20s total) — sautées si le registre officiel a répondu
+  const [linkedinResult, exaResult, exaRegistriesResult, braveResult, mistralResult] = fromOfficialRegistry
+    ? [{ status: 'fulfilled', value: null } as const, { status: 'fulfilled', value: null } as const, { status: 'fulfilled', value: null } as const, { status: 'fulfilled', value: null } as const, { status: 'fulfilled', value: null } as const]
+    : await Promise.allSettled([
+        searchLinkedInDirect(name, city, cp, signalCtx, isPersonalEmail),
+        searchViaExa(name, city, exaOpts),
+        searchViaExaRegistries(name, city, { birthYear }),
+        searchViaBrave(name, city, braveOpts),
+        enrichWithMistral(name, birthYear, locHint, signalCtx, input.adresse ?? null),
+      ])
 
   // Convertit le résultat Mistral en WebProfile
   const mistralProfile: WebProfile | null = (() => {
@@ -827,8 +934,9 @@ export async function enrichOnUnlock(input: UnlockEnrichInput): Promise<UnlockEn
   const location  = profile?.professional_location ?? null
   const linkedin  = profile?.public_profile_url    ?? null
 
-  const score  = company && job_title ? 80 : company || job_title ? 55 : 30
-  const status = company && job_title ? 'likely' : company || job_title ? 'uncertain' : 'insufficient_data'
+  // Registre officiel = donnée déterministe (INSEE/INPI), pas une inférence LLM → confiance max
+  const score  = fromOfficialRegistry ? 95 : company && job_title ? 80 : company || job_title ? 55 : 30
+  const status = fromOfficialRegistry ? 'confirmed' : company && job_title ? 'likely' : company || job_title ? 'uncertain' : 'insufficient_data'
 
   return UnlockEnrichmentSchema.parse({
     identity_confidence_score: score,
