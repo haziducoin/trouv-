@@ -20,6 +20,9 @@
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "stream-chain": "^3.6.3",
+    "stream-json": "^1.9.1",
+    "tsx": "^4.22.4",
     "typescript": "~6.0.2",
     "vite": "^8.0.4"
   },
