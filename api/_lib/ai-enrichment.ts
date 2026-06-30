@@ -18,16 +18,18 @@ const SourceSchema = z.object({
 
 // ─── Mode 1 : Enrichissement background ──────────────────────────────────────
 
+// Tolérant : les modèles renvoient parfois des champs manquants, null, ou un
+// confidence_score hors bornes → on retombe sur des valeurs sûres au lieu de throw.
 export const BackgroundEnrichmentSchema = z.object({
-  company:               z.string().nullable(),
-  job_title:             z.string().nullable(),
-  school:                z.string().nullable(),
-  industry:              z.string().nullable(),
-  professional_location: z.string().nullable(),
-  public_profile_url:    z.string().nullable(),
-  company_website:       z.string().nullable(),
-  confidence_score:      z.number().int().min(1).max(100),
-  sources:               z.array(SourceSchema),
+  company:               z.string().nullable().catch(null),
+  job_title:             z.string().nullable().catch(null),
+  school:                z.string().nullable().catch(null),
+  industry:              z.string().nullable().catch(null),
+  professional_location: z.string().nullable().catch(null),
+  public_profile_url:    z.string().nullable().catch(null),
+  company_website:       z.string().nullable().catch(null),
+  confidence_score:      z.coerce.number().transform(v => Math.min(100, Math.max(1, Math.round(v || 50)))).catch(50),
+  sources:               z.array(SourceSchema).catch([]),
 })
 
 export type BackgroundEnrichmentResult = z.infer<typeof BackgroundEnrichmentSchema>
@@ -129,7 +131,8 @@ Retourne UNIQUEMENT ce JSON valide (sans texte autour) :
 }`,
   })
 
-  const parsed = extractJson(text)
+  let parsed: unknown = {}
+  try { parsed = extractJson(text) } catch { /* JSON absent/malformé → résultat vide tolérant */ }
   return BackgroundEnrichmentSchema.parse(parsed)
 }
 
