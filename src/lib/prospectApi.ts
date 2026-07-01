@@ -373,10 +373,11 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const telOnly   = !!rpcParams.p_tel && !rpcParams.p_nom && !rpcParams.p_prenom && !rpcParams.p_identity
   const timeoutMs = telOnly ? 30000 : 15000
 
-  // Pour une recherche 2 mots sans champs explicites : tester les deux ordres (Prénom Nom ET Nom Prénom)
-  // L'utilisateur tape "matteo doria" → peut être prenom=matteo/nom=doria OU nom=matteo/prenom=doria
-  const twoWordFreeSearch = isNameSearch && !p_identity && !params.nom && !params.prenom
-    && p_nom != null && p_prenom != null
+  // Recherche libre multi-mots : tester les deux découpages pertinents
+  //   • dernier mot = nom  (format FR standard "Prénom [Composé] Nom")  ex: "Jean Charles Doria" → nom=Doria, prenom=Jean Charles
+  //   • premier mot = nom  (format "Nom Prénom [Composé]")              ex: "Doria Jean Charles" → nom=Doria, prenom=Jean Charles
+  const freeNameSearch = isNameSearch && !p_identity && !params.nom && !params.prenom
+    && p_nom != null
 
   const makeTimeout = () => new Promise<{ data: null; error: { message: string; code: string } }>(
     resolve => setTimeout(() => resolve({ data: null, error: {
@@ -388,11 +389,20 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
 
   let rows: Array<Record<string, any>>
 
-  if (twoWordFreeSearch) {
-    // Ordre 1 : mot1 = nom, mot2 = prénom (cas actuel)
-    const params1 = { ...rpcParams }
-    // Ordre 2 : mot1 = prénom, mot2 = nom (le plus courant : "Prénom Nom")
-    const params2 = { ...rpcParams, p_nom: p_prenom, p_prenom: p_nom }
+  if (freeNameSearch) {
+    const parts = queryRaw.split(/\s+/).filter(Boolean)
+
+    // Permutation 1 : dernier mot = nom, reste = prénom  →  "Doria" / "Jean Charles"
+    const nomLast    = parts[parts.length - 1]
+    const prenomRest = parts.length > 1 ? parts.slice(0, -1).join(' ') : null
+
+    // Permutation 2 : premier mot = nom, reste = prénom  →  "Jean" / "Charles Doria"
+    const nomFirst   = parts[0]
+    const prenomTail = parts.length > 1 ? parts.slice(1).join(' ') : null
+
+    const base = { ...rpcParams }
+    const params1 = { ...base, p_nom: nomLast,  ...(prenomRest ? { p_prenom: prenomRest } : { p_prenom: undefined }) }
+    const params2 = { ...base, p_nom: nomFirst, ...(prenomTail ? { p_prenom: prenomTail } : { p_prenom: undefined }) }
 
     const [res1, res2] = await Promise.all([
       Promise.race([supabase.rpc('search_contacts_secure', params1), makeTimeout()]),
