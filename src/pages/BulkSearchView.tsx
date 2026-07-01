@@ -6,6 +6,7 @@ import {
   Upload, Info, FileText, Download, Phone, Mail,
 } from 'lucide-react'
 import { CsvUploadModal } from '@/components/ui/csv-upload-modal'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { searchProspects, unlockContactField, UnlockError, type ProspectResult, type CreditBalance } from '@/lib/prospectApi'
 import { generateBulkDemoResults } from '@/lib/demoResults'
 import { type Account } from '@/lib/accountStore'
@@ -364,20 +365,24 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {rows.map((row, i) => (
               <div key={row.id} className="grid grid-cols-[2fr_1fr_2fr_36px] gap-2 px-4 py-2 items-center group">
-                {([
-                  { field: 'identite', placeholder: 'Jean Dupont ou Dupont Jean…'  },
-                  { field: 'tel',      placeholder: '06…'                           },
-                  { field: 'adresse',  placeholder: 'ex: 10 Rue de la Paix Paris'  },
-                ] as const).map(({ field, placeholder }) => (
-                  <input
-                    key={field}
-                    value={row[field]}
-                    onChange={e => updateRow(row.id, field, e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && i === rows.length - 1 && setRows(r => [...r, newRow()])}
-                    placeholder={placeholder}
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:border-[#124bd2] focus:outline-none focus:ring-1 focus:ring-[#124bd2]/30 transition"
-                  />
-                ))}
+                <input
+                  value={row.identite}
+                  onChange={e => updateRow(row.id, 'identite', e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && i === rows.length - 1 && setRows(r => [...r, newRow()])}
+                  placeholder="Jean Dupont ou Dupont Jean…"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:border-[#124bd2] focus:outline-none focus:ring-1 focus:ring-[#124bd2]/30 transition"
+                />
+                <input
+                  value={row.tel}
+                  onChange={e => updateRow(row.id, 'tel', e.target.value)}
+                  placeholder="06…"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:border-[#124bd2] focus:outline-none focus:ring-1 focus:ring-[#124bd2]/30 transition"
+                />
+                <AddressAutocomplete
+                  value={row.adresse}
+                  placeholder="ex: 10 Rue de la Paix Paris"
+                  onSelect={result => updateRow(row.id, 'adresse', result.label)}
+                />
                 <button onClick={() => removeRow(row.id)} className="flex items-center justify-center rounded-lg p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition">
                   <Trash2 size={14} />
                 </button>
