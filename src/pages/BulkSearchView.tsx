@@ -198,12 +198,8 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
       }
 
       try {
-        const ident = row.identite.trim()
-        const parts = ident.split(/\s+/)
         const res = await searchProspects({
-          query:   ident || row.tel.trim(),
-          nom:     parts[0] || undefined,
-          prenom:  parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+          query:   row.identite.trim() || row.tel.trim(),
           tel:     row.tel.trim()     || undefined,
           address: row.adresse.trim() || undefined,
           perPage: 5,
