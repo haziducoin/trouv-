@@ -61,7 +61,7 @@ function downloadBulkCSV() {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface BulkRow { id: string; identite: string; tel: string; adresse: string }
+interface BulkRow { id: string; identite: string; tel: string; adresse: string; cp: string; ville: string }
 interface BulkResult { rowId: string; label: string; results: ProspectResult[]; loading: boolean; error: string | null }
 
 export interface BulkSearchViewProps {
@@ -72,14 +72,14 @@ export interface BulkSearchViewProps {
 }
 
 function newRow(): BulkRow {
-  return { id: crypto.randomUUID(), identite: '', tel: '', adresse: '' }
+  return { id: crypto.randomUUID(), identite: '', tel: '', adresse: '', cp: '', ville: '' }
 }
 
 // ─── Données fictives démo ────────────────────────────────────────────────────
 const DEMO_ROWS: BulkRow[] = [
-  { id: 'demo-r1', identite: 'Jean Martin',   tel: '',           adresse: ''                   },
-  { id: 'demo-r2', identite: 'Sophie Dupont', tel: '',           adresse: '15 rue Victor Hugo'  },
-  { id: 'demo-r3', identite: 'Bernard',       tel: '0612345678', adresse: ''                   },
+  { id: 'demo-r1', identite: 'Jean Martin',   tel: '',           adresse: '',                   cp: '',      ville: ''      },
+  { id: 'demo-r2', identite: 'Sophie Dupont', tel: '',           adresse: '15 rue Victor Hugo', cp: '75016', ville: 'Paris' },
+  { id: 'demo-r3', identite: 'Bernard',       tel: '0612345678', adresse: '',                   cp: '',      ville: ''      },
 ]
 
 
@@ -143,6 +143,9 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
   const updateRow = (id: string, field: keyof BulkRow, val: string) =>
     setRows(r => r.map(row => row.id === id ? { ...row, [field]: val } : row))
 
+  const updateRowFields = (id: string, fields: Partial<BulkRow>) =>
+    setRows(r => r.map(row => row.id === id ? { ...row, ...fields } : row))
+
   const removeRow = (id: string) =>
     setRows(r => r.length > 1 ? r.filter(row => row.id !== id) : r)
 
@@ -201,8 +204,10 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
       try {
         const res = await searchProspects({
           query:   row.identite.trim() || row.tel.trim(),
-          tel:     row.tel.trim()     || undefined,
-          address: row.adresse.trim() || undefined,
+          tel:     row.tel.trim()      || undefined,
+          address: row.adresse.trim()  || undefined,
+          city:    row.ville.trim()    || undefined,
+          zipCode: row.cp.trim()       || undefined,
           perPage: 5,
         })
         // Pour le mode réel : les résultats API contiennent déjà les états unlocked
@@ -381,7 +386,11 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
                 <AddressAutocomplete
                   value={row.adresse}
                   placeholder="ex: 10 Rue de la Paix Paris"
-                  onSelect={result => updateRow(row.id, 'adresse', result.label)}
+                  onSelect={result => updateRowFields(row.id, {
+                    adresse: result.adresse,
+                    cp:      result.codePostal,
+                    ville:   result.ville,
+                  })}
                 />
                 <button onClick={() => removeRow(row.id)} className="flex items-center justify-center rounded-lg p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition">
                   <Trash2 size={14} />
