@@ -61,7 +61,7 @@ function FilterBadge({ icon, label }: { icon: React.ReactNode; label: string }) 
   )
 }
 
-export default function HistoryPage({ account, onReplay, onClose, embedded = false, onGoSearch }: HistoryPageProps) {
+export default function HistoryPage({ onReplay, onClose, embedded = false, onGoSearch }: HistoryPageProps) {
   const [entries, setEntries]   = useState<HistoryEntry[]>(loadHistory)
   const [loading, setLoading]   = useState(usesRemoteDatabase)
   const [search, setSearch]     = useState('')
@@ -110,8 +110,6 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
 
   const totalResults = entries.reduce((s, e) => s + e.resultCount, 0)
   const bestResult   = entries.reduce((m, e) => Math.max(m, e.resultCount), 0)
-  const remaining    = account.quota - account.monthlyUsage
-  const remainingDisplay = remaining > 9999 ? '∞' : remaining.toLocaleString('fr-FR')
 
   const body = (
     <div className={embedded ? 'mx-auto max-w-3xl px-5 py-6' : 'mx-auto max-w-3xl px-5 py-8'}>
@@ -158,7 +156,7 @@ export default function HistoryPage({ account, onReplay, onClose, embedded = fal
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-center">
             <div className="absolute right-2 top-2 opacity-10"><Zap size={28} className="text-amber-400" /></div>
-            <p className="text-2xl font-bold text-slate-800">{remainingDisplay}</p>
+            <p className="text-2xl font-bold text-slate-800">∞</p>
             <p className="mt-0.5 text-xs text-slate-500">Recherches restantes</p>
           </div>
         </div>
