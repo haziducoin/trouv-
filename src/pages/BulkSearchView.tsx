@@ -60,7 +60,7 @@ function downloadBulkCSV() {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface BulkRow { id: string; nom: string; prenom: string; tel: string; ville: string; adresse: string }
+interface BulkRow { id: string; nom: string; prenom: string; tel: string; adresse: string }
 interface BulkResult { rowId: string; label: string; results: ProspectResult[]; loading: boolean; error: string | null }
 
 export interface BulkSearchViewProps {
@@ -71,14 +71,14 @@ export interface BulkSearchViewProps {
 }
 
 function newRow(): BulkRow {
-  return { id: crypto.randomUUID(), nom: '', prenom: '', tel: '', ville: '', adresse: '' }
+  return { id: crypto.randomUUID(), nom: '', prenom: '', tel: '', adresse: '' }
 }
 
 // ─── Données fictives démo ────────────────────────────────────────────────────
 const DEMO_ROWS: BulkRow[] = [
-  { id: 'demo-r1', nom: 'Martin',   prenom: 'Jean',    tel: '',             ville: 'Paris',  adresse: ''                   },
-  { id: 'demo-r2', nom: 'Dupont',   prenom: 'Sophie',  tel: '',             ville: 'Lyon',   adresse: ''                   },
-  { id: 'demo-r3', nom: 'Bernard',  prenom: 'Thomas',  tel: '0612345678',   ville: '',       adresse: '10 rue de la Paix'  },
+  { id: 'demo-r1', nom: 'Martin',  prenom: 'Jean',   tel: '',           adresse: ''                  },
+  { id: 'demo-r2', nom: 'Dupont',  prenom: 'Sophie', tel: '',           adresse: '15 rue Victor Hugo' },
+  { id: 'demo-r3', nom: 'Bernard', prenom: 'Thomas', tel: '0612345678', adresse: ''                  },
 ]
 
 
@@ -87,7 +87,6 @@ const COL_MAP: Record<string, keyof Omit<BulkRow, 'id'>> = {
   nom: 'nom', name: 'nom', last_name: 'nom', lastname: 'nom', 'nom de famille': 'nom', surname: 'nom',
   prenom: 'prenom', prénom: 'prenom', first_name: 'prenom', firstname: 'prenom', 'first name': 'prenom',
   telephone: 'tel', téléphone: 'tel', tel: 'tel', phone: 'tel', mobile: 'tel', portable: 'tel', 'numéro': 'tel',
-  ville: 'ville', city: 'ville', location: 'ville', localite: 'ville', localité: 'ville',
   adresse: 'adresse', address: 'adresse', 'adresse postale': 'adresse', rue: 'adresse', street: 'adresse',
 }
 
@@ -105,7 +104,7 @@ function parseCSV(text: string): BulkRow[] {
       if (field && cells[i]) row[field] = cells[i]
     })
     return row
-  }).filter(r => r.nom || r.prenom || r.tel)
+  }).filter(r => r.nom || r.prenom || r.tel || r.adresse)
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
@@ -186,7 +185,6 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           nom:     row.nom.trim()     || undefined,
           prenom:  row.prenom.trim()  || undefined,
           tel:     row.tel.trim()     || undefined,
-          city:    row.ville.trim()   || undefined,
           address: row.adresse.trim() || undefined,
           perPage: 5,
         })
@@ -251,6 +249,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
   }
 
   const validCount = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim() || r.adresse.trim()).length
+
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -325,10 +324,9 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
                 <div><span className="font-medium text-blue-600">Nom :</span> <code>nom</code>, <code>name</code>, <code>last_name</code>, <code>surname</code></div>
                 <div><span className="font-medium text-blue-600">Prénom :</span> <code>prenom</code>, <code>prénom</code>, <code>first_name</code></div>
                 <div><span className="font-medium text-blue-600">Téléphone :</span> <code>telephone</code>, <code>tel</code>, <code>phone</code>, <code>mobile</code></div>
-                <div><span className="font-medium text-blue-600">Ville :</span> <code>ville</code>, <code>city</code>, <code>location</code></div>
                 <div><span className="font-medium text-blue-600">Adresse :</span> <code>adresse</code>, <code>address</code>, <code>rue</code>, <code>street</code></div>
               </div>
-              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;ville;adresse</code></p>
+              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;adresse</code></p>
             </div>
           )}
 
@@ -340,8 +338,8 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           )}
 
           {/* Entêtes colonnes */}
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-            {(['Nom', 'Prénom', 'Téléphone', 'Ville', 'Adresse'] as const).map(label => (
+          <div className="grid grid-cols-[1fr_1fr_1fr_2fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+            {(['Nom', 'Prénom', 'Téléphone', 'Adresse (rue, ville ou CP)'] as const).map(label => (
               <span key={label} className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
             ))}
             <span />
@@ -350,13 +348,12 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           {/* Lignes */}
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {rows.map((row, i) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_36px] gap-2 px-4 py-2 items-center group">
+              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_2fr_36px] gap-2 px-4 py-2 items-center group">
                 {([
-                  { field: 'nom',     placeholder: 'Martin'          },
-                  { field: 'prenom',  placeholder: 'Jean'            },
-                  { field: 'tel',     placeholder: '06…'             },
-                  { field: 'ville',   placeholder: 'Paris'           },
-                  { field: 'adresse', placeholder: '10 rue de la Paix' },
+                  { field: 'nom',     placeholder: 'Martin'                    },
+                  { field: 'prenom',  placeholder: 'Jean'                      },
+                  { field: 'tel',     placeholder: '06…'                       },
+                  { field: 'adresse', placeholder: 'ex: 10 Rue de la Paix Paris' },
                 ] as const).map(({ field, placeholder }) => (
                   <input
                     key={field}
