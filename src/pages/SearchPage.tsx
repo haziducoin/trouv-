@@ -30,6 +30,7 @@ import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import { getSupabaseClient } from '@/lib/supabase'
 import HistoryPage, { type HistoryEntry } from './HistoryPage'
+import { CrewEnrichPanel } from '@/components/CrewEnrichPanel'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { LogoutDialog } from '@/components/ui/logout-dialog'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
@@ -1013,6 +1014,9 @@ function ProspectSlideOver({ prospect, onClose, canUnlock = false, onUnlock, onA
                 </div>
               )}
             </section>
+
+            {/* Enrichissement approfondi CrewAI */}
+            <CrewEnrichPanel contactId={prospect.id} />
           </div>
         </div>
       </div>
