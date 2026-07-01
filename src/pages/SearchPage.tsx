@@ -29,7 +29,7 @@ import { generateSearchDemoResults } from '@/lib/demoResults'
 import { formatBirthContext } from '@/lib/privacy'
 import { recordSearch, saveFavorite, createDemoRequest, type Account, type DemoRequest } from '@/lib/accountStore'
 import { getSupabaseClient } from '@/lib/supabase'
-import HistoryPage from './HistoryPage'
+import HistoryPage, { type HistoryEntry } from './HistoryPage'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { LogoutDialog } from '@/components/ui/logout-dialog'
 import { ListColorPicker, ListColorDot, isListColor } from '@/components/ui/list-color-picker'
@@ -2724,8 +2724,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             saveRecentSearch(params.query.trim())
             setRecentSearches(readRecentSearches())
           }
-          const label = params.query?.trim() || `filtres:${[params.department, params.activityCode, params.zipCode].filter(Boolean).join('+')}`
-          recordSearch(label, { department: params.department, activityCode: params.activityCode }, res.total).catch(() => {})
+          const label = params.query?.trim() || [params.department, params.activityCode, params.zipCode, params.city].filter(Boolean).join(' · ') || 'Recherche'
+          const filters: Record<string, unknown> = {}
+          if (params.department)  filters.department   = params.department
+          if (params.activityCode) filters.activityCode = params.activityCode
+          if (params.zipCode)     filters.zipCode      = params.zipCode
+          if (params.city)        filters.city         = params.city
+          if (params.address)     filters.address      = params.address
+          if (params.nom)         filters.nom          = params.nom
+          if (params.prenom)      filters.prenom       = params.prenom
+          recordSearch(label, filters, res.total).catch(() => {})
         }
       }
     } catch (err: any) {
@@ -3238,10 +3246,16 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
             account={account}
             embedded
             onGoSearch={() => setAppView('search')}
-            onReplay={(q, dept, code) => {
+            onReplay={(entry: HistoryEntry) => {
               setAppView('search')
+              const q    = entry.queryLabel ?? ''
+              const dept = (entry.filters?.department   as string) ?? ''
+              const code = (entry.filters?.activityCode as string) ?? ''
+              const zip  = (entry.filters?.zipCode      as string) ?? ''
+              const city = (entry.filters?.city         as string) ?? ''
+              const adr  = (entry.filters?.address      as string) ?? ''
               setInputValue(q); setQuery(q); setDepartment(dept); setActivityCode(code)
-              doSearch({ query: q, department: dept, activityCode: code, activeOnly })
+              doSearch({ query: q, department: dept, activityCode: code, zipCode: zip, city, address: adr, activeOnly })
             }}
           />
         )}
