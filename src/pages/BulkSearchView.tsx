@@ -60,7 +60,7 @@ function downloadBulkCSV() {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface BulkRow { id: string; nom: string; prenom: string; tel: string; adresse: string }
+interface BulkRow { id: string; identite: string; tel: string; adresse: string }
 interface BulkResult { rowId: string; label: string; results: ProspectResult[]; loading: boolean; error: string | null }
 
 export interface BulkSearchViewProps {
@@ -71,40 +71,56 @@ export interface BulkSearchViewProps {
 }
 
 function newRow(): BulkRow {
-  return { id: crypto.randomUUID(), nom: '', prenom: '', tel: '', adresse: '' }
+  return { id: crypto.randomUUID(), identite: '', tel: '', adresse: '' }
 }
 
 // ─── Données fictives démo ────────────────────────────────────────────────────
 const DEMO_ROWS: BulkRow[] = [
-  { id: 'demo-r1', nom: 'Martin',  prenom: 'Jean',   tel: '',           adresse: ''                  },
-  { id: 'demo-r2', nom: 'Dupont',  prenom: 'Sophie', tel: '',           adresse: '15 rue Victor Hugo' },
-  { id: 'demo-r3', nom: 'Bernard', prenom: 'Thomas', tel: '0612345678', adresse: ''                  },
+  { id: 'demo-r1', identite: 'Jean Martin',   tel: '',           adresse: ''                   },
+  { id: 'demo-r2', identite: 'Sophie Dupont', tel: '',           adresse: '15 rue Victor Hugo'  },
+  { id: 'demo-r3', identite: 'Bernard',       tel: '0612345678', adresse: ''                   },
 ]
 
 
 // ─── Parsing CSV ──────────────────────────────────────────────────────────────
-const COL_MAP: Record<string, keyof Omit<BulkRow, 'id'>> = {
-  nom: 'nom', name: 'nom', last_name: 'nom', lastname: 'nom', 'nom de famille': 'nom', surname: 'nom',
-  prenom: 'prenom', prénom: 'prenom', first_name: 'prenom', firstname: 'prenom', 'first name': 'prenom',
-  telephone: 'tel', téléphone: 'tel', tel: 'tel', phone: 'tel', mobile: 'tel', portable: 'tel', 'numéro': 'tel',
-  adresse: 'adresse', address: 'adresse', 'adresse postale': 'adresse', rue: 'adresse', street: 'adresse',
-}
+const NOM_ALIASES    = new Set(['nom', 'name', 'last_name', 'lastname', 'nom de famille', 'surname'])
+const PRENOM_ALIASES = new Set(['prenom', 'prénom', 'first_name', 'firstname', 'first name'])
+const IDENTITE_ALIASES = new Set(['identite', 'identité', 'nom prenom', 'nom prénom', 'full name', 'fullname'])
+const TEL_ALIASES    = new Set(['telephone', 'téléphone', 'tel', 'phone', 'mobile', 'portable', 'numéro'])
+const ADR_ALIASES    = new Set(['adresse', 'address', 'adresse postale', 'rue', 'street'])
+
+type CsvTarget = 'identite_nom' | 'identite_prenom' | 'identite' | 'tel' | 'adresse' | null
 
 function parseCSV(text: string): BulkRow[] {
   const lines = text.trim().split(/\r?\n/)
   if (lines.length < 2) return []
   const sep = lines[0].includes(';') ? ';' : ','
   const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/[^a-zéàèêëîïôùûüç _]/gi, ''))
-  const fieldMap = headers.map(h => COL_MAP[h] ?? null)
+  const fieldMap: CsvTarget[] = headers.map(h => {
+    if (NOM_ALIASES.has(h))      return 'identite_nom'
+    if (PRENOM_ALIASES.has(h))   return 'identite_prenom'
+    if (IDENTITE_ALIASES.has(h)) return 'identite'
+    if (TEL_ALIASES.has(h))      return 'tel'
+    if (ADR_ALIASES.has(h))      return 'adresse'
+    return null
+  })
 
   return lines.slice(1).map(line => {
     const cells = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''))
     const row = newRow()
-    fieldMap.forEach((field, i) => {
-      if (field && cells[i]) row[field] = cells[i]
+    let nom = '', prenom = ''
+    fieldMap.forEach((target, i) => {
+      const val = cells[i] ?? ''
+      if (!val) return
+      if (target === 'identite_nom')    nom    = val
+      if (target === 'identite_prenom') prenom = val
+      if (target === 'identite')        row.identite = val
+      if (target === 'tel')             row.tel      = val
+      if (target === 'adresse')         row.adresse  = val
     })
+    if (nom || prenom) row.identite = [prenom, nom].filter(Boolean).join(' ')
     return row
-  }).filter(r => r.nom || r.prenom || r.tel || r.adresse)
+  }).filter(r => r.identite || r.tel || r.adresse)
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
@@ -140,7 +156,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
 
   // ── Lancement de la recherche ──
   const handleSearch = async () => {
-    const validRows = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim() || r.adresse.trim())
+    const validRows = rows.filter(r => r.identite.trim() || r.tel.trim() || r.adresse.trim())
     if (!validRows.length) return
 
     setRunning(true)
@@ -152,7 +168,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
       const existing = new Map(prev.map(r => [r.rowId, r]))
       return validRows.map(r => ({
         rowId: r.id,
-        label: [r.prenom, r.nom].filter(Boolean).join(' ') || r.tel || r.adresse || 'Requête',
+        label: r.identite.trim() || r.tel || r.adresse || 'Requête',
         results: existing.get(r.id)?.results ?? [],
         loading: true,
         error: null,
@@ -169,7 +185,9 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           const unlockedById = new Map(
             r.results.filter(p => p.phoneUnlocked || p.emailUnlocked).map(p => [p.id, p])
           )
-          const merged = generateBulkDemoResults(row).map(p => {
+          const parts = row.identite.trim().split(/\s+/)
+          const demoRow = { prenom: parts[0] ?? '', nom: (parts.slice(1).join(' ') || parts[0]) ?? '' }
+          const merged = generateBulkDemoResults(demoRow).map(p => {
             const was = unlockedById.get(p.id)
             if (!was) return p
             return { ...p, phone: was.phone, phoneUnlocked: was.phoneUnlocked, email: was.email, emailUnlocked: was.emailUnlocked }
@@ -181,12 +199,11 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
 
       try {
         const res = await searchProspects({
-          query:   [row.nom, row.prenom].filter(Boolean).join(' '),
-          nom:     row.nom.trim()     || undefined,
-          prenom:  row.prenom.trim()  || undefined,
-          tel:     row.tel.trim()     || undefined,
-          address: row.adresse.trim() || undefined,
-          perPage: 5,
+          query:    row.identite.trim() || row.tel.trim(),
+          identity: row.identite.trim() || undefined,
+          tel:      row.tel.trim()      || undefined,
+          address:  row.adresse.trim()  || undefined,
+          perPage:  5,
         })
         // Pour le mode réel : les résultats API contiennent déjà les états unlocked
         setResults(prev => prev.map(r =>
@@ -248,7 +265,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
     setAddedIds(prev => new Set([...prev, p.id]))
   }
 
-  const validCount = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim() || r.adresse.trim()).length
+  const validCount = rows.filter(r => r.identite.trim() || r.tel.trim() || r.adresse.trim()).length
 
 
   return (
@@ -321,12 +338,11 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
             <div className="px-5 py-4 bg-blue-50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300 space-y-2">
               <p className="font-semibold flex items-center gap-1.5"><FileText size={13} /> Noms de colonnes acceptés (séparateur : <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">,</code> ou <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">;</code>)</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                <div><span className="font-medium text-blue-600">Nom :</span> <code>nom</code>, <code>name</code>, <code>last_name</code>, <code>surname</code></div>
-                <div><span className="font-medium text-blue-600">Prénom :</span> <code>prenom</code>, <code>prénom</code>, <code>first_name</code></div>
+                <div><span className="font-medium text-blue-600">Identité :</span> <code>identite</code>, <code>full name</code> — ou séparés : <code>nom</code> + <code>prenom</code></div>
                 <div><span className="font-medium text-blue-600">Téléphone :</span> <code>telephone</code>, <code>tel</code>, <code>phone</code>, <code>mobile</code></div>
                 <div><span className="font-medium text-blue-600">Adresse :</span> <code>adresse</code>, <code>address</code>, <code>rue</code>, <code>street</code></div>
               </div>
-              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;adresse</code></p>
+              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;adresse</code> — les colonnes nom+prénom sont fusionnées automatiquement</p>
             </div>
           )}
 
@@ -338,8 +354,8 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           )}
 
           {/* Entêtes colonnes */}
-          <div className="grid grid-cols-[1fr_1fr_1fr_2fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-            {(['Nom', 'Prénom', 'Téléphone', 'Adresse (rue, ville ou CP)'] as const).map(label => (
+          <div className="grid grid-cols-[2fr_1fr_2fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+            {(['Nom / Prénom', 'Téléphone', 'Adresse (rue, ville ou CP)'] as const).map(label => (
               <span key={label} className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
             ))}
             <span />
@@ -348,12 +364,11 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           {/* Lignes */}
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {rows.map((row, i) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_2fr_36px] gap-2 px-4 py-2 items-center group">
+              <div key={row.id} className="grid grid-cols-[2fr_1fr_2fr_36px] gap-2 px-4 py-2 items-center group">
                 {([
-                  { field: 'nom',     placeholder: 'Martin'                    },
-                  { field: 'prenom',  placeholder: 'Jean'                      },
-                  { field: 'tel',     placeholder: '06…'                       },
-                  { field: 'adresse', placeholder: 'ex: 10 Rue de la Paix Paris' },
+                  { field: 'identite', placeholder: 'Jean Dupont ou Dupont Jean…'  },
+                  { field: 'tel',      placeholder: '06…'                           },
+                  { field: 'adresse',  placeholder: 'ex: 10 Rue de la Paix Paris'  },
                 ] as const).map(({ field, placeholder }) => (
                   <input
                     key={field}
