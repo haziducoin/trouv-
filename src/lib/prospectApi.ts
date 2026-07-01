@@ -296,9 +296,16 @@ export async function searchProspects(params: ProspectSearchParams): Promise<Pro
   const pg = params.page    ?? 1
   const pp = params.perPage ?? 20
 
-  const p_identity = params.identity?.trim() || null
+  let p_identity = params.identity?.trim() || null
   let p_nom    = params.nom?.trim()    || null
   let p_prenom = params.prenom?.trim() || null
+
+  // Pour les prénoms composés (3+ mots), p_identity côté DB fait un split naïf
+  // qui génère des scans lents. On bascule vers la logique freeNameSearch qui
+  // teste "dernier mot = nom" en parallèle.
+  if (p_identity && p_identity.split(/\s+/).filter(Boolean).length >= 3) {
+    p_identity = null
+  }
 
   const queryRaw = params.query.trim()
   let effectiveTel = params.tel?.trim() || null
