@@ -340,14 +340,52 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
 
           {/* Info format CSV */}
           {showCsvInfo && (
-            <div className="px-5 py-4 bg-blue-50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300 space-y-2">
-              <p className="font-semibold flex items-center gap-1.5"><FileText size={13} /> Noms de colonnes acceptés (séparateur : <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">,</code> ou <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">;</code>)</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                <div><span className="font-medium text-blue-600">Identité :</span> <code>identite</code>, <code>full name</code> — ou séparés : <code>nom</code> + <code>prenom</code></div>
-                <div><span className="font-medium text-blue-600">Téléphone :</span> <code>telephone</code>, <code>tel</code>, <code>phone</code>, <code>mobile</code></div>
-                <div><span className="font-medium text-blue-600">Adresse :</span> <code>adresse</code>, <code>address</code>, <code>rue</code>, <code>street</code></div>
+            <div className="px-5 py-4 bg-blue-50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900 space-y-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                <FileText size={13} />
+                Noms de colonnes acceptés — séparateur&nbsp;
+                <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded font-mono">,</code>
+                &nbsp;ou&nbsp;
+                <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded font-mono">;</code>
+              </p>
+
+              <div className="grid grid-cols-1 gap-2">
+                {/* Identité */}
+                <div className="flex items-start gap-3">
+                  <span className="shrink-0 w-20 text-[11px] font-semibold text-blue-600 dark:text-blue-400 pt-0.5">Identité</span>
+                  <div className="flex flex-wrap gap-1">
+                    {['identite', 'full name', 'nom', 'name', 'surname', 'prenom', 'first_name'].map(v => (
+                      <code key={v} className="bg-white dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                    ))}
+                    <span className="text-[11px] text-blue-400 self-center">← nom + prénom fusionnés auto</span>
+                  </div>
+                </div>
+
+                {/* Téléphone */}
+                <div className="flex items-start gap-3">
+                  <span className="shrink-0 w-20 text-[11px] font-semibold text-blue-600 dark:text-blue-400 pt-0.5">Téléphone</span>
+                  <div className="flex flex-wrap gap-1">
+                    {['telephone', 'tel', 'phone', 'mobile', 'portable'].map(v => (
+                      <code key={v} className="bg-white dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Adresse */}
+                <div className="flex items-start gap-3">
+                  <span className="shrink-0 w-20 text-[11px] font-semibold text-blue-600 dark:text-blue-400 pt-0.5">Adresse</span>
+                  <div className="flex flex-wrap gap-1">
+                    {['adresse', 'address', 'rue', 'street'].map(v => (
+                      <code key={v} className="bg-white dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;adresse</code> — les colonnes nom+prénom sont fusionnées automatiquement</p>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-blue-100 dark:border-blue-900">
+                <span className="text-[11px] text-blue-500">Exemple :</span>
+                <code className="text-[11px] font-mono bg-white dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">nom;prenom;telephone;adresse</code>
+              </div>
             </div>
           )}
 

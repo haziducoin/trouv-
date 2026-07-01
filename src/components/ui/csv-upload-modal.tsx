@@ -92,9 +92,33 @@ export function CsvUploadModal({ open, onClose, onImport }: CsvUploadModalProps)
             <UploadCloud className="h-5 w-5 text-[#124bd2]" />
             Importer un fichier CSV
           </DialogTitle>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Colonnes attendues : <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">nom</code>, <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">prenom</code>, <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">telephone</code>, <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">ville</code> — séparateur <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">;</code> ou <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-xs">,</code>
-          </p>
+          <div className="mt-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Colonnes acceptées — séparateur <code className="normal-case font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded">;</code> ou <code className="normal-case font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded">,</code></p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-20 shrink-0 text-[11px] font-semibold text-[#124bd2]">Identité</span>
+                {['identite', 'nom', 'prenom', 'name', 'first_name', 'surname'].map(v => (
+                  <code key={v} className="bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                ))}
+                <span className="text-[11px] text-zinc-400">← nom+prénom fusionnés</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-20 shrink-0 text-[11px] font-semibold text-[#124bd2]">Téléphone</span>
+                {['telephone', 'tel', 'phone', 'mobile'].map(v => (
+                  <code key={v} className="bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-20 shrink-0 text-[11px] font-semibold text-[#124bd2]">Adresse</span>
+                {['adresse', 'address', 'rue', 'street'].map(v => (
+                  <code key={v} className="bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 px-1.5 py-0.5 rounded text-[11px] font-mono">{v}</code>
+                ))}
+              </div>
+            </div>
+            <p className="text-[11px] text-zinc-400 pt-0.5 border-t border-zinc-200 dark:border-zinc-700">
+              Exemple : <code className="font-mono text-zinc-600 dark:text-zinc-300">nom;prenom;telephone;adresse</code>
+            </p>
+          </div>
         </DialogHeader>
 
         <div className="px-6 py-5 space-y-4">
