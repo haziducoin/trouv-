@@ -2480,7 +2480,7 @@ export default function SearchPage({ account, onLogout, onOpenAccount, accessLev
   useEffect(() => { accountIdRef.current = account.id }, [account.id])
 
   // Solde de crédits (abonnés).
-  const PLATFORM_ADMINS = ['contact@trouve.fr', 'yassine.irh@gmail.com']
+  const PLATFORM_ADMINS = ['contact@trouve.fr', 'yassine.irh@gmail.com', 'admin@trouve-pro.fr', 'contact@xn--trouv-fsa.fr']
   useEffect(() => {
     if (PLATFORM_ADMINS.includes(account.email)) {
       setCreditBalance({ phoneCredits: 999999, emailCredits: 999999, unlimited: true })
