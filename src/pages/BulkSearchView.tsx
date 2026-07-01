@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Plus, Trash2, Search, ChevronRight, X,
   CheckCircle2, Loader2,
-  Users, AlertCircle, Building2, MapPin,
+  Users, AlertCircle, Building2, MapPin, Home,
   Upload, Info, FileText, Download, Phone, Mail,
 } from 'lucide-react'
 import { CsvUploadModal } from '@/components/ui/csv-upload-modal'
@@ -60,7 +60,7 @@ function downloadBulkCSV() {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface BulkRow { id: string; nom: string; prenom: string; tel: string; ville: string }
+interface BulkRow { id: string; nom: string; prenom: string; tel: string; ville: string; adresse: string }
 interface BulkResult { rowId: string; label: string; results: ProspectResult[]; loading: boolean; error: string | null }
 
 export interface BulkSearchViewProps {
@@ -71,14 +71,14 @@ export interface BulkSearchViewProps {
 }
 
 function newRow(): BulkRow {
-  return { id: crypto.randomUUID(), nom: '', prenom: '', tel: '', ville: '' }
+  return { id: crypto.randomUUID(), nom: '', prenom: '', tel: '', ville: '', adresse: '' }
 }
 
 // ─── Données fictives démo ────────────────────────────────────────────────────
 const DEMO_ROWS: BulkRow[] = [
-  { id: 'demo-r1', nom: 'Martin',   prenom: 'Jean',    tel: '',             ville: 'Paris'  },
-  { id: 'demo-r2', nom: 'Dupont',   prenom: 'Sophie',  tel: '',             ville: 'Lyon'   },
-  { id: 'demo-r3', nom: 'Bernard',  prenom: 'Thomas',  tel: '0612345678',   ville: ''       },
+  { id: 'demo-r1', nom: 'Martin',   prenom: 'Jean',    tel: '',             ville: 'Paris',  adresse: ''                   },
+  { id: 'demo-r2', nom: 'Dupont',   prenom: 'Sophie',  tel: '',             ville: 'Lyon',   adresse: ''                   },
+  { id: 'demo-r3', nom: 'Bernard',  prenom: 'Thomas',  tel: '0612345678',   ville: '',       adresse: '10 rue de la Paix'  },
 ]
 
 
@@ -88,6 +88,7 @@ const COL_MAP: Record<string, keyof Omit<BulkRow, 'id'>> = {
   prenom: 'prenom', prénom: 'prenom', first_name: 'prenom', firstname: 'prenom', 'first name': 'prenom',
   telephone: 'tel', téléphone: 'tel', tel: 'tel', phone: 'tel', mobile: 'tel', portable: 'tel', 'numéro': 'tel',
   ville: 'ville', city: 'ville', location: 'ville', localite: 'ville', localité: 'ville',
+  adresse: 'adresse', address: 'adresse', 'adresse postale': 'adresse', rue: 'adresse', street: 'adresse',
 }
 
 function parseCSV(text: string): BulkRow[] {
@@ -140,7 +141,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
 
   // ── Lancement de la recherche ──
   const handleSearch = async () => {
-    const validRows = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim())
+    const validRows = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim() || r.adresse.trim())
     if (!validRows.length) return
 
     setRunning(true)
@@ -152,7 +153,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
       const existing = new Map(prev.map(r => [r.rowId, r]))
       return validRows.map(r => ({
         rowId: r.id,
-        label: [r.prenom, r.nom].filter(Boolean).join(' ') || r.tel || 'Requête',
+        label: [r.prenom, r.nom].filter(Boolean).join(' ') || r.tel || r.adresse || 'Requête',
         results: existing.get(r.id)?.results ?? [],
         loading: true,
         error: null,
@@ -181,11 +182,12 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
 
       try {
         const res = await searchProspects({
-          query:  [row.nom, row.prenom].filter(Boolean).join(' '),
-          nom:    row.nom.trim()    || undefined,
-          prenom: row.prenom.trim() || undefined,
-          tel:    row.tel.trim()    || undefined,
-          city:   row.ville.trim()  || undefined,
+          query:   [row.nom, row.prenom].filter(Boolean).join(' '),
+          nom:     row.nom.trim()     || undefined,
+          prenom:  row.prenom.trim()  || undefined,
+          tel:     row.tel.trim()     || undefined,
+          city:    row.ville.trim()   || undefined,
+          address: row.adresse.trim() || undefined,
           perPage: 5,
         })
         // Pour le mode réel : les résultats API contiennent déjà les états unlocked
@@ -248,7 +250,7 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
     setAddedIds(prev => new Set([...prev, p.id]))
   }
 
-  const validCount = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim()).length
+  const validCount = rows.filter(r => r.nom.trim() || r.prenom.trim() || r.tel.trim() || r.adresse.trim()).length
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -324,8 +326,9 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
                 <div><span className="font-medium text-blue-600">Prénom :</span> <code>prenom</code>, <code>prénom</code>, <code>first_name</code></div>
                 <div><span className="font-medium text-blue-600">Téléphone :</span> <code>telephone</code>, <code>tel</code>, <code>phone</code>, <code>mobile</code></div>
                 <div><span className="font-medium text-blue-600">Ville :</span> <code>ville</code>, <code>city</code>, <code>location</code></div>
+                <div><span className="font-medium text-blue-600">Adresse :</span> <code>adresse</code>, <code>address</code>, <code>rue</code>, <code>street</code></div>
               </div>
-              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;ville</code></p>
+              <p className="text-blue-500">Exemple : <code>nom;prenom;telephone;ville;adresse</code></p>
             </div>
           )}
 
@@ -337,25 +340,34 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
           )}
 
           {/* Entêtes colonnes */}
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 dark:border-gray-800">
-            <span>Nom</span><span>Prénom</span><span>Téléphone</span><span>Ville</span><span />
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_36px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+            {(['Nom', 'Prénom', 'Téléphone', 'Ville', 'Adresse'] as const).map(label => (
+              <span key={label} className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
+            ))}
+            <span />
           </div>
 
           {/* Lignes */}
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {rows.map((row, i) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_36px] gap-2 px-4 py-2 items-center">
-                {(['nom', 'prenom', 'tel', 'ville'] as const).map(field => (
+              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_36px] gap-2 px-4 py-2 items-center group">
+                {([
+                  { field: 'nom',     placeholder: 'Martin'          },
+                  { field: 'prenom',  placeholder: 'Jean'            },
+                  { field: 'tel',     placeholder: '06…'             },
+                  { field: 'ville',   placeholder: 'Paris'           },
+                  { field: 'adresse', placeholder: '10 rue de la Paix' },
+                ] as const).map(({ field, placeholder }) => (
                   <input
                     key={field}
                     value={row[field]}
                     onChange={e => updateRow(row.id, field, e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && i === rows.length - 1 && setRows(r => [...r, newRow()])}
-                    placeholder={field === 'nom' ? 'Martin' : field === 'prenom' ? 'Jean' : field === 'tel' ? '06…' : 'Paris'}
+                    placeholder={placeholder}
                     className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:border-[#124bd2] focus:outline-none focus:ring-1 focus:ring-[#124bd2]/30 transition"
                   />
                 ))}
-                <button onClick={() => removeRow(row.id)} className="flex items-center justify-center rounded-lg p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition">
+                <button onClick={() => removeRow(row.id)} className="flex items-center justify-center rounded-lg p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -410,9 +422,10 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{p.fullName}</p>
                           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                            {p.jobTitle && <span className="text-[11px] text-gray-400">{p.jobTitle}</span>}
+                            {p.jobTitle && <span className="text-[11px] text-gray-400 truncate max-w-[120px]">{p.jobTitle}</span>}
                             {p.companyName && <span className="flex items-center gap-1 text-[11px] text-gray-400"><Building2 size={10} />{p.companyName}</span>}
-                            {p.city && <span className="flex items-center gap-1 text-[11px] text-gray-400"><MapPin size={10} />{p.city}</span>}
+                            {p.address && <span className="flex items-center gap-1 text-[11px] text-gray-400 truncate max-w-[160px]"><Home size={10} className="shrink-0" />{p.address}</span>}
+                            {!p.address && p.city && <span className="flex items-center gap-1 text-[11px] text-gray-400"><MapPin size={10} />{p.city}</span>}
                           </div>
                         </div>
                         {addedIds.has(p.id) && (
@@ -451,8 +464,21 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
               </button>
             </div>
             <div className="flex-1 px-6 py-5 space-y-4">
-              {detail.companyName && <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><Building2 size={14} className="text-gray-400" />{detail.companyName}</div>}
-              {detail.city && <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><MapPin size={14} className="text-gray-400" />{detail.city}{detail.zipCode ? ` (${detail.zipCode})` : ''}</div>}
+              {detail.companyName && <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><Building2 size={14} className="text-gray-400 shrink-0" />{detail.companyName}</div>}
+              {detail.address && (
+                <div className="space-y-1">
+                  <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <Home size={14} className="text-gray-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p>{detail.address}</p>
+                      {(detail.zipCode || detail.city) && (
+                        <p className="text-xs text-gray-400 mt-0.5">{[detail.zipCode, detail.city].filter(Boolean).join(' ')}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {!detail.address && detail.city && <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><MapPin size={14} className="text-gray-400 shrink-0" />{[detail.zipCode, detail.city].filter(Boolean).join(' ')}</div>}
 
               {detail.hasPhone && (
                 <div>
