@@ -309,8 +309,8 @@ export default function BulkSearchView({ account, creditBalance, onCreditRefresh
       <div className="flex flex-1 min-h-0 overflow-y-auto px-6 py-6 lg:px-10 flex-col gap-6">
 
         {/* Tableau de saisie */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap rounded-t-xl overflow-hidden">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
               <Users size={15} className="text-[#124bd2]" />
               Prospects à rechercher
