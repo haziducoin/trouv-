@@ -2,6 +2,22 @@
 
 This template includes built-in detection for missing CSS variables between your Tailwind config and CSS files.
 
+## Enrichissement approfondi (CrewAI)
+
+Les fiches contacts disposent d'un enrichissement multi-agents (CrewAI + Llama 3.3
+via Groq) : identification, recherche web légale (registre gouv, Exa, Brave),
+vérification des faits et validation humaine des résultats à confiance moyenne.
+
+- Microservice : [enrichment-service/](enrichment-service/) (Python 3.12, FastAPI, uv)
+- Documentation complète : [ENRICHMENT.md](ENRICHMENT.md)
+
+```bash
+cd enrichment-service
+cp .env.example .env   # remplir les clés (voir ENRICHMENT.md)
+uv sync && uv run pytest
+uv run uvicorn enrichment_service.main:app --reload --port 8000
+```
+
 ## Features
 
 - **CSS Variable Detection**: Automatically detects if CSS variables referenced in `tailwind.config.cjs` are defined in `src/index.css`

@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
     # Supabase (service role — jamais exposé au client)
     supabase_url: str
     supabase_service_role_key: str
@@ -16,9 +17,6 @@ class Settings(BaseSettings):
 
     # Secret partagé avec le proxy Vercel api/enrich-crew.ts
     enrich_service_secret: str
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
